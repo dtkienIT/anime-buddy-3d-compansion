@@ -1,0 +1,58 @@
+@media (max-width: 840px) {
+  .control-panel {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    max-height: 38vh;
+    padding: 12px;
+  }
+
+  .button-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .chat-panel {
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+    left: 12px;
+    width: auto;
+    max-height: 40vh;
+  }
+
+  .speech-bubble {
+    top: 44%;
+  }
+
+  .toast-region {
+    right: 12px;
+    bottom: calc(38vh + 24px);
+    left: 12px;
+    width: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .button-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .voice-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-form {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-send {
+    width: 100%;
+  }
+
+  .panel-title,
+  .chat-title {
+    font-size: 15px;
+  }
+}

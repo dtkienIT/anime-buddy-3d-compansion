@@ -2,27 +2,34 @@
 setlocal
 
 cd /d "%~dp0"
-set "PORT=3001"
-
-if exist ".env" (
-  for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
-    if /i "%%A"=="PORT" set "PORT=%%B"
-  )
-)
-
-set "URL=http://127.0.0.1:%PORT%/index.html"
+set "URL=http://127.0.0.1:3001/"
 
 where node >nul 2>nul
-if %errorlevel%==0 (
-  start "AI Buddy server" /min node server.mjs
-  timeout /t 1 /nobreak >nul
-  start "" "%URL%"
+if not %errorlevel%==0 (
+  echo Node.js was not found.
+  echo Install Node.js, then run this file again.
+  pause
   goto :done
 )
 
-echo Node.js was not found.
-echo Install Node.js, then run this file again.
-pause
+where npm >nul 2>nul
+if not %errorlevel%==0 (
+  echo npm was not found.
+  echo Install Node.js with npm, then run this file again.
+  pause
+  goto :done
+)
+
+if not exist "node_modules" (
+  echo Dependencies are not installed yet.
+  echo Run npm install first.
+  pause
+  goto :done
+)
+
+start "3D AI Companion" /min cmd /c npm run dev
+timeout /t 3 /nobreak >nul
+start "" "%URL%"
 
 :done
 endlocal
