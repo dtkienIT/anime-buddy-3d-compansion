@@ -1,5 +1,6 @@
 import type { TtsAudio } from "./TtsClient.js";
 import type { AudioPlayer } from "./AudioPlayer.js";
+import { perfMetrics } from "../utils/PerformanceMetrics.js";
 
 export class AudioQueue {
   private activeAbort: AbortController | null = null;
@@ -26,6 +27,7 @@ export class AudioQueue {
       this.cancel();
       audioPlayer.stop();
     }
+    audioPlayer.prepareForPlayback();
 
     const abort = new AbortController();
     this.activeAbort = abort;
@@ -34,12 +36,19 @@ export class AudioQueue {
       if (chunks.length === 0) return;
 
       const preFetched: Promise<TtsAudio>[] = [];
+      const synthesisStartedAt: number[] = [];
+      const synthesisCompletedAt: number[] = [];
+      let previousScheduledEndTime: number | null = null;
 
       const startSynthesize = (index: number): Promise<TtsAudio> => {
         if (abort.signal.aborted) {
           return Promise.reject(new DOMException("Aborted", "AbortError"));
         }
-        return synthesize(chunks[index], abort.signal);
+        synthesisStartedAt[index] = performance.now();
+        return synthesize(chunks[index], abort.signal).then((audio) => {
+          synthesisCompletedAt[index] = performance.now();
+          return audio;
+        });
       };
 
       // Start pre-fetching chunk 0 synchronously to minimize latency and ensure correct abort listener registration
@@ -68,14 +77,32 @@ export class AudioQueue {
         // Ensure we don't schedule in the past
         nextScheduledTime = Math.max(context.currentTime + 0.02, nextScheduledTime);
         const startTime = nextScheduledTime;
+        const gapBeforeNextChunkMs = previousScheduledEndTime === null
+          ? 0
+          : Math.max(0, (startTime - previousScheduledEndTime) * 1000);
+        const decodeStartedAt = performance.now();
 
         if (audio.kind === "blob") {
           // Pre-decode WAV blob
           const buffer = await audioPlayer.decodeWav(audio.blob);
           if (abort.signal.aborted) break;
           const trimmed = audioPlayer.trimAudioBuffer(buffer, chunks[i]);
+          const decodeCompletedAt = performance.now();
 
           nextScheduledTime = startTime + trimmed.duration;
+          previousScheduledEndTime = nextScheduledTime;
+          perfMetrics.addChunk({
+            chunkIndex: i,
+            textLength: chunks[i].length,
+            synthesisStartedAt: synthesisStartedAt[i],
+            synthesisCompletedAt: synthesisCompletedAt[i],
+            decodeStartedAt,
+            decodeCompletedAt,
+            scheduledStartTime: startTime,
+            nextChunkReadyAt: decodeCompletedAt,
+            gapBeforeNextChunkMs,
+            audioDurationMs: trimmed.duration * 1000
+          });
 
           onPlaying();
           const playPromise = audioPlayer.playBufferDirect(trimmed, startTime);
@@ -106,8 +133,22 @@ export class AudioQueue {
           const bytesPerFrame = audio.channels * audio.bytesPerSample;
           const frameCount = fileBytes.byteLength / bytesPerFrame;
           const duration = frameCount / audio.sampleRate;
+          const decodeCompletedAt = performance.now();
 
           nextScheduledTime = startTime + duration;
+          previousScheduledEndTime = nextScheduledTime;
+          perfMetrics.addChunk({
+            chunkIndex: i,
+            textLength: chunks[i].length,
+            synthesisStartedAt: synthesisStartedAt[i],
+            synthesisCompletedAt: synthesisCompletedAt[i],
+            decodeStartedAt,
+            decodeCompletedAt,
+            scheduledStartTime: startTime,
+            nextChunkReadyAt: decodeCompletedAt,
+            gapBeforeNextChunkMs,
+            audioDurationMs: duration * 1000
+          });
 
           const rebuiltStream = new ReadableStream({
             start(controller) {

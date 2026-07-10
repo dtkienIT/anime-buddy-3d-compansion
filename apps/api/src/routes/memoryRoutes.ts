@@ -3,6 +3,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { MemoryService } from "../services/memoryService.js";
 
+const DEFAULT_SESSION_QUERY_TIMEOUT_MS = 10_000;
+
+interface MemoryRouteOptions {
+  sessionQueryTimeoutMs?: number;
+}
+
+class RouteTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Route operation timed out after ${timeoutMs}ms`);
+    this.name = "RouteTimeoutError";
+  }
+}
+
 const memoriesQuerySchema = z.object({
   anonymousId: z.string().min(8).max(120),
   characterId: z.string().max(80).optional()
@@ -32,15 +45,18 @@ const sessionQuerySchema = z.object({
 
 export function registerMemoryRoutes(
   app: FastifyInstance,
-  supabase: SupabaseClient | null
+  supabase: SupabaseClient | null,
+  options: MemoryRouteOptions = {}
 ): void {
-  if (!supabase) {
-    // Register stub routes or do nothing.
-    return;
-  }
+  const sessionQueryTimeoutMs = options.sessionQueryTimeoutMs ?? DEFAULT_SESSION_QUERY_TIMEOUT_MS;
 
   // GET /api/memories - Get user memories
   app.get("/api/memories", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const query = memoriesQuerySchema.parse(request.query);
     let dbQuery = supabase
       .from("conversation_memories")
@@ -63,6 +79,11 @@ export function registerMemoryRoutes(
 
   // PUT /api/memories/:id - Update memory content
   app.put("/api/memories/:id", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const { id } = request.params as { id: string };
     const body = updateMemorySchema.parse(request.body);
 
@@ -106,6 +127,11 @@ export function registerMemoryRoutes(
 
   // DELETE /api/memories/:id - Delete specific memory
   app.delete("/api/memories/:id", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const { id } = request.params as { id: string };
 
     const { data: existing } = await supabase
@@ -146,6 +172,11 @@ export function registerMemoryRoutes(
 
   // DELETE /api/memories - Delete all user memories
   app.delete("/api/memories", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const query = sessionQuerySchema.parse(request.query);
 
     const { error } = await supabase
@@ -170,22 +201,43 @@ export function registerMemoryRoutes(
   app.get("/api/sessions", async (request, reply) => {
     const query = sessionQuerySchema.parse(request.query);
 
-    const { data, error } = await supabase
-      .from("chat_sessions")
-      .select("id, title, character_id, created_at, updated_at")
-      .eq("anonymous_id", query.anonymousId)
-      .order("updated_at", { ascending: false });
-
-    if (error) {
-      reply.status(500);
-      return { error: error.message };
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
     }
 
-    return { sessions: data || [] };
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from("chat_sessions")
+          .select("id, title, character_id, created_at, updated_at")
+          .eq("anonymous_id", query.anonymousId)
+          .order("updated_at", { ascending: false }),
+        sessionQueryTimeoutMs
+      );
+
+      if (error) {
+        request.log.warn({ code: error.code }, "failed to load sessions");
+        reply.status(503);
+        return { error: "Session list unavailable" };
+      }
+
+      return { sessions: data || [] };
+    } catch (error: unknown) {
+      const timedOut = error instanceof RouteTimeoutError;
+      request.log.warn({ timedOut }, "session list query failed");
+      reply.status(503);
+      return { error: timedOut ? "Session list timed out" : "Session list unavailable" };
+    }
   });
 
   // POST /api/sessions/new - Create a new session
   app.post("/api/sessions/new", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const body = createSessionSchema.parse(request.body);
 
     const { data, error } = await supabase
@@ -208,6 +260,11 @@ export function registerMemoryRoutes(
 
   // PUT /api/sessions/:id - Rename a session
   app.put("/api/sessions/:id", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const { id } = request.params as { id: string };
     const body = renameSessionSchema.parse(request.body);
 
@@ -229,6 +286,11 @@ export function registerMemoryRoutes(
 
   // DELETE /api/sessions/:id - Delete session and messages
   app.delete("/api/sessions/:id", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const { id } = request.params as { id: string };
     const query = sessionQuerySchema.parse(request.query);
 
@@ -264,6 +326,11 @@ export function registerMemoryRoutes(
 
   // GET /api/export - Export messages and memories
   app.get("/api/export", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const query = sessionQuerySchema.parse(request.query);
 
     // Get all sessions
@@ -313,6 +380,11 @@ export function registerMemoryRoutes(
 
   // POST /api/memories/toggle - Toggle long term memory
   app.post("/api/memories/toggle", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const body = toggleMemorySchema.parse(request.body);
 
     const { data: pref } = await supabase
@@ -354,6 +426,11 @@ export function registerMemoryRoutes(
 
   // GET /api/memories/toggle - Check memory enabled status
   app.get("/api/memories/toggle", async (request, reply) => {
+    if (!supabase) {
+      reply.status(503);
+      return { error: "Supabase is not configured" };
+    }
+
     const query = sessionQuerySchema.parse(request.query);
 
     const { data: pref, error } = await supabase
@@ -369,4 +446,21 @@ export function registerMemoryRoutes(
 
     return { enabled: pref ? pref.memory_enabled : true };
   });
+}
+
+async function withTimeout<T>(operation: PromiseLike<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new RouteTimeoutError(timeoutMs));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([Promise.resolve(operation), timeoutPromise]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }

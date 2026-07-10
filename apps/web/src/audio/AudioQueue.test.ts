@@ -5,6 +5,7 @@ describe("AudioQueue", () => {
   it("cancels the previous task when replaced", async () => {
     const queue = new AudioQueue();
     let aborted = false;
+    let prepared = 0;
 
     const mockContext = {
       currentTime: 0.1,
@@ -14,6 +15,9 @@ describe("AudioQueue", () => {
       getContext: () => mockContext,
       resume: async () => {},
       stop: () => {},
+      prepareForPlayback: () => {
+        prepared += 1;
+      },
       decodeWav: async () => ({ duration: 0.1 } as any),
       trimAudioBuffer: (buf: any) => buf,
       playBufferDirect: async () => {}
@@ -37,5 +41,6 @@ describe("AudioQueue", () => {
     }
 
     expect(aborted).toBe(true);
+    expect(prepared).toBe(2);
   });
 });

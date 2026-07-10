@@ -52,6 +52,14 @@ Artifacts: `test-results/audio-quality/final/`
 - Clipping ratio: `0`.
 - Boundary spike count: `0`.
 
+Takeover rerun on 2026-07-10 regenerated `test-results/audio-quality/final/metrics.json`:
+
+- Direct reference vs Python stream: sample count difference `0`, correlation `1.0`.
+- Direct reference vs API stream: sample count difference `0`, correlation `1.0`.
+- MISS API WAV vs cache reference: sample count difference `0`, correlation `1.0`.
+- Direct/API peak: `0.417572`, RMS `0.094039`, clipping ratio `0`, NaN/Infinity `0`, boundary spike count `0`.
+- MISS API peak: `0.621277`, RMS `0.103784`, clipping ratio `0`, NaN/Infinity `0`, boundary spike count `0`.
+
 Manual listening files:
 
 - `test-results/audio-quality/final/short-miss.wav`
@@ -65,3 +73,7 @@ Cache HIT remains fast and clean, but Chromium measured `replyToAudioLatency` ar
 ## Conclusion
 
 Audio quality now passes integrity checks and browser playback reports zero dropped frames, zero duplicated frames, and zero underflows for cache HIT Worklet playback. Cache MISS no longer streams crackly partial audio; it falls back to complete WAV playback.
+
+Takeover note: queued playback now calls `AudioPlayer.prepareForPlayback()` after replacement stop/reset so MISS WAV and HIT PCM direct scheduling can start in browser after `AudioPlayer.stop()`.
+
+Latest takeover note: memory E2E and timing isolation were completed in the current pass. Deterministic multi-chunk audio continuity, rapid replacement, voice toggle, TTS unavailable, and full TTS MISS browser/API breakdown still need dedicated coverage before being marked PASS.

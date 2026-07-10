@@ -19,6 +19,22 @@ export interface PerformanceRun {
   marks: Partial<Record<PerformanceMarkName, number>>;
   tts: Record<string, string | number | boolean | null>;
   metrics: Record<string, number>;
+  chunks: PerformanceChunk[];
+}
+
+export interface PerformanceChunk {
+  chunkIndex: number;
+  textLength: number;
+  synthesisStartedAt: number;
+  synthesisCompletedAt?: number;
+  decodeStartedAt?: number;
+  decodeCompletedAt?: number;
+  scheduledStartTime?: number;
+  nextChunkReadyAt?: number;
+  gapBeforeNextChunkMs?: number;
+  leadingSilenceMs?: number;
+  trailingSilenceMs?: number;
+  audioDurationMs?: number;
 }
 
 class PerformanceMetrics {
@@ -34,7 +50,7 @@ class PerformanceMetrics {
 
   start(): void {
     if (!env.enablePerfMetrics) return;
-    this.current = { id: ++this.sequence, marks: {}, tts: {}, metrics: {} };
+    this.current = { id: ++this.sequence, marks: {}, tts: {}, metrics: {}, chunks: [] };
     this.runs.push(this.current);
     if (this.runs.length > 100) this.runs.shift();
     this.mark("messageSubmitAt");
@@ -56,6 +72,12 @@ class PerformanceMetrics {
     Object.assign(this.current.metrics, metrics);
   }
 
+  addChunk(chunk: PerformanceChunk): void {
+    if (!this.current) return;
+    this.current.chunks.push(chunk);
+    this.calculateChunkMetrics();
+  }
+
   private calculate(): void {
     const run = this.current;
     if (!run) return;
@@ -72,6 +94,26 @@ class PerformanceMetrics {
     duration("audioStartOverhead", "audioPlayingAt", "audioPlayCalledAt");
     duration("replyToAudioLatency", "audioPlayingAt", "replyRenderedAt");
     duration("submitToAudioLatency", "audioPlayingAt", "messageSubmitAt");
+  }
+
+  private calculateChunkMetrics(): void {
+    const run = this.current;
+    if (!run) return;
+    const chunks = run.chunks;
+    run.metrics.chunkCount = chunks.length;
+    if (chunks.length === 0) return;
+
+    run.metrics.averageChunkLength = chunks.reduce((sum, chunk) => sum + chunk.textLength, 0) / chunks.length;
+
+    const gaps = chunks
+      .map((chunk) => chunk.gapBeforeNextChunkMs)
+      .filter((gap): gap is number => typeof gap === "number" && Number.isFinite(gap));
+
+    if (gaps.length > 0) {
+      const sorted = [...gaps].sort((a, b) => a - b);
+      run.metrics.maxGapBeforeNextChunkMs = sorted[sorted.length - 1];
+      run.metrics.medianGapBeforeNextChunkMs = sorted[Math.floor(sorted.length / 2)];
+    }
   }
 }
 

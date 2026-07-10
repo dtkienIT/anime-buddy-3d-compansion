@@ -14,7 +14,15 @@ export class SupabaseService {
   constructor(env: ApiEnv) {
     this.client = env.SUPABASE_URL && env.SUPABASE_SECRET_KEY
       ? createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false }
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: {
+          fetch: (url, options) => {
+            const controller = new AbortController();
+            const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 10000);
+            return fetch(url, { ...options, signal: controller.signal })
+              .finally(() => clearTimeout(timeoutId));
+          }
+        }
       })
       : null;
   }

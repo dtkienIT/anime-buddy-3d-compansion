@@ -112,3 +112,26 @@ The database migration `002_persistent_memory.sql` introduces the following tabl
 - Messages are saved client-side in an IndexedDB object store (`outbox`).
 - The UI highlights a "Chưa đồng bộ" warning flag on system messages.
 - When connection recovers, the client automatically syncs pending writes to `POST /api/conversations/:sessionId/messages` to catch up.
+
+---
+
+## 7. Current Retrieval/Route Timing Notes
+
+Takeover rerun on 2026-07-10 confirmed:
+
+- Chat history and memory context retrieval are started concurrently.
+- Memory context queries for current summary, general memories, matched memories, and past summaries are grouped under a `MEMORY_RETRIEVAL_TIMEOUT_MS` fallback.
+- `/api/chat` emits `Server-Timing` values for `recent-history`, `memory-wall`, `memory-db-memories`, `memory-db-summary`, `memory-db-past`, `context-build`, `mistral`, and `total`.
+- `GET /api/sessions` has a bounded Supabase query timeout and returns controlled `503` JSON on Supabase timeout/error instead of hanging.
+
+After applying `001_chat_schema.sql` and `002_persistent_memory.sql`, live browser memory E2E passed on 2026-07-10. Artifact: `test-results/browser/memory/memory-e2e-after-forget-guard.json`.
+
+Additional takeover fixes:
+
+- `/api/chat` uses per-request memory timing results instead of reading shared `MemoryService` timing state.
+- Disabled-memory chat responses include `memory-disabled;dur=0` and zero `memory-db-*` timings.
+- Memory retrieval now keeps subquery results that finish before the retrieval deadline instead of discarding all memory context when one subquery is slow.
+- Deleted memory keys are included as guardrails so past summaries and assistant text do not resurrect facts the user asked to forget.
+- Background extraction is instructed and guarded not to recreate deleted keys from assistant-only statements.
+
+Remaining performance note: the live Supabase environment still produced several memory subqueries near or over the 700 ms retrieval budget, so formal 5-run benchmarking remains pending.

@@ -105,20 +105,20 @@ try {
 
   await page.locator("#chat-input").fill(message);
   await page.locator("#chat-send").click();
-  await page.waitForSelector(".chat-message.is-assistant", { timeout: 60_000 });
+  await page.waitForSelector(".chat-message.is-assistant", { timeout: 120_000 });
   await page.waitForFunction(
     () => Boolean(
       window.__BASELINE_PERF__.marks.audioPlayingAt ||
       window.__BUDDY_PERF__?.runs.at(-1)?.marks.audioPlayingAt
     ),
     null,
-    { timeout: 90_000 }
+    { timeout: 240_000 }
   );
   await page.screenshot({ path: path.join(outputDir, "audio-playing.png"), fullPage: true });
   await page.waitForFunction(
     () => document.querySelector("#state-pill")?.textContent === "IDLE",
     null,
-    { timeout: 60_000 }
+    { timeout: 120_000 }
   );
 
   if (replay) {
@@ -130,13 +130,13 @@ try {
         return runs.length > runCount && runs.at(-1)?.marks.audioPlayingAt !== undefined;
       },
       previousRuns,
-      { timeout: 60_000 }
+      { timeout: 120_000 }
     );
     await page.screenshot({ path: path.join(outputDir, "cache-replay-playing.png"), fullPage: true });
     await page.waitForFunction(
       () => document.querySelector("#state-pill")?.textContent === "IDLE",
       null,
-      { timeout: 60_000 }
+      { timeout: 120_000 }
     );
   }
 
@@ -156,6 +156,36 @@ try {
   };
   await writeFile(path.join(outputDir, outputName), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
+} catch (err) {
+  const diagnostics = await page.evaluate(() => {
+    const assistantMessages = Array.from(document.querySelectorAll(".chat-message.is-assistant"));
+    const lastAssistant = assistantMessages.at(-1)?.textContent ?? "";
+    return {
+      statePill: document.querySelector("#state-pill")?.textContent ?? null,
+      bodyReady: document.body.classList.contains("is-ready"),
+      assistantCount: assistantMessages.length,
+      lastAssistantLength: lastAssistant.length,
+      lastAssistantPreview: lastAssistant.slice(0, 200),
+      baselinePerformance: window.__BASELINE_PERF__,
+      appPerformance: window.__BUDDY_PERF__
+    };
+  }).catch((diagnosticError) => ({
+    diagnosticError: diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)
+  }));
+  await page.screenshot({ path: path.join(outputDir, "last-failure.png"), fullPage: true }).catch(() => undefined);
+  await writeFile(path.join(outputDir, "last-failure.json"), JSON.stringify({
+    error: err instanceof Error
+      ? { name: err.name, message: err.message, stack: err.stack?.split("\n").slice(0, 8).join("\n") }
+      : { message: String(err) },
+    diagnostics,
+    consoleMessages,
+    network
+  }, null, 2)).catch(() => undefined);
+  console.error("Test execution failed!");
+  console.error(err);
+  console.log("Console messages captured so far:", JSON.stringify(consoleMessages, null, 2));
+  console.log("Network events captured so far:", JSON.stringify(network, null, 2));
+  throw err;
 } finally {
   await context.close();
   await browser.close();

@@ -2,6 +2,29 @@
 
 This report documents the verification scenarios, expected behaviors, and actual outcomes for the persistent memory system.
 
+## Current Takeover Rerun - 2026-07-10
+
+After applying `001_chat_schema.sql` and `002_persistent_memory.sql`, live browser memory E2E passed with the configured Supabase project.
+
+Artifact: `test-results/browser/memory/memory-e2e-after-forget-guard.json`
+
+Verified in this rerun:
+
+- `GET /api/sessions` returns `200 {"sessions":[]}` for a new anonymous user.
+- Session creation, message persistence, refresh history, browser restart history, and new-chat long-term recall work.
+- Structured memories were created for `userName=Nam` and `favoriteColor=blue`.
+- Contradiction updated `favoriteColor` from blue to red.
+- Forget removed active `favoriteColor`; a later recall correctly said the color was unknown.
+- Memory disabled skipped retrieval/extraction: the guitar fact was not stored.
+- Final state re-enabled memory and left only `userName` active.
+- Disabled-memory `/api/chat` emitted `memory-disabled;dur=0` with zero memory DB timings.
+
+Remaining caveats:
+
+- Formal 5-run memory performance benchmark is still pending.
+- Live remote Supabase timings were variable; several memory subqueries reached the 700 ms retrieval budget.
+- The browser probe validates active memory state via public API, not hidden inactive/audit rows.
+
 ---
 
 ## 1. Scenario Verification Summary

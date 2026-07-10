@@ -3,7 +3,7 @@ import type { ApiEnv } from "../config/env.js";
 import { chatRequestSchema } from "../schemas/chatSchemas.js";
 import type { CompanionAiService } from "../services/mistralService.js";
 import type { SupabaseService } from "../services/supabaseService.js";
-import { MemoryService } from "../services/memoryService.js";
+import { createMemoryTimings, MemoryService, type MemoryContextResult } from "../services/memoryService.js";
 
 export function registerChatRoute(
   app: FastifyInstance,
@@ -25,50 +25,64 @@ export function registerChatRoute(
     const requestStartedAt = performance.now();
     const body = chatRequestSchema.parse(request.body);
 
-    // 1. Get/create session AND check if memory is enabled concurrently
+    // 1. Get/create session AND check if memory is enabled concurrently.
+    let preferencesMs = 0;
     const sessionPromise = supabase.getOrCreateSession(body);
     const prefPromise = memoryService.isConfigured() && env.MEMORY_ENABLED
-      ? supabase.getClient()!
-          .from("user_preferences")
-          .select("memory_enabled")
-          .eq("anonymous_id", body.anonymousId)
-          .maybeSingle()
-          .catch((err) => {
+      ? (async () => {
+          const startedAt = performance.now();
+          try {
+            return await supabase.getClient()!
+              .from("user_preferences")
+              .select("memory_enabled")
+              .eq("anonymous_id", body.anonymousId)
+              .maybeSingle();
+          } catch (err: unknown) {
             console.error("Failed to load user preferences:", err);
             return { data: null };
-          })
+          } finally {
+            preferencesMs = performance.now() - startedAt;
+          }
+        })()
       : Promise.resolve({ data: null });
 
     const [session, prefResult] = await Promise.all([sessionPromise, prefPromise]);
     const isMemoryEnabled = prefResult?.data ? prefResult.data.memory_enabled : true;
 
-    // 2. Fetch history AND retrieve memory context concurrently
+    // 2. Fetch history AND retrieve memory context concurrently.
+    let recentMessagesMs = 0;
     const recentMessagesStartedAt = performance.now();
-    const historyPromise = supabase.loadRecentMessages(
-      session.sessionId,
-      body.anonymousId,
-      env.CHAT_MAX_CONTEXT_MESSAGES
-    ).catch((err) => {
-      console.error("Failed to load recent messages:", err);
-      return [];
-    });
+    const historyPromise = (async () => {
+      try {
+        return await supabase.loadRecentMessages(
+          session.sessionId,
+          body.anonymousId,
+          env.CHAT_MAX_CONTEXT_MESSAGES
+        );
+      } catch (err: unknown) {
+        console.error("Failed to load recent messages:", err);
+        return [];
+      } finally {
+        recentMessagesMs = performance.now() - recentMessagesStartedAt;
+      }
+    })();
 
-    const memoriesStartedAt = performance.now();
-    const memoryContextPromise = (isMemoryEnabled && memoryService.isConfigured() && env.MEMORY_ENABLED)
-      ? memoryService.retrieveContext(
+    const shouldRetrieveMemory = isMemoryEnabled && memoryService.isConfigured() && env.MEMORY_ENABLED;
+    const memoryContextPromise: Promise<MemoryContextResult> = shouldRetrieveMemory
+      ? memoryService.retrieveContextWithTimings(
           body.anonymousId,
           body.characterId,
           session.sessionId,
           body.message
         )
-      : Promise.resolve("");
+      : Promise.resolve({ context: "", timings: createMemoryTimings() });
 
-    const [history, memoryContext] = await Promise.all([historyPromise, memoryContextPromise]);
-    const recentMessagesCompletedAt = performance.now();
-    const memoriesCompletedAt = performance.now();
+    const [history, memoryResult] = await Promise.all([historyPromise, memoryContextPromise]);
+    const memoryContext = memoryResult.context;
+    const memoryTimings = memoryResult.timings;
 
     // 3. Save user message to database in the background (non-blocking)
-    supabase.saveUserMessage(session.sessionId, body.message).catch((err) => {
+    supabase.saveUserMessage(session.sessionId, body.message).catch((err: unknown) => {
       console.error("Failed to save user message in background:", err);
     });
 
@@ -84,7 +98,7 @@ export function registerChatRoute(
     const mistralCompletedAt = performance.now();
 
     // 5. Save assistant message to database in the background (non-blocking)
-    supabase.saveAssistantMessage(session.sessionId, aiResponse).catch((err) => {
+    supabase.saveAssistantMessage(session.sessionId, aiResponse).catch((err: unknown) => {
       console.error("Failed to save assistant message in background:", err);
     });
 
@@ -103,22 +117,25 @@ export function registerChatRoute(
     const responseSentAt = performance.now();
 
     // Calculate timing metrics
-    const recentMessagesMs = recentMessagesCompletedAt - recentMessagesStartedAt;
-    const timings = memoryService.getLastTimings();
     const mistralMs = mistralCompletedAt - mistralStartedAt;
     const totalChatMs = responseSentAt - requestStartedAt;
 
     // Send Server-Timing headers
-    const serverTiming = [
+    const timingParts = [
       `recent-history;dur=${recentMessagesMs.toFixed(1)}`,
-      `memory-wall;dur=${timings.wallMs.toFixed(1)}`,
-      `memory-db-memories;dur=${timings.memoriesMs.toFixed(1)}`,
-      `memory-db-summary;dur=${timings.currentSummaryMs.toFixed(1)}`,
-      `memory-db-past;dur=${timings.pastSummariesMs.toFixed(1)}`,
-      `context-build;dur=${timings.contextBuildMs.toFixed(1)}`,
+      `preferences;dur=${preferencesMs.toFixed(1)}`,
+      `memory-wall;dur=${memoryTimings.wallMs.toFixed(1)}`,
+      `memory-db-memories;dur=${memoryTimings.memoriesMs.toFixed(1)}`,
+      `memory-db-summary;dur=${memoryTimings.currentSummaryMs.toFixed(1)}`,
+      `memory-db-past;dur=${memoryTimings.pastSummariesMs.toFixed(1)}`,
+      `context-build;dur=${memoryTimings.contextBuildMs.toFixed(1)}`,
       `mistral;dur=${mistralMs.toFixed(1)}`,
       `total;dur=${totalChatMs.toFixed(1)}`
-    ].join(", ");
+    ];
+    if (!shouldRetrieveMemory) {
+      timingParts.splice(2, 0, "memory-disabled;dur=0");
+    }
+    const serverTiming = timingParts.join(", ");
 
     reply.header("Server-Timing", serverTiming);
 

@@ -6,6 +6,7 @@ const globals = {
   AbortController: "readonly",
   AbortSignal: "readonly",
   AnalyserNode: "readonly",
+  AudioBuffer: "readonly",
   AudioContext: "readonly",
   AudioBufferSourceNode: "readonly",
   AudioWorkletNode: "readonly",

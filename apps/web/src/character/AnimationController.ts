@@ -135,13 +135,26 @@ export class AnimationController {
 
     await new Promise<void>((resolve) => {
       const mixer = this.mixer!;
+      const durationMs = Number.isFinite(clip.duration) && clip.duration > 0
+        ? clip.duration * 1000
+        : 1000;
+      const timeoutMs = Math.min(Math.max(durationMs + 500, 1000), 15000);
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const finish = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
+        mixer.removeEventListener("finished", onFinished);
+        resolve();
+      };
       const onFinished = (event: any) => {
         if (event.action === action) {
-          mixer.removeEventListener("finished", onFinished);
-          resolve();
+          finish();
         }
       };
       mixer.addEventListener("finished", onFinished);
+      timeoutId = setTimeout(finish, timeoutMs);
     });
   }
 }

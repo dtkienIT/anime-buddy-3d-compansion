@@ -31,16 +31,34 @@ const summaryResponseSchema = z.object({
   unresolvedItems: z.array(z.string()).default([])
 });
 
-export class MemoryService {
-  private readonly supabase: SupabaseClient | null;
-  private readonly mistral: Mistral;
-  private lastTimings = {
+export interface MemoryTimings {
+  memoriesMs: number;
+  currentSummaryMs: number;
+  pastSummariesMs: number;
+  contextBuildMs: number;
+  wallMs: number;
+}
+
+export interface MemoryContextResult {
+  context: string;
+  timings: MemoryTimings;
+}
+
+export function createMemoryTimings(overrides: Partial<MemoryTimings> = {}): MemoryTimings {
+  return {
     memoriesMs: 0,
     currentSummaryMs: 0,
     pastSummariesMs: 0,
     contextBuildMs: 0,
-    wallMs: 0
+    wallMs: 0,
+    ...overrides
   };
+}
+
+export class MemoryService {
+  private readonly supabase: SupabaseClient | null;
+  private readonly mistral: Mistral;
+  private lastTimings: MemoryTimings = createMemoryTimings();
 
   // Static maps for cross-request caching
   private static readonly cache = new Map<string, { data: any; expiry: number }>();
@@ -71,8 +89,8 @@ export class MemoryService {
     this.memoryVersions.set(anonymousId, current + 1);
   }
 
-  getLastTimings() {
-    return this.lastTimings;
+  getLastTimings(): MemoryTimings {
+    return { ...this.lastTimings };
   }
 
   /**
@@ -85,9 +103,20 @@ export class MemoryService {
     sessionId?: string,
     userMessage?: string
   ): Promise<string> {
+    const result = await this.retrieveContextWithTimings(anonymousId, characterId, sessionId, userMessage);
+    return result.context;
+  }
+
+  async retrieveContextWithTimings(
+    anonymousId: string,
+    characterId: string,
+    sessionId?: string,
+    userMessage?: string
+  ): Promise<MemoryContextResult> {
     if (!this.supabase || !this.env.MEMORY_ENABLED) {
-      this.lastTimings = { memoriesMs: 0, currentSummaryMs: 0, pastSummariesMs: 0, contextBuildMs: 0, wallMs: 0 };
-      return "";
+      const timings = createMemoryTimings();
+      this.lastTimings = timings;
+      return { context: "", timings };
     }
 
     try {
@@ -98,6 +127,7 @@ export class MemoryService {
       const generalCacheKey = `general:${anonymousId}:${characterId}:${version}`;
       const summaryCacheKey = sessionId ? `summary:${sessionId}:${version}` : "";
       const pastCacheKey = `past:${anonymousId}:${version}`;
+      const deletedCacheKey = `deleted:${anonymousId}:${version}`;
 
       const getCached = <T>(key: string): T | null => {
         const entry = MemoryService.cache.get(key);
@@ -122,6 +152,7 @@ export class MemoryService {
       const cachedGeneral = getCached<any[]>(generalCacheKey);
       const cachedSummary = summaryCacheKey ? getCached<string>(summaryCacheKey) : null;
       const cachedPast = getCached<any[]>(pastCacheKey);
+      const cachedDeleted = getCached<any[]>(deletedCacheKey);
 
       // 1. Get current session summary if available
       const currentSummaryPromise = (async () => {
@@ -217,62 +248,82 @@ export class MemoryService {
         return { data: res, dur: performance.now() - start };
       })();
 
-      let dbResult: any[] | null = null;
-      let timedOut = false;
-      let timeoutId: NodeJS.Timeout;
-
-      const dbOperationsPromise = Promise.all([
-        currentSummaryPromise,
-        generalMemoriesPromise,
-        matchedMemoriesPromise,
-        pastSummariesPromise
-      ]);
-
-      const timeoutPromise = new Promise<null>((resolve) => {
-        timeoutId = setTimeout(() => {
-          timedOut = true;
-          resolve(null);
-        }, timeoutMs);
-      });
-
-      try {
-        dbResult = await Promise.race([dbOperationsPromise, timeoutPromise]);
-      } catch (err) {
-        console.error("Supabase memory retrieval error, falling back to cache:", err);
-      } finally {
-        clearTimeout(timeoutId!);
-      }
+      // 5. Fetch deleted memory keys so past summaries cannot resurrect forgotten facts.
+      const deletedMemoriesPromise = (async () => {
+        const start = performance.now();
+        if (cachedDeleted !== null) {
+          return { data: cachedDeleted, dur: 0 };
+        }
+        const { data } = await this.supabase!
+          .from("conversation_memories")
+          .select("normalized_key, content")
+          .eq("anonymous_id", anonymousId)
+          .eq("status", "deleted")
+          .order("updated_at", { ascending: false })
+          .limit(12);
+        const res = data || [];
+        setCached(deletedCacheKey, res);
+        return { data: res, dur: performance.now() - start };
+      })();
 
       let currentSummary = "";
       let generalMemories: any[] = [];
       let matchedMemories: any[] = [];
       let pastSummaries: any[] = [];
+      let deletedMemories: any[] = [];
 
       let currentSummaryMs = 0;
       let memoriesMs = 0;
       let pastSummariesMs = 0;
 
-      if (dbResult && !timedOut) {
-        const [summaryRes, generalRes, matchedRes, pastRes] = dbResult;
-        currentSummary = summaryRes.data;
-        generalMemories = generalRes.data;
-        matchedMemories = matchedRes.data;
-        pastSummaries = pastRes.data;
+      const deadlineAt = performance.now() + timeoutMs;
+      const withRemainingTimeout = async <T>(
+        promise: Promise<{ data: T; dur: number }>,
+        fallback: T
+      ): Promise<{ data: T; dur: number; timedOut: boolean }> => {
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const remainingMs = Math.max(0, deadlineAt - performance.now());
+        const timeoutPromise = new Promise<{ data: T; dur: number; timedOut: boolean }>((resolve) => {
+          timeoutId = setTimeout(() => resolve({ data: fallback, dur: timeoutMs, timedOut: true }), remainingMs);
+        });
 
-        currentSummaryMs = summaryRes.dur;
-        memoriesMs = generalRes.dur + matchedRes.dur;
-        pastSummariesMs = pastRes.dur;
-      } else {
-        console.warn(`Memory retrieval timed out after ${timeoutMs}ms or database failed. Falling back to cache.`);
-        currentSummary = getLastKnown<string>(summaryCacheKey, "");
-        generalMemories = getLastKnown<any[]>(generalCacheKey, []);
-        matchedMemories = [];
-        pastSummaries = getLastKnown<any[]>(pastCacheKey, []);
+        try {
+          const result = await Promise.race([
+            promise.then((value) => ({ ...value, timedOut: false })),
+            timeoutPromise
+          ]);
+          return result;
+        } catch (err: unknown) {
+          console.error("Supabase memory subquery failed, falling back to cache:", err);
+          return { data: fallback, dur: 0, timedOut: false };
+        } finally {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
+        }
+      };
 
-        currentSummaryMs = timeoutMs;
-        memoriesMs = timeoutMs;
-        pastSummariesMs = timeoutMs;
+      const [summaryRes, generalRes, matchedRes, pastRes, deletedRes] = await Promise.all([
+        withRemainingTimeout(currentSummaryPromise, getLastKnown<string>(summaryCacheKey, "")),
+        withRemainingTimeout(generalMemoriesPromise, getLastKnown<any[]>(generalCacheKey, [])),
+        withRemainingTimeout(matchedMemoriesPromise, []),
+        withRemainingTimeout(pastSummariesPromise, getLastKnown<any[]>(pastCacheKey, [])),
+        withRemainingTimeout(deletedMemoriesPromise, getLastKnown<any[]>(deletedCacheKey, []))
+      ]);
+
+      if ([summaryRes, generalRes, matchedRes, pastRes, deletedRes].some((result) => result.timedOut)) {
+        console.warn(`Memory retrieval partially timed out after ${timeoutMs}ms. Using completed subquery results plus cache fallbacks.`);
       }
+
+      currentSummary = summaryRes.data;
+      generalMemories = generalRes.data;
+      matchedMemories = matchedRes.data;
+      pastSummaries = pastRes.data;
+      deletedMemories = deletedRes.data;
+
+      currentSummaryMs = summaryRes.dur;
+      memoriesMs = generalRes.dur + matchedRes.dur + deletedRes.dur;
+      pastSummariesMs = pastRes.dur;
 
       const wallMs = performance.now() - wallStart;
       const contextBuildStart = performance.now();
@@ -291,6 +342,12 @@ export class MemoryService {
       const pastSummaryLines = pastSummaries.map(
         (s) => `- Session "${s.chat_sessions?.title || "Quá khứ"}": ${s.summary}`
       );
+
+      const forgottenKeys = Array.from(new Set(
+        deletedMemories
+          .map((memory) => String(memory.normalized_key ?? "").trim())
+          .filter(Boolean)
+      ));
 
       // Truncate based on character budget (1 token ~ 4 characters)
       let longTermMemoryBlock = memoryLines.join("\n");
@@ -327,20 +384,25 @@ export class MemoryService {
       if (pastSummariesBlock) {
         promptBlock += `\n[PAST SESSIONS SUMMARY]\n(Context from other past conversations with the user)\n${pastSummariesBlock}\n`;
       }
+      if (forgottenKeys.length > 0) {
+        promptBlock += `\n[FORGOTTEN MEMORY RULES]\nThe user explicitly asked to forget these memory topics: ${forgottenKeys.join(", ")}. Do not use past summaries, chat history, or stale context to answer those topics. Do not recreate those memories unless the user states a new value in the current message.\n`;
+      }
 
-      this.lastTimings = {
+      const timings = createMemoryTimings({
         memoriesMs,
         currentSummaryMs,
         pastSummariesMs,
         contextBuildMs: performance.now() - contextBuildStart,
         wallMs
-      };
+      });
+      this.lastTimings = timings;
 
-      return promptBlock;
+      return { context: promptBlock, timings };
     } catch (err) {
       console.error("Error retrieving memory context:", err);
-      this.lastTimings = { memoriesMs: 0, currentSummaryMs: 0, pastSummariesMs: 0, contextBuildMs: 0, wallMs: 0 };
-      return "";
+      const timings = createMemoryTimings();
+      this.lastTimings = timings;
+      return { context: "", timings };
     }
   }
 
@@ -373,12 +435,19 @@ export class MemoryService {
   ): Promise<void> {
     if (!this.supabase) return;
 
-    // First load recent memories for context to avoid duplicate/conflicting extractions
-    const { data: activeMemories } = await this.supabase
+    // First load known memories for context to avoid duplicate/conflicting extractions.
+    const { data: knownMemories } = await this.supabase
       .from("conversation_memories")
-      .select("id, normalized_key, content")
-      .eq("anonymous_id", anonymousId)
-      .eq("status", "active");
+      .select("id, normalized_key, content, status")
+      .eq("anonymous_id", anonymousId);
+
+    const activeMemories = (knownMemories || []).filter((memory) => memory.status === "active");
+    const deletedMemoryKeys = new Set(
+      (knownMemories || [])
+        .filter((memory) => memory.status === "deleted")
+        .map((memory) => memory.normalized_key)
+        .filter(Boolean)
+    );
 
     const activeMemoriesStr = (activeMemories || [])
       .map((m) => `- Key: "${m.normalized_key}", Content: "${m.content}"`)
@@ -392,11 +461,14 @@ Rules:
 1. Do NOT extract temporary states, emotions, greetings, passwords, API keys, financial data, exact locations, or sensitive health info.
 2. If the user explicitly asks you to remember something ("hãy nhớ là...", "ghi nhớ điều này..."), mark explicitUserRequest = true.
 3. If information is sensitive but requested to be remembered, only save it if explicitUserRequest is true.
-4. Check if new facts conflict with or update the existing memories:
+4. Only extract facts directly stated by the User. Never create or update a memory from a fact that appears only in the Assistant text.
+5. Check if new facts conflict with or update the existing memories:
 Existing memories:
 ${activeMemoriesStr}
 
-5. normalizedKey must be a camelCase string identifying the topic (e.g., userName, favoriteColor, userJob, petName).
+6. normalizedKey must be a camelCase string identifying the topic (e.g., userName, favoriteColor, userJob, petName).
+7. Deleted memory keys must not be recreated unless the User explicitly states a new value in the current message.
+Deleted memory keys: ${Array.from(deletedMemoryKeys).join(", ") || "(none)"}
 
 Output format must be a single JSON object matching:
 {
@@ -462,6 +534,7 @@ Output format must be a single JSON object matching:
             previous_content: m.content,
             metadata: { reason: "User requested forget", target: forget.target }
           });
+          deletedMemoryKeys.add(m.normalized_key);
         }
       }
     }
@@ -471,6 +544,13 @@ Output format must be a single JSON object matching:
       if (!memory.shouldRemember) continue;
       if (memory.sensitive && !memory.explicitUserRequest) {
         // Skip sensitive facts unless explicitly requested
+        continue;
+      }
+      if (
+        deletedMemoryKeys.has(memory.normalizedKey) &&
+        !memory.explicitUserRequest &&
+        !isMemoryGroundedInUserMessage(memory.content, userMessage)
+      ) {
         continue;
       }
 
@@ -711,3 +791,37 @@ Format the output strictly as a single JSON object:
     MemoryService.bumpMemoryVersion(anonymousId);
   }
 }
+
+function isMemoryGroundedInUserMessage(memoryContent: string, userMessage: string): boolean {
+  const userTokens = new Set(extractSignificantTokens(userMessage));
+  return extractSignificantTokens(memoryContent).some((token) => userTokens.has(token));
+}
+
+function extractSignificantTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 3 && !memoryStopWords.has(token));
+}
+
+const memoryStopWords = new Set([
+  "user",
+  "the",
+  "and",
+  "has",
+  "his",
+  "her",
+  "their",
+  "name",
+  "favorite",
+  "color",
+  "mau",
+  "ten",
+  "minh",
+  "ban",
+  "cua",
+  "la"
+]);

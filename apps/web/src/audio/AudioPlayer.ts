@@ -50,6 +50,10 @@ export class AudioPlayer extends EventTarget {
     }
   }
 
+  prepareForPlayback(): void {
+    this.stopRequested = false;
+  }
+
   async decodeWav(blob: Blob): Promise<AudioBuffer> {
     const context = this.getContext();
     const arrayBuffer = await blob.arrayBuffer();
@@ -168,7 +172,7 @@ export class AudioPlayer extends EventTarget {
 
   async play(audio: TtsAudio): Promise<void> {
     this.stop();
-    this.stopRequested = false;
+    this.prepareForPlayback();
     perfMetrics.mark("audioPlayCalledAt");
 
     const context = this.getContext();

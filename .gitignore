@@ -11,6 +11,7 @@ dist/
 coverage/
 test-results/
 .codex-backups/
+.agent-backups/
 *.wav
 *.mp3
 debug.log

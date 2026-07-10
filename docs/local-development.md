@@ -80,7 +80,18 @@ With all three services running:
 
 ```powershell
 npm run smoke-test
+node tests/browser/probe-memory-e2e.mjs memory-e2e-after-timing.json
 ```
+
+The memory probe writes sanitized JSON and screenshots under `test-results/browser/memory/`. It fails the process if core recall/forget/disabled-memory expectations are false.
+
+## Windows Sandbox Notes
+
+During the 2026-07-10 takeover run, this environment denied writes to some existing ignored generated directories such as `apps/web/node_modules/.vite-temp`, `dist/`, and `.uv-cache` when commands ran inside the sandbox.
+
+- Web Vitest uses `vitest run --configLoader runner` to avoid Vite writing a temporary bundled config under `apps/web/node_modules/.vite-temp`.
+- `npm run build` and `npm run test:python` passed when run outside the sandbox because they need to write existing generated output/cache paths.
+- Do not delete or reset those generated directories as part of normal QA; use a shell with the correct permissions.
 
 ## Audio quality probes
 
