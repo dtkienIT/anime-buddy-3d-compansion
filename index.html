@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3D Buddy Viewer</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --room-background: url("./backgrounds/study-room-sunlit.png");
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        overflow: hidden;
+        background:
+          linear-gradient(rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.2)),
+          var(--room-background) center / cover no-repeat;
+      }
+
+      #stage {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+
+      #loader {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.22), transparent 45%),
+          rgba(220, 228, 219, 0.42);
+        color: #26313f;
+        transition:
+          opacity 320ms ease,
+          visibility 320ms ease;
+      }
+
+      .loader-card {
+        width: min(280px, calc(100vw - 48px));
+        border: 1px solid rgba(255, 255, 255, 0.62);
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.68);
+        box-shadow: 0 18px 54px rgba(15, 23, 42, 0.16);
+        backdrop-filter: blur(14px);
+      }
+
+      .loader-label {
+        margin: 0 0 10px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .loader-track {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(38, 49, 63, 0.12);
+      }
+
+      #loader-progress {
+        width: 12%;
+        height: 100%;
+        border-radius: inherit;
+        background: #236b8e;
+        transition: width 180ms ease;
+      }
+
+      #loader-note {
+        min-height: 18px;
+        margin: 9px 0 0;
+        color: rgba(38, 49, 63, 0.7);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      body.is-ready #loader {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      body.is-error #loader {
+        background: rgba(250, 245, 241, 0.78);
+      }
+
+      .control-panel {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        z-index: 3;
+        width: min(360px, calc(100vw - 36px));
+        max-height: calc(100vh - 36px);
+        overflow: auto;
+        border: 1px solid rgba(255, 255, 255, 0.66);
+        border-radius: 8px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: 0 18px 54px rgba(15, 23, 42, 0.16);
+        backdrop-filter: blur(16px);
+        color: #1f2937;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 850;
+        line-height: 1.15;
+      }
+
+      #current-status {
+        max-width: 168px;
+        color: rgba(31, 41, 55, 0.7);
+        font-size: 12px;
+        font-weight: 750;
+        line-height: 1.35;
+        text-align: right;
+      }
+
+      .control-section + .control-section {
+        margin-top: 14px;
+      }
+
+      .control-title {
+        margin: 0 0 8px;
+        color: rgba(31, 41, 55, 0.72);
+        font-size: 12px;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      .button-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .control-button {
+        min-height: 38px;
+        border: 1px solid rgba(31, 41, 55, 0.16);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.76);
+        color: #26313f;
+        cursor: pointer;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.15;
+        text-align: left;
+        transition:
+          background 160ms ease,
+          border-color 160ms ease,
+          color 160ms ease,
+          transform 160ms ease;
+      }
+
+      .control-button:hover:not(:disabled) {
+        border-color: rgba(35, 107, 142, 0.52);
+        background: rgba(255, 255, 255, 0.96);
+        color: #15384a;
+        transform: translateY(-1px);
+      }
+
+      .control-button.is-active {
+        border-color: rgba(35, 107, 142, 0.62);
+        background: #236b8e;
+        color: #fff;
+      }
+
+      .control-button:disabled {
+        cursor: wait;
+        opacity: 0.62;
+      }
+
+      .control-panel.is-busy .control-button {
+        pointer-events: none;
+      }
+
+      .chat-panel {
+        position: fixed;
+        left: 18px;
+        bottom: 18px;
+        z-index: 3;
+        display: grid;
+        grid-template-rows: auto minmax(120px, 1fr) auto;
+        width: min(390px, calc(100vw - 36px));
+        max-height: min(440px, calc(100vh - 36px));
+        border: 1px solid rgba(255, 255, 255, 0.66);
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: 0 18px 54px rgba(15, 23, 42, 0.16);
+        backdrop-filter: blur(16px);
+        color: #1f2937;
+      }
+
+      .chat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid rgba(31, 41, 55, 0.1);
+      }
+
+      .chat-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 850;
+        line-height: 1.15;
+      }
+
+      .chat-status {
+        color: rgba(31, 41, 55, 0.66);
+        font-size: 12px;
+        font-weight: 750;
+        line-height: 1.2;
+        text-align: right;
+      }
+
+      .chat-log {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+        padding: 12px 14px;
+        overflow-y: auto;
+      }
+
+      .chat-message {
+        width: fit-content;
+        max-width: 86%;
+        border-radius: 8px;
+        padding: 9px 10px;
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.38;
+        overflow-wrap: anywhere;
+      }
+
+      .chat-message.is-user {
+        align-self: flex-end;
+        background: #236b8e;
+        color: #fff;
+      }
+
+      .chat-message.is-assistant {
+        align-self: flex-start;
+        border: 1px solid rgba(31, 41, 55, 0.1);
+        background: rgba(255, 255, 255, 0.82);
+        color: #26313f;
+      }
+
+      .chat-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 12px 14px 14px;
+        border-top: 1px solid rgba(31, 41, 55, 0.1);
+      }
+
+      .chat-input {
+        min-width: 0;
+        height: 40px;
+        border: 1px solid rgba(31, 41, 55, 0.16);
+        border-radius: 8px;
+        padding: 0 11px;
+        background: rgba(255, 255, 255, 0.82);
+        color: #1f2937;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+        outline: none;
+      }
+
+      .chat-input:focus {
+        border-color: rgba(35, 107, 142, 0.62);
+      }
+
+      .chat-send {
+        min-width: 76px;
+        height: 40px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 14px;
+        background: #236b8e;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      .chat-send:disabled,
+      .chat-input:disabled {
+        cursor: wait;
+        opacity: 0.62;
+      }
+
+      .speech-bubble {
+        position: fixed;
+        left: 50%;
+        top: 18%;
+        z-index: 2;
+        width: min(390px, calc(100vw - 36px));
+        min-height: 44px;
+        max-height: 128px;
+        overflow: auto;
+        border: 1px solid rgba(255, 255, 255, 0.66);
+        border-radius: 8px;
+        padding: 11px 13px;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: 0 18px 54px rgba(15, 23, 42, 0.13);
+        color: #26313f;
+        font-size: 14px;
+        font-weight: 750;
+        line-height: 1.42;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, -8px);
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease;
+        backdrop-filter: blur(16px);
+      }
+
+      .speech-bubble.is-visible {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      @media (max-width: 720px) {
+        .control-panel {
+          top: auto;
+          right: 12px;
+          bottom: 12px;
+          left: 12px;
+          width: auto;
+          max-height: 42vh;
+          padding: 12px;
+        }
+
+        .button-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        #current-status {
+          max-width: 130px;
+        }
+
+        .chat-panel {
+          top: 12px;
+          right: 12px;
+          bottom: auto;
+          left: 12px;
+          width: auto;
+          max-height: 36vh;
+        }
+
+        .speech-bubble {
+          top: 39%;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .button-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage" aria-label="3D anime model viewer"></canvas>
+    <div class="speech-bubble" id="speech-bubble" aria-live="polite"></div>
+    <aside class="control-panel" id="controls" aria-label="3D model and animation controls">
+      <div class="panel-header">
+        <p class="panel-title">3D Buddy Viewer</p>
+        <span id="current-status">Loading...</span>
+      </div>
+      <section class="control-section" aria-labelledby="model-title">
+        <p class="control-title" id="model-title">Models</p>
+        <div class="button-grid" id="model-buttons"></div>
+      </section>
+      <section class="control-section" aria-labelledby="animation-title">
+        <p class="control-title" id="animation-title">Animations</p>
+        <div class="button-grid" id="animation-buttons"></div>
+      </section>
+      <section class="control-section" aria-labelledby="background-title">
+        <p class="control-title" id="background-title">Backgrounds</p>
+        <div class="button-grid" id="background-buttons"></div>
+      </section>
+    </aside>
+    <aside class="chat-panel" aria-label="AI buddy chat">
+      <div class="chat-header">
+        <p class="chat-title">Buddy Chat</p>
+        <span class="chat-status" id="chat-status">Ready</span>
+      </div>
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <form class="chat-form" id="chat-form">
+        <input
+          class="chat-input"
+          id="chat-input"
+          name="message"
+          autocomplete="off"
+          maxlength="600"
+          placeholder="Nói gì đó với nhân vật..."
+          type="text"
+        />
+        <button class="chat-send" id="chat-send" type="submit">Gửi</button>
+      </form>
+    </aside>
+    <div id="loader" role="status" aria-live="polite">
+      <div class="loader-card">
+        <p class="loader-label">Loading 3D Viewer</p>
+        <div class="loader-track"><div id="loader-progress"></div></div>
+        <p id="loader-note">Preparing assets...</p>
+      </div>
+    </div>
+    <script type="module" src="./app.bundle.js"></script>
+    <script type="module" src="./chat-client.js"></script>
+  </body>
+</html>
