@@ -5,15 +5,37 @@ describe("AudioQueue", () => {
   it("cancels the previous task when replaced", async () => {
     const queue = new AudioQueue();
     let aborted = false;
-    const first = queue.run(async (signal) => {
+
+    const mockContext = {
+      currentTime: 0.1,
+      state: "running"
+    };
+    const mockAudioPlayer = {
+      getContext: () => mockContext,
+      resume: async () => {},
+      stop: () => {},
+      decodeWav: async () => ({ duration: 0.1 } as any),
+      trimAudioBuffer: (buf: any) => buf,
+      playBufferDirect: async () => {}
+    } as any;
+
+    const synthesize = async (text: string, signal: AbortSignal) => {
       signal.addEventListener("abort", () => {
         aborted = true;
       });
       await new Promise((resolve) => setTimeout(resolve, 20));
-    });
+      return { kind: "blob" as const, blob: new Blob() };
+    };
 
-    await queue.run(async () => undefined);
-    await first;
+    const first = queue.playChunks(["chunk1"], mockAudioPlayer, synthesize, () => {});
+    await queue.playChunks([], mockAudioPlayer, synthesize, () => {});
+
+    try {
+      await first;
+    } catch {
+      // ignore abort error
+    }
+
     expect(aborted).toBe(true);
   });
 });

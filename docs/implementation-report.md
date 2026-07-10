@@ -194,3 +194,18 @@ Date: 2026-07-10
 - Changed cache MISS to complete WAV fallback after browser QA proved live MISS streaming underflowed severely.
 - Added `scripts/audio_quality_probe.py`, browser audio probes, and audio quality/latency/browser QA reports.
 - Final integrity artifacts are under `test-results/audio-quality/final/`.
+
+## 22. Persistent Memory and Offline Synced Queue Addendum
+
+Date: 2026-07-10
+
+- Implemented four-tier memory architecture (Raw Archive, Recent Context, Session Summary, Long-Term Memory).
+- Added `supabase/migrations/002_persistent_memory.sql` introducing `conversation_memories`, `conversation_summaries`, and audit logs.
+- Added backend MemoryService for memory extraction, retrieval, and rolling summarization.
+- Added frontend `IndexedDbOutbox` for caching unsent messages during Supabase outages.
+- Extended `ApiClient` with session CRUD, memory controls, data exports, and offline message POST syncs.
+- Rewrote `AudioQueue` to split text responses into sentences and pipeline synthesis/playback sequentially.
+- Embedded a tabbed UI menu in `#chat-panel` with:
+  - "Hội thoại" tab for new chats, renaming, deleting, searching, and exporting conversations.
+  - "Trí nhớ" tab with long-term memory toggle, delete all, and scrollable lists of memories with inline editing/deleting.
+- Verified all workspace TypeScript, lint, Vitest unit tests, and production Vite compilation pass successfully.

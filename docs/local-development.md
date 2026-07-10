@@ -25,6 +25,18 @@ Frontend-safe:
 
 - `VITE_API_BASE_URL`
 
+## Database Setup
+
+Apply the migrations to your Supabase instance:
+
+```powershell
+# Apply original schema and memory schema
+supabase db push
+# Or run the files directly in Supabase SQL editor:
+# 1. supabase/migrations/001_chat_schema.sql
+# 2. supabase/migrations/002_persistent_memory.sql
+```
+
 ## Install
 
 ```powershell

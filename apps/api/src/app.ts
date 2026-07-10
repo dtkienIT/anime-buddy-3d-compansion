@@ -12,6 +12,8 @@ import { registerChatRoute } from "./routes/chat.js";
 import { registerConversationRoutes } from "./routes/conversations.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerTtsRoute } from "./routes/tts.js";
+import { registerMemoryRoutes } from "./routes/memoryRoutes.js";
+
 
 export interface AppServices {
   ai?: CompanionAiService;
@@ -64,6 +66,7 @@ export async function createApp(env: ApiEnv = getEnv(), services: AppServices = 
   registerChatRoute(app, env, ai, supabase);
   registerTtsRoute(app, env, tts);
   registerConversationRoutes(app, supabase);
+  registerMemoryRoutes(app, supabase.getClient());
 
   return app;
 }

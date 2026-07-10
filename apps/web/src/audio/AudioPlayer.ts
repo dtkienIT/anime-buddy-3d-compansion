@@ -33,11 +33,137 @@ export class AudioPlayer extends EventTarget {
     return this.analyser;
   }
 
+  getOrCreateAnalyser(context: AudioContext): AnalyserNode {
+    if (!this.analyser) {
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.connect(context.destination);
+      this.analyser = analyser;
+    }
+    return this.analyser;
+  }
+
   async resume(): Promise<void> {
     const context = this.getContext();
     if (context.state === "suspended") {
       await context.resume();
     }
+  }
+
+  async decodeWav(blob: Blob): Promise<AudioBuffer> {
+    const context = this.getContext();
+    const arrayBuffer = await blob.arrayBuffer();
+    return await context.decodeAudioData(arrayBuffer);
+  }
+
+  trimAudioBuffer(buffer: AudioBuffer, text: string): AudioBuffer {
+    const context = this.getContext();
+    const sampleRate = buffer.sampleRate;
+    const channelData = buffer.getChannelData(0);
+    const length = channelData.length;
+
+    // Detect technical silence using an absolute threshold
+    const threshold = 0.001;
+    let startIdx = 0;
+    for (let i = 0; i < length; i++) {
+      if (Math.abs(channelData[i]) > threshold) {
+        startIdx = i;
+        break;
+      }
+    }
+
+    let endIdx = length - 1;
+    for (let i = length - 1; i >= 0; i--) {
+      if (Math.abs(channelData[i]) > threshold) {
+        endIdx = i;
+        break;
+      }
+    }
+
+    if (startIdx >= endIdx) {
+      return buffer; // Empty or silent buffer
+    }
+
+    // Trailing silence varies by punctuation
+    const leadingSilenceMs = 30;
+    const trailingSilenceMs = text.endsWith(",") ? 80 : 150;
+
+    const leadingSamples = Math.floor((sampleRate * leadingSilenceMs) / 1000);
+    const trailingSamples = Math.floor((sampleRate * trailingSilenceMs) / 1000);
+    const audioSamples = endIdx - startIdx + 1;
+    const newLength = leadingSamples + audioSamples + trailingSamples;
+
+    const newBuffer = context.createBuffer(buffer.numberOfChannels, newLength, sampleRate);
+
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const srcData = buffer.getChannelData(c);
+      const destData = newBuffer.getChannelData(c);
+
+      // Copy audio data
+      destData.set(srcData.subarray(startIdx, endIdx + 1), leadingSamples);
+
+      // Apply fade-in (5ms)
+      const fadeFrames = Math.floor((sampleRate * 5) / 1000);
+      for (let i = 0; i < fadeFrames; i++) {
+        const idx = leadingSamples + i;
+        if (idx < destData.length) {
+          destData[idx] *= i / fadeFrames;
+        }
+      }
+
+      // Apply fade-out (5ms)
+      for (let i = 0; i < fadeFrames; i++) {
+        const idx = leadingSamples + audioSamples - fadeFrames + i;
+        if (idx >= 0 && idx < destData.length) {
+          destData[idx] *= 1 - i / fadeFrames;
+        }
+      }
+    }
+
+    return newBuffer;
+  }
+
+  async playBufferDirect(buffer: AudioBuffer, startTime: number): Promise<void> {
+    if (this.stopRequested) return;
+
+    const context = this.getContext();
+    const analyser = this.getOrCreateAnalyser(context);
+    await this.resume();
+
+    await new Promise<void>((resolve) => {
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(analyser);
+      this.sources.add(source);
+
+      source.onended = () => {
+        source.disconnect();
+        this.sources.delete(source);
+        resolve();
+      };
+
+      source.start(startTime);
+      this.notifyPlaying();
+    });
+  }
+
+  async playStreamDirect(
+    audio: Extract<TtsAudio, { kind: "pcm-stream" }>,
+    startTime: number
+  ): Promise<void> {
+    if (this.stopRequested) return;
+
+    const context = this.getContext();
+    const analyser = this.getOrCreateAnalyser(context);
+    await this.resume();
+
+    if ("audioWorklet" in context) {
+      await this.loadWorklet(context);
+      await this.playPcmStreamWithWorkletDirect(audio, context, analyser, startTime);
+      return;
+    }
+
+    await this.playPcmStreamWithSourcesDirect(audio, context, analyser, startTime);
   }
 
   async play(audio: TtsAudio): Promise<void> {
@@ -46,23 +172,18 @@ export class AudioPlayer extends EventTarget {
     perfMetrics.mark("audioPlayCalledAt");
 
     const context = this.getContext();
-    const analyser = context.createAnalyser();
-    analyser.fftSize = 1024;
-    analyser.connect(context.destination);
-    this.analyser = analyser;
+    const analyser = this.getOrCreateAnalyser(context);
     await this.resume();
 
     try {
       if (audio.kind === "pcm-stream") {
-        await this.playPcmStream(audio, context, analyser);
+        await this.playPcmStreamWithWorkletDirect(audio, context, analyser, context.currentTime);
       } else {
-        await this.playBlob(audio.blob, context, analyser);
+        const buffer = await this.decodeWav(audio.blob);
+        await this.playBufferDirect(buffer, context.currentTime);
       }
     } finally {
-      if (this.analyser === analyser) {
-        analyser.disconnect();
-        this.analyser = null;
-      }
+      this.notifyEnded();
     }
   }
 
@@ -80,6 +201,9 @@ export class AudioPlayer extends EventTarget {
         // Already stopped.
       }
     }
+    this.sources.clear();
+    this.analyser?.disconnect();
+    this.analyser = null;
   }
 
   dispose(): void {
@@ -88,46 +212,11 @@ export class AudioPlayer extends EventTarget {
     this.context = null;
   }
 
-  private async playBlob(blob: Blob, context: AudioContext, analyser: AnalyserNode): Promise<void> {
-    perfMetrics.mark("audioDecodeStartedAt");
-    const buffer = await context.decodeAudioData(await blob.arrayBuffer());
-    perfMetrics.mark("audioDecodeCompletedAt");
-    if (this.stopRequested) return;
-
-    await new Promise<void>((resolve) => {
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(analyser);
-      this.sources.add(source);
-      source.onended = () => {
-        source.disconnect();
-        this.sources.delete(source);
-        resolve();
-      };
-      source.start();
-      this.notifyPlaying();
-    });
-    this.notifyEnded();
-  }
-
-  private async playPcmStream(
+  private async playPcmStreamWithWorkletDirect(
     audio: Extract<TtsAudio, { kind: "pcm-stream" }>,
     context: AudioContext,
-    analyser: AnalyserNode
-  ): Promise<void> {
-    if ("audioWorklet" in context) {
-      await this.loadWorklet(context);
-      await this.playPcmStreamWithWorklet(audio, context, analyser);
-      return;
-    }
-
-    await this.playPcmStreamWithSources(audio, context, analyser);
-  }
-
-  private async playPcmStreamWithWorklet(
-    audio: Extract<TtsAudio, { kind: "pcm-stream" }>,
-    context: AudioContext,
-    analyser: AnalyserNode
+    analyser: AnalyserNode,
+    startTime: number
   ): Promise<void> {
     const reader = audio.stream.getReader();
     this.streamReader = reader;
@@ -155,7 +244,7 @@ export class AudioPlayer extends EventTarget {
     const startWorklet = () => {
       if (started || this.stopRequested) return;
       started = true;
-      node.port.postMessage({ type: "start" });
+      node.port.postMessage({ type: "start", startTime });
     };
 
     const playbackDone = new Promise<void>((resolve, reject) => {
@@ -238,17 +327,18 @@ export class AudioPlayer extends EventTarget {
     this.notifyEnded();
   }
 
-  private async playPcmStreamWithSources(
+  private async playPcmStreamWithSourcesDirect(
     audio: Extract<TtsAudio, { kind: "pcm-stream" }>,
     context: AudioContext,
-    analyser: AnalyserNode
+    analyser: AnalyserNode,
+    startTime: number
   ): Promise<void> {
     const reader = audio.stream.getReader();
     this.streamReader = reader;
     const bytesPerFrame = this.bytesPerFrame(audio);
     const resampler = new StreamingLinearResampler(audio.sampleRate, context.sampleRate);
     let remainder: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
-    let nextStartTime = context.currentTime + STREAM_PREBUFFER_MS / 1000;
+    let nextStartTime = Math.max(context.currentTime + STREAM_PREBUFFER_MS / 1000, startTime);
     let started = false;
     let streamEnded = false;
     let resolvePlayback!: () => void;

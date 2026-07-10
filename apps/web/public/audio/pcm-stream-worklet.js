@@ -28,6 +28,7 @@ class PcmStreamPlayerProcessor extends AudioWorkletProcessor {
         this.push(new Float32Array(message.samples));
       } else if (message.type === "start") {
         this.started = true;
+        this.startTime = typeof message.startTime === "number" ? message.startTime : 0;
         this.ended = false;
         this.drainedNotified = false;
       } else if (message.type === "end") {
@@ -72,6 +73,12 @@ class PcmStreamPlayerProcessor extends AudioWorkletProcessor {
     const output = outputs[0][0];
 
     if (!this.started) {
+      output.fill(0);
+      this.postMetrics(false);
+      return true;
+    }
+
+    if (typeof this.startTime === "number" && currentTime < this.startTime) {
       output.fill(0);
       this.postMetrics(false);
       return true;

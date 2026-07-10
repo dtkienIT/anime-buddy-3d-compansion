@@ -43,7 +43,12 @@ const globals = {
   Response: "readonly",
   setTimeout: "readonly",
   URL: "readonly",
-  window: "readonly"
+  window: "readonly",
+  HTMLInputElement: "readonly",
+  IDBDatabase: "readonly",
+  indexedDB: "readonly",
+  confirm: "readonly",
+  prompt: "readonly"
 };
 
 export default [
@@ -58,7 +63,8 @@ export default [
       ".uv-cache/**",
       "apps/web/public/**",
       "apps/tts/.venv/**",
-      "apps/tts/cache/**"
+      "apps/tts/cache/**",
+      "apps/tts/**"
     ]
   },
   js.configs.recommended,

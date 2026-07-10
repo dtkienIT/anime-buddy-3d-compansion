@@ -23,6 +23,10 @@ export class SupabaseService {
     return Boolean(this.client);
   }
 
+  getClient(): SupabaseClient | null {
+    return this.client;
+  }
+
   async getOrCreateSession(input: {
     sessionId?: string;
     anonymousId: string;
@@ -146,7 +150,7 @@ export class SupabaseService {
     return true;
   }
 
-  private async saveMessage(input: {
+  async saveMessage(input: {
     sessionId: string;
     role: "user" | "assistant" | "system";
     content: string;

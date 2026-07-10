@@ -1,3 +1,6 @@
+import type { TtsAudio } from "./TtsClient.js";
+import type { AudioPlayer } from "./AudioPlayer.js";
+
 export class AudioQueue {
   private activeAbort: AbortController | null = null;
   private activeTask: Promise<void> | null = null;
@@ -6,14 +9,127 @@ export class AudioQueue {
     return Boolean(this.activeTask);
   }
 
-  async run(factory: (signal: AbortSignal) => Promise<void>, replace = true): Promise<void> {
+  cancel(): void {
+    this.activeAbort?.abort();
+    this.activeAbort = null;
+    this.activeTask = null;
+  }
+
+  async playChunks(
+    chunks: string[],
+    audioPlayer: AudioPlayer,
+    synthesize: (text: string, signal: AbortSignal) => Promise<TtsAudio>,
+    onPlaying: () => void,
+    replace = true
+  ): Promise<void> {
     if (replace) {
       this.cancel();
+      audioPlayer.stop();
     }
 
     const abort = new AbortController();
     this.activeAbort = abort;
-    const task = factory(abort.signal);
+
+    const task = (async () => {
+      if (chunks.length === 0) return;
+
+      const preFetched: Promise<TtsAudio>[] = [];
+
+      const startSynthesize = (index: number): Promise<TtsAudio> => {
+        if (abort.signal.aborted) {
+          return Promise.reject(new DOMException("Aborted", "AbortError"));
+        }
+        return synthesize(chunks[index], abort.signal);
+      };
+
+      // Start pre-fetching chunk 0 synchronously to minimize latency and ensure correct abort listener registration
+      preFetched[0] = startSynthesize(0);
+
+      const context = (audioPlayer as any).getContext();
+      await audioPlayer.resume();
+
+      // Timeline pointer. We start slightly in the future (50ms) to ensure smooth scheduling
+      let nextScheduledTime = context.currentTime + 0.05;
+
+      const playPromises: Promise<void>[] = [];
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (abort.signal.aborted) break;
+
+        const audio = await preFetched[i];
+
+        // Start pre-fetching next chunk immediately
+        if (i + 1 < chunks.length) {
+          preFetched[i + 1] = startSynthesize(i + 1);
+        }
+
+        if (abort.signal.aborted) break;
+
+        // Ensure we don't schedule in the past
+        nextScheduledTime = Math.max(context.currentTime + 0.02, nextScheduledTime);
+        const startTime = nextScheduledTime;
+
+        if (audio.kind === "blob") {
+          // Pre-decode WAV blob
+          const buffer = await audioPlayer.decodeWav(audio.blob);
+          if (abort.signal.aborted) break;
+          const trimmed = audioPlayer.trimAudioBuffer(buffer, chunks[i]);
+
+          nextScheduledTime = startTime + trimmed.duration;
+
+          onPlaying();
+          const playPromise = audioPlayer.playBufferDirect(trimmed, startTime);
+          playPromises.push(playPromise);
+        } else {
+          // PCM stream (Cache HIT)
+          // Read entire stream into memory to calculate exact duration
+          const reader = audio.stream.getReader();
+          const pcmChunks: Uint8Array[] = [];
+          let totalBytes = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            pcmChunks.push(value);
+            totalBytes += value.byteLength;
+          }
+
+          if (abort.signal.aborted) break;
+
+          const fileBytes = new Uint8Array(totalBytes);
+          let offset = 0;
+          for (const chunk of pcmChunks) {
+            fileBytes.set(chunk, offset);
+            offset += chunk.byteLength;
+          }
+
+          const bytesPerFrame = audio.channels * audio.bytesPerSample;
+          const frameCount = fileBytes.byteLength / bytesPerFrame;
+          const duration = frameCount / audio.sampleRate;
+
+          nextScheduledTime = startTime + duration;
+
+          const rebuiltStream = new ReadableStream({
+            start(controller) {
+              controller.enqueue(fileBytes);
+              controller.close();
+            }
+          });
+
+          const rebuiltAudio: TtsAudio = {
+            ...audio,
+            stream: rebuiltStream
+          };
+
+          onPlaying();
+          const playPromise = audioPlayer.playStreamDirect(rebuiltAudio, startTime);
+          playPromises.push(playPromise);
+        }
+      }
+
+      await Promise.all(playPromises);
+    })();
+
     this.activeTask = task;
 
     try {
@@ -24,10 +140,5 @@ export class AudioQueue {
         this.activeAbort = null;
       }
     }
-  }
-
-  cancel(): void {
-    this.activeAbort?.abort();
-    this.activeAbort = null;
   }
 }
