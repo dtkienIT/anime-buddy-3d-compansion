@@ -1,1 +1,16 @@
 .env
+.env.*
+!.env.example
+apps/tts/cache/*
+!apps/tts/cache/.gitkeep
+__pycache__/
+.venv/
+.uv-cache/
+node_modules/
+dist/
+coverage/
+test-results/
+.codex-backups/
+*.wav
+*.mp3
+debug.log

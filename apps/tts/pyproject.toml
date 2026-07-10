@@ -1,0 +1,19 @@
+[project]
+name = "anime-buddy-tts"
+version = "0.2.0"
+description = "Local Vietnamese TTS service for the 3D AI Companion."
+requires-python = ">=3.10,<3.15"
+dependencies = [
+  "fastapi>=0.116.0",
+  "httpx>=0.28.1",
+  "pydantic>=2.11.7",
+  "pytest>=8.4.1",
+  "uvicorn[standard]>=0.35.0"
+]
+
+[project.optional-dependencies]
+vieneu = ["vieneu"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

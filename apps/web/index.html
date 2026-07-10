@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D AI Companion</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <canvas id="stage" aria-label="3D AI companion viewer"></canvas>
+
+    <div class="speech-bubble" id="speech-bubble" aria-live="polite"></div>
+    <div class="toast-region" id="toast-region" aria-live="polite"></div>
+
+    <aside class="control-panel" id="controls" aria-label="Model, animation, and background controls">
+      <div class="panel-header">
+        <div>
+          <p class="panel-title">3D AI Companion</p>
+          <p class="panel-subtitle" id="character-status">Dang khoi dong...</p>
+        </div>
+        <span class="state-pill" id="state-pill">BOOTING</span>
+      </div>
+
+      <section class="control-section" aria-labelledby="model-title">
+        <p class="control-title" id="model-title">Models</p>
+        <div class="button-grid" id="model-buttons"></div>
+      </section>
+
+      <section class="control-section" aria-labelledby="animation-title">
+        <p class="control-title" id="animation-title">Animations</p>
+        <div class="button-grid" id="animation-buttons"></div>
+      </section>
+
+      <section class="control-section" aria-labelledby="background-title">
+        <p class="control-title" id="background-title">Backgrounds</p>
+        <div class="button-grid" id="background-buttons"></div>
+      </section>
+    </aside>
+
+    <aside class="chat-panel" id="chat-panel" aria-label="AI companion chat">
+      <div class="chat-header">
+        <div>
+          <p class="chat-title" id="chat-character-name">Mika</p>
+          <p class="chat-status" id="chat-status">San sang</p>
+        </div>
+        <div class="chat-actions">
+          <button class="icon-button" id="voice-toggle" type="button" title="Bat/tat giong noi" aria-label="Bat/tat giong noi">On</button>
+          <button class="icon-button" id="collapse-chat" type="button" title="Thu gon chat" aria-label="Thu gon chat">Min</button>
+        </div>
+      </div>
+
+      <div class="voice-toolbar" id="voice-toolbar">
+        <button class="tool-button" id="stop-speaking" type="button">Dung noi</button>
+        <button class="tool-button" id="replay-reply" type="button">Phat lai</button>
+        <button class="tool-button" id="clear-chat" type="button">Xoa hoi thoai</button>
+      </div>
+
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+
+      <form class="chat-form" id="chat-form">
+        <textarea
+          class="chat-input"
+          id="chat-input"
+          name="message"
+          maxlength="600"
+          rows="2"
+          placeholder="Noi gi do voi minh..."
+        ></textarea>
+        <button class="chat-send" id="chat-send" type="submit">Gui</button>
+      </form>
+    </aside>
+
+    <div id="loader" role="status" aria-live="polite">
+      <div class="loader-card">
+        <p class="loader-label">Loading 3D Companion</p>
+        <div class="loader-track"><div id="loader-progress"></div></div>
+        <p id="loader-note">Preparing assets...</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

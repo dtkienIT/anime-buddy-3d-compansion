@@ -1,0 +1,39 @@
+{
+  "name": "anime-buddy-3d-companion",
+  "version": "0.2.0",
+  "private": true,
+  "description": "3D AI Companion with VRM, VRMA, Mistral chat, Supabase history, and local TTS.",
+  "packageManager": "npm@10.9.3",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n WEB,API,TTS -c cyan,green,magenta \"npm run dev:web\" \"npm run dev:api\" \"npm run dev:tts\"",
+    "dev:web": "npm --workspace @anime-buddy/web run dev",
+    "dev:api": "npm --workspace @anime-buddy/api run dev",
+    "dev:tts": "uv --cache-dir .uv-cache run --project apps/tts uvicorn --app-dir apps/tts app.main:app --host 127.0.0.1 --port 8000",
+    "build": "npm --workspaces --if-present run build",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "npm --workspaces --if-present run typecheck",
+    "test": "npm --workspaces --if-present run test",
+    "test:python": "uv --cache-dir .uv-cache run --project apps/tts pytest apps/tts/tests",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run test:python && npm run build",
+    "check:env": "node scripts/check-env.mjs",
+    "verify-assets": "node scripts/verify-assets.mjs",
+    "smoke-test": "node scripts/smoke-test.mjs",
+    "tts:setup": "uv --cache-dir .uv-cache sync --project apps/tts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1",
+    "@types/three": "^0.185.1",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.30.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,67 +1,75 @@
-# 3D Buddy Viewer
+# 3D AI Companion
 
-Standalone VRM viewer with every `.vrm` model, `.vrma` animation, and room background copied from the main app.
+Package-managed VRM/VRMA companion app with a Vite frontend, Fastify API, Supabase chat history, and a local FastAPI TTS service.
 
-## Run
+## Quick Start
 
-For the AI companion MVP, create `.env` with your Mistral settings, then double-click:
+Create `.env` from `.env.example`, then fill backend-only secrets:
 
-```bat
-start-ai.bat
+```powershell
+Copy-Item .env.example .env
+npm install
+uv sync --project apps/tts
+npm run dev
 ```
 
-Or run from this folder:
-
-```bat
-node server.mjs
-```
-
-Then open:
+Open:
 
 ```text
-http://127.0.0.1:3001/index.html
+http://127.0.0.1:3001/
 ```
 
-The Node server serves the static viewer and exposes `POST /api/chat`, so the Mistral API key stays on the backend.
+Services:
 
-For the original viewer without chatbot backend, double-click:
+- Web: `http://127.0.0.1:3001`
+- API: `http://127.0.0.1:3002`
+- TTS: `http://127.0.0.1:8000`
 
-On Windows, double-click:
+## Commands
 
-```bat
-start-mika.bat
+```powershell
+npm run dev
+npm run dev:web
+npm run dev:api
+npm run dev:tts
+npm run build
+npm run lint
+npm run typecheck
+npm run test
+npm run test:python
+npm run check
+npm run verify-assets
+npm run smoke-test
 ```
 
-Or run from this folder:
+## Audio QA
 
-```bat
-python -m http.server 8090 --bind 127.0.0.1
+The TTS path uses explicit PCM metadata for cache HIT playback and a WAV fallback for cache MISS quality. To regenerate audio integrity artifacts:
+
+```powershell
+uv --cache-dir .uv-cache run --project apps/tts python scripts/audio_quality_probe.py --out test-results/audio-quality/final
+node tests/browser/probe-audio-worklet.mjs
 ```
 
-Then open:
+See `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, and `docs/browser-qa-report.md`.
 
-```text
-http://127.0.0.1:8090/index.html
-```
+`pnpm-workspace.yaml` is present for pnpm users, but this machine did not have pnpm installed during implementation, so npm workspaces are the verified package manager.
 
-Do not open `index.html` directly with `file://`; browsers block local 3D asset loading.
+## Security
 
-## Folder Contents
+- Mistral requests go through `apps/api`; the frontend never receives `MISTRAL_API_KEY`.
+- Supabase secret/service keys are backend-only and must not use a `VITE_` prefix.
+- Frontend variables are limited to `VITE_API_BASE_URL` and optional publishable Supabase values if direct frontend Supabase access is added later.
+- AI output is inserted with `textContent`, not rendered as HTML.
 
-- `index.html`: the standalone page.
-- `app.bundle.js`: bundled Three.js, VRM loader, animation code, and switcher UI logic.
-- `chat-client.js`: text chat UI, response validation, and animation state mapping.
-- `server.mjs`: local Node backend that calls Mistral and serves the app.
-- `src/app.js`: source used to build `app.bundle.js`.
-- `vrm-models/`: all 10 VRM models from `frontend/public/vrm-models`.
-- `animations/`: all 18 VRMA animations from `frontend/public/animations`.
-- `backgrounds/`: all 7 room backgrounds from `frontend/public/backgrounds`.
-- `start-mika.bat`: one-click local server launcher for Windows.
-- `start-ai.bat`: one-click local AI companion launcher for Windows.
+## Legacy Viewer
 
-## Controls
+The original standalone viewer files remain at the repository root:
 
-- Model buttons switch between Mika, Kato, Sam, Vivi, Tita, Luna, Naruto, Changli, Yinlin, and Carlotta.
-- Animation buttons switch between the bundled VRMA actions.
-- Background buttons switch between Study Room, Cozy Night, Cozy Lounge, Pastel Study, Forest Path, Lake Meadow, and Neon Tech.
-- Buddy Chat sends messages to Mistral, plays Thinking while waiting, reacts with an allowed animation, then returns to Relax.
+- `index.html`
+- `app.bundle.js`
+- `chat-client.js`
+- `server.mjs`
+- `start-mika.bat`
+
+Use `start-mika.bat` only for the old static viewer. Use `npm run dev` or `start-ai.bat` for the upgraded companion.
