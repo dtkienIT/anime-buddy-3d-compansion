@@ -126,9 +126,15 @@ export function registerChatRoute(
       `preferences;dur=${preferencesMs.toFixed(1)}`,
       `memory-wall;dur=${memoryTimings.wallMs.toFixed(1)}`,
       `memory-db-memories;dur=${memoryTimings.memoriesMs.toFixed(1)}`,
+      `memory-db-general;dur=${memoryTimings.generalMemoriesMs.toFixed(1)}`,
+      `memory-db-matched;dur=${memoryTimings.matchedMemoriesMs.toFixed(1)}`,
+      `memory-db-deleted;dur=${memoryTimings.deletedMemoriesMs.toFixed(1)}`,
       `memory-db-summary;dur=${memoryTimings.currentSummaryMs.toFixed(1)}`,
       `memory-db-past;dur=${memoryTimings.pastSummariesMs.toFixed(1)}`,
       `context-build;dur=${memoryTimings.contextBuildMs.toFixed(1)}`,
+      `memory-timeouts;desc="${memoryTimings.timeoutCount}"`,
+      `memory-fallbacks;desc="${memoryTimings.fallbackCount}"`,
+      `memory-cache-hits;desc="${memoryTimings.cacheHitCount}"`,
       `mistral;dur=${mistralMs.toFixed(1)}`,
       `total;dur=${totalChatMs.toFixed(1)}`
     ];

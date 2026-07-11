@@ -1,5 +1,7 @@
 # TTS Latency Report
 
+> Historical snapshot. See `docs/CURRENT_STATUS.md` and `test-results/browser/tts-benchmark/final.json` for current measurements.
+
 Date: 2026-07-10
 
 ## Final Strategy

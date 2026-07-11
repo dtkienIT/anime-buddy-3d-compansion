@@ -28,7 +28,18 @@ describe("AudioQueue", () => {
         aborted = true;
       });
       await new Promise((resolve) => setTimeout(resolve, 20));
-      return { kind: "blob" as const, blob: new Blob() };
+      const now = performance.now();
+      return {
+        kind: "blob" as const,
+        blob: new Blob(),
+        requestId: text,
+        requestStartedAt: now,
+        responseHeadersAt: now,
+        firstByteAt: now,
+        responseCompletedAt: now,
+        cache: "MISS",
+        serverTiming: null
+      };
     };
 
     const first = queue.playChunks(["chunk1"], mockAudioPlayer, synthesize, () => {});

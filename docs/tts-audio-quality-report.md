@@ -1,5 +1,7 @@
 # TTS Audio Quality Report
 
+> Historical snapshot. See `docs/CURRENT_STATUS.md` for the current quality and latency evidence.
+
 Date: 2026-07-10
 
 ## Symptoms

@@ -1,5 +1,7 @@
 # Memory QA Report
 
+> Historical snapshot. See `docs/CURRENT_STATUS.md` and `test-results/browser/memory/memory-e2e-final.json` for the latest run.
+
 This report documents the verification scenarios, expected behaviors, and actual outcomes for the persistent memory system.
 
 ## Current Takeover Rerun - 2026-07-10

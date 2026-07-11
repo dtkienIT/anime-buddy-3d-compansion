@@ -60,6 +60,14 @@ export class AudioPlayer extends EventTarget {
     return await context.decodeAudioData(arrayBuffer);
   }
 
+  createBufferFromPcm(bytes: Uint8Array, metadata: PcmAudioMetadata): AudioBuffer {
+    const context = this.getContext();
+    const samples = this.decodePcmToMono(bytes, metadata);
+    const buffer = context.createBuffer(1, samples.length, metadata.sampleRate);
+    buffer.copyToChannel(Float32Array.from(samples), 0);
+    return buffer;
+  }
+
   trimAudioBuffer(buffer: AudioBuffer, text: string): AudioBuffer {
     const context = this.getContext();
     const sampleRate = buffer.sampleRate;
@@ -127,7 +135,7 @@ export class AudioPlayer extends EventTarget {
     return newBuffer;
   }
 
-  async playBufferDirect(buffer: AudioBuffer, startTime: number): Promise<void> {
+  async playBufferDirect(buffer: AudioBuffer, startTime: number, runId = 0, chunkIndex = 0): Promise<void> {
     if (this.stopRequested) return;
 
     const context = this.getContext();
@@ -147,13 +155,19 @@ export class AudioPlayer extends EventTarget {
       };
 
       source.start(startTime);
-      this.notifyPlaying();
+      perfMetrics.mark(runId, "audioPlayCalledAt");
+      const delayMs = Math.max(0, (startTime - context.currentTime) * 1000);
+      setTimeout(() => {
+        if (!this.stopRequested && this.sources.has(source)) this.notifyPlaying(runId, chunkIndex);
+      }, delayMs);
     });
   }
 
   async playStreamDirect(
     audio: Extract<TtsAudio, { kind: "pcm-stream" }>,
-    startTime: number
+    startTime: number,
+    runId = 0,
+    chunkIndex = 0
   ): Promise<void> {
     if (this.stopRequested) return;
 
@@ -163,17 +177,17 @@ export class AudioPlayer extends EventTarget {
 
     if ("audioWorklet" in context) {
       await this.loadWorklet(context);
-      await this.playPcmStreamWithWorkletDirect(audio, context, analyser, startTime);
+      await this.playPcmStreamWithWorkletDirect(audio, context, analyser, startTime, runId, chunkIndex);
       return;
     }
 
-    await this.playPcmStreamWithSourcesDirect(audio, context, analyser, startTime);
+    await this.playPcmStreamWithSourcesDirect(audio, context, analyser, startTime, runId, chunkIndex);
   }
 
-  async play(audio: TtsAudio): Promise<void> {
+  async play(audio: TtsAudio, runId = 0): Promise<void> {
     this.stop();
     this.prepareForPlayback();
-    perfMetrics.mark("audioPlayCalledAt");
+    perfMetrics.mark(runId, "audioPlayCalledAt");
 
     const context = this.getContext();
     const analyser = this.getOrCreateAnalyser(context);
@@ -181,13 +195,13 @@ export class AudioPlayer extends EventTarget {
 
     try {
       if (audio.kind === "pcm-stream") {
-        await this.playPcmStreamWithWorkletDirect(audio, context, analyser, context.currentTime);
+        await this.playPcmStreamWithWorkletDirect(audio, context, analyser, context.currentTime, runId, 0);
       } else {
         const buffer = await this.decodeWav(audio.blob);
-        await this.playBufferDirect(buffer, context.currentTime);
+        await this.playBufferDirect(buffer, context.currentTime, runId, 0);
       }
     } finally {
-      this.notifyEnded();
+      this.notifyEnded(runId);
     }
   }
 
@@ -220,7 +234,9 @@ export class AudioPlayer extends EventTarget {
     audio: Extract<TtsAudio, { kind: "pcm-stream" }>,
     context: AudioContext,
     analyser: AnalyserNode,
-    startTime: number
+    startTime: number,
+    runId: number,
+    chunkIndex: number
   ): Promise<void> {
     const reader = audio.stream.getReader();
     this.streamReader = reader;
@@ -255,14 +271,14 @@ export class AudioPlayer extends EventTarget {
       node.port.onmessage = (event: MessageEvent<WorkletMessage>) => {
         const message = event.data;
         if (message.metrics) {
-          this.recordStreamMetrics(message.metrics, context.sampleRate);
+          this.recordStreamMetrics(message.metrics, context.sampleRate, runId);
         }
         if (message.type === "started" && !this.stopRequested) {
-          this.notifyPlaying();
+          this.notifyPlaying(runId, chunkIndex);
         } else if (message.type === "drained") {
           resolve();
         } else if (message.type === "underflow" && message.metrics?.underflowCount) {
-          perfMetrics.addMetrics({ underflowCount: message.metrics.underflowCount });
+          perfMetrics.addMetrics(runId, { underflowCount: message.metrics.underflowCount });
         }
       };
       node.port.onmessageerror = () => reject(new Error("Audio worklet message failed"));
@@ -296,7 +312,7 @@ export class AudioPlayer extends EventTarget {
       if (remainder.byteLength > 0 && !this.stopRequested) {
         throw new Error(`TTS stream ended with ${remainder.byteLength} unaligned byte(s)`);
       }
-      perfMetrics.mark("ttsResponseCompletedAt");
+      perfMetrics.mark(runId, "ttsResponseCompletedAt");
     } catch (error) {
       readError = error;
     } finally {
@@ -328,14 +344,16 @@ export class AudioPlayer extends EventTarget {
     }
     node.disconnect();
     if (this.activeWorklet === node) this.activeWorklet = null;
-    this.notifyEnded();
+    this.notifyEnded(runId);
   }
 
   private async playPcmStreamWithSourcesDirect(
     audio: Extract<TtsAudio, { kind: "pcm-stream" }>,
     context: AudioContext,
     analyser: AnalyserNode,
-    startTime: number
+    startTime: number,
+    runId: number,
+    chunkIndex: number
   ): Promise<void> {
     const reader = audio.stream.getReader();
     this.streamReader = reader;
@@ -366,7 +384,7 @@ export class AudioPlayer extends EventTarget {
       source.start(startsAt);
       if (!started) {
         started = true;
-        this.notifyPlaying();
+        this.notifyPlaying(runId, chunkIndex);
       }
     };
 
@@ -385,7 +403,7 @@ export class AudioPlayer extends EventTarget {
       if (flushed.length > 0) {
         schedule(flushed);
       }
-      perfMetrics.mark("ttsResponseCompletedAt");
+      perfMetrics.mark(runId, "ttsResponseCompletedAt");
     } finally {
       if (this.streamReader === reader) this.streamReader = null;
       streamEnded = true;
@@ -393,7 +411,7 @@ export class AudioPlayer extends EventTarget {
     }
 
     await playbackDone;
-    this.notifyEnded();
+    this.notifyEnded(runId);
   }
 
   private decodePcmToMono(bytes: Uint8Array<ArrayBufferLike>, metadata: PcmAudioMetadata): Float32Array {
@@ -426,7 +444,7 @@ export class AudioPlayer extends EventTarget {
     return this.workletModule;
   }
 
-  private recordStreamMetrics(metrics: StreamMetrics, sampleRate: number): void {
+  private recordStreamMetrics(metrics: StreamMetrics, sampleRate: number, runId: number): void {
     const normalized: Record<string, number> = {};
     for (const [key, value] of Object.entries(metrics)) {
       if (typeof value === "number" && Number.isFinite(value)) {
@@ -437,17 +455,19 @@ export class AudioPlayer extends EventTarget {
       normalized.bufferedAudioMs = metrics.queuedFrames / sampleRate * 1000;
     }
     if (Object.keys(normalized).length > 0) {
-      perfMetrics.addMetrics(normalized);
+      perfMetrics.addMetrics(runId, normalized);
     }
   }
 
-  private notifyPlaying(): void {
-    perfMetrics.mark("audioPlayingAt");
+  private notifyPlaying(runId: number, chunkIndex: number): void {
+    const at = performance.now();
+    perfMetrics.mark(runId, "audioPlayingAt", at);
+    perfMetrics.updateChunk(runId, chunkIndex, { playbackStartedAt: at });
     this.dispatchEvent(new Event("started"));
   }
 
-  private notifyEnded(): void {
-    perfMetrics.mark("audioEndedAt");
+  private notifyEnded(runId: number): void {
+    perfMetrics.mark(runId, "audioEndedAt");
     this.dispatchEvent(new Event(this.stopRequested ? "stopped" : "ended"));
   }
 

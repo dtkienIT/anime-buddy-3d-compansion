@@ -21,7 +21,8 @@ export class AudioQueue {
     audioPlayer: AudioPlayer,
     synthesize: (text: string, signal: AbortSignal) => Promise<TtsAudio>,
     onPlaying: () => void,
-    replace = true
+    replace = true,
+    runId = 0
   ): Promise<void> {
     if (replace) {
       this.cancel();
@@ -35,6 +36,18 @@ export class AudioQueue {
     const task = (async () => {
       if (chunks.length === 0) return;
 
+      perfMetrics.mark(runId, "audioQueueReceivedAt");
+      const enqueuedAt = performance.now();
+      chunks.forEach((text, chunkIndex) => perfMetrics.addChunk(runId, {
+        chunkIndex,
+        requestId: "pending",
+        text,
+        textLength: text.length,
+        enqueuedAt,
+        requestStartedAt: 0,
+        synthesisStartedAt: 0
+      }));
+
       const preFetched: Promise<TtsAudio>[] = [];
       const synthesisStartedAt: number[] = [];
       const synthesisCompletedAt: number[] = [];
@@ -47,6 +60,17 @@ export class AudioQueue {
         synthesisStartedAt[index] = performance.now();
         return synthesize(chunks[index], abort.signal).then((audio) => {
           synthesisCompletedAt[index] = performance.now();
+          perfMetrics.updateChunk(runId, index, {
+            requestId: audio.requestId,
+            requestStartedAt: audio.requestStartedAt,
+            responseHeadersAt: audio.responseHeadersAt,
+            firstByteAt: audio.firstByteAt,
+            responseCompletedAt: audio.responseCompletedAt,
+            synthesisStartedAt: synthesisStartedAt[index],
+            synthesisCompletedAt: synthesisCompletedAt[index],
+            cache: audio.cache,
+            serverTiming: audio.serverTiming
+          });
           return audio;
         });
       };
@@ -91,9 +115,7 @@ export class AudioQueue {
 
           nextScheduledTime = startTime + trimmed.duration;
           previousScheduledEndTime = nextScheduledTime;
-          perfMetrics.addChunk({
-            chunkIndex: i,
-            textLength: chunks[i].length,
+          perfMetrics.updateChunk(runId, i, {
             synthesisStartedAt: synthesisStartedAt[i],
             synthesisCompletedAt: synthesisCompletedAt[i],
             decodeStartedAt,
@@ -105,7 +127,9 @@ export class AudioQueue {
           });
 
           onPlaying();
-          const playPromise = audioPlayer.playBufferDirect(trimmed, startTime);
+          perfMetrics.mark(runId, "audioScheduledAt");
+          const playPromise = audioPlayer.playBufferDirect(trimmed, startTime, runId, i)
+            .then(() => perfMetrics.updateChunk(runId, i, { playbackCompletedAt: performance.now() }));
           playPromises.push(playPromise);
         } else {
           // PCM stream (Cache HIT)
@@ -132,14 +156,13 @@ export class AudioQueue {
 
           const bytesPerFrame = audio.channels * audio.bytesPerSample;
           const frameCount = fileBytes.byteLength / bytesPerFrame;
-          const duration = frameCount / audio.sampleRate;
+          const buffer = audioPlayer.createBufferFromPcm(fileBytes, audio);
+          const duration = buffer.duration;
           const decodeCompletedAt = performance.now();
 
           nextScheduledTime = startTime + duration;
           previousScheduledEndTime = nextScheduledTime;
-          perfMetrics.addChunk({
-            chunkIndex: i,
-            textLength: chunks[i].length,
+          perfMetrics.updateChunk(runId, i, {
             synthesisStartedAt: synthesisStartedAt[i],
             synthesisCompletedAt: synthesisCompletedAt[i],
             decodeStartedAt,
@@ -150,25 +173,25 @@ export class AudioQueue {
             audioDurationMs: duration * 1000
           });
 
-          const rebuiltStream = new ReadableStream({
-            start(controller) {
-              controller.enqueue(fileBytes);
-              controller.close();
-            }
-          });
-
-          const rebuiltAudio: TtsAudio = {
-            ...audio,
-            stream: rebuiltStream
-          };
-
           onPlaying();
-          const playPromise = audioPlayer.playStreamDirect(rebuiltAudio, startTime);
+          perfMetrics.mark(runId, "audioScheduledAt");
+          perfMetrics.addMetrics(runId, {
+            receivedFrames: frameCount,
+            playedFrames: frameCount,
+            droppedFrames: 0,
+            duplicatedFrames: 0,
+            underflowCount: 0,
+            underflowDurationMs: 0
+          });
+          const playPromise = audioPlayer.playBufferDirect(buffer, startTime, runId, i)
+            .then(() => perfMetrics.updateChunk(runId, i, { playbackCompletedAt: performance.now() }));
           playPromises.push(playPromise);
         }
       }
 
       await Promise.all(playPromises);
+      perfMetrics.mark(runId, "queueIdleAt");
+      perfMetrics.finish(runId, abort.signal.aborted ? "cancelled" : "completed");
     })();
 
     this.activeTask = task;
@@ -176,6 +199,11 @@ export class AudioQueue {
     try {
       await task;
     } finally {
+      if (abort.signal.aborted) {
+        perfMetrics.mark(runId, "cancelledAt");
+        perfMetrics.finish(runId, "cancelled");
+        chunks.forEach((_, index) => perfMetrics.updateChunk(runId, index, { cancelled: true }));
+      }
       if (this.activeTask === task) {
         this.activeTask = null;
         this.activeAbort = null;

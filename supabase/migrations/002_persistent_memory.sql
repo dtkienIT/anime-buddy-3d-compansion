@@ -89,6 +89,13 @@ alter table public.conversation_memories
 create index if not exists idx_conv_memories_anon_char
   on public.conversation_memories(anonymous_id, character_id);
 
+create index if not exists idx_conv_memories_retrieval
+  on public.conversation_memories(anonymous_id, status, kind, importance desc);
+
+create unique index if not exists idx_conv_memories_one_active_key
+  on public.conversation_memories(anonymous_id, coalesce(character_id, ''), normalized_key)
+  where status = 'active';
+
 create index if not exists idx_conv_memories_status
   on public.conversation_memories(status);
 
@@ -100,6 +107,9 @@ create index if not exists idx_conv_memories_fts
 
 create index if not exists idx_conv_summaries_session
   on public.conversation_summaries(session_id);
+
+create index if not exists idx_chat_sessions_anon_updated
+  on public.chat_sessions(anonymous_id, updated_at desc);
 
 -- Thêm mô tả cho các bảng mới
 comment on table public.conversation_memories is 'Long-term structured user memories and facts extracted from chat sessions.';

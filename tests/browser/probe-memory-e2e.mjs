@@ -339,7 +339,7 @@ try {
   await runStep("create-initial-chat", () => createNewChat(page));
 
   const nameReply = await runStep("send-name", () => sendChat(page, "Tên mình là Nam. Hãy nhớ tên mình."));
-  const colorReply = await runStep("send-color", () => sendChat(page, "Màu yêu thích của mình là màu xanh. Hãy nhớ điều này."));
+  const colorReply = await runStep("send-color", () => sendChat(page, "Màu yêu thích của mình là màu xanh dương (blue). Hãy nhớ điều này."));
 
   const initialMemories = await runStep("wait-initial-memories", () => waitForMemory((memories) => (
     hasMemory(memories, "userName", "nam") &&

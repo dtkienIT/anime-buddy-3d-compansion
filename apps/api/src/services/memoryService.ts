@@ -3,6 +3,7 @@ import { Mistral } from "@mistralai/mistralai";
 import type { ApiEnv } from "../config/env.js";
 import { parsePossiblyFencedJson } from "../utils/safeJson.js";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 
 // Schema for Mistral extraction response
 const extractedMemorySchema = z.object({
@@ -33,10 +34,16 @@ const summaryResponseSchema = z.object({
 
 export interface MemoryTimings {
   memoriesMs: number;
+  generalMemoriesMs: number;
+  matchedMemoriesMs: number;
+  deletedMemoriesMs: number;
   currentSummaryMs: number;
   pastSummariesMs: number;
   contextBuildMs: number;
   wallMs: number;
+  timeoutCount: number;
+  fallbackCount: number;
+  cacheHitCount: number;
 }
 
 export interface MemoryContextResult {
@@ -47,10 +54,16 @@ export interface MemoryContextResult {
 export function createMemoryTimings(overrides: Partial<MemoryTimings> = {}): MemoryTimings {
   return {
     memoriesMs: 0,
+    generalMemoriesMs: 0,
+    matchedMemoriesMs: 0,
+    deletedMemoriesMs: 0,
     currentSummaryMs: 0,
     pastSummariesMs: 0,
     contextBuildMs: 0,
     wallMs: 0,
+    timeoutCount: 0,
+    fallbackCount: 0,
+    cacheHitCount: 0,
     ...overrides
   };
 }
@@ -64,6 +77,8 @@ export class MemoryService {
   private static readonly cache = new Map<string, { data: any; expiry: number }>();
   private static readonly lastKnown = new Map<string, any>();
   private static readonly memoryVersions = new Map<string, number>();
+  private static readonly activeExtractions = new Set<string>();
+  private static outboxResumeStarted = false;
 
   constructor(
     private readonly env: ApiEnv,
@@ -71,6 +86,10 @@ export class MemoryService {
   ) {
     this.supabase = supabaseClient;
     this.mistral = new Mistral({ apiKey: env.MISTRAL_API_KEY });
+    if (this.supabase && env.NODE_ENV !== "test" && !MemoryService.outboxResumeStarted) {
+      MemoryService.outboxResumeStarted = true;
+      void this.resumeExtractionOutbox();
+    }
   }
 
   isConfigured(): boolean {
@@ -181,7 +200,7 @@ export class MemoryService {
         }
         const { data } = await this.supabase!
           .from("conversation_memories")
-          .select("*")
+          .select("id, kind, content, normalized_key, importance, confidence, character_id")
           .eq("anonymous_id", anonymousId)
           .eq("status", "active")
           .or(`character_id.is.null,character_id.eq.${characterId}`)
@@ -208,7 +227,7 @@ export class MemoryService {
           if (words) {
             const { data } = await this.supabase!
               .from("conversation_memories")
-              .select("*")
+              .select("id, kind, content, normalized_key, importance, confidence, character_id")
               .eq("anonymous_id", anonymousId)
               .eq("status", "active")
               .or(`character_id.is.null,character_id.eq.${characterId}`)
@@ -231,7 +250,8 @@ export class MemoryService {
         if (sessionId) {
           const { data } = await this.supabase!
             .from("conversation_summaries")
-            .select("summary, chat_sessions(title)")
+            .select("summary, chat_sessions!inner(title, anonymous_id)")
+            .eq("chat_sessions.anonymous_id", anonymousId)
             .neq("session_id", sessionId)
             .order("created_at", { ascending: false })
             .limit(3);
@@ -239,7 +259,8 @@ export class MemoryService {
         } else {
           const { data } = await this.supabase!
             .from("conversation_summaries")
-            .select("summary, chat_sessions(title)")
+            .select("summary, chat_sessions!inner(title, anonymous_id)")
+            .eq("chat_sessions.anonymous_id", anonymousId)
             .order("created_at", { ascending: false })
             .limit(3);
           res = data || [];
@@ -311,7 +332,12 @@ export class MemoryService {
         withRemainingTimeout(deletedMemoriesPromise, getLastKnown<any[]>(deletedCacheKey, []))
       ]);
 
-      if ([summaryRes, generalRes, matchedRes, pastRes, deletedRes].some((result) => result.timedOut)) {
+      const results = [summaryRes, generalRes, matchedRes, pastRes, deletedRes];
+      const timeoutCount = results.filter((result) => result.timedOut).length;
+      const cacheHitCount = [cachedSummary, cachedGeneral, cachedPast, cachedDeleted]
+        .filter((value) => value !== null).length;
+
+      if (timeoutCount > 0) {
         console.warn(`Memory retrieval partially timed out after ${timeoutMs}ms. Using completed subquery results plus cache fallbacks.`);
       }
 
@@ -390,10 +416,16 @@ export class MemoryService {
 
       const timings = createMemoryTimings({
         memoriesMs,
+        generalMemoriesMs: generalRes.dur,
+        matchedMemoriesMs: matchedRes.dur,
+        deletedMemoriesMs: deletedRes.dur,
         currentSummaryMs,
         pastSummariesMs,
         contextBuildMs: performance.now() - contextBuildStart,
-        wallMs
+        wallMs,
+        timeoutCount,
+        fallbackCount: timeoutCount,
+        cacheHitCount
       });
       this.lastTimings = timings;
 
@@ -420,10 +452,120 @@ export class MemoryService {
       return;
     }
 
-    // Run extraction asynchronously in the background
-    this.extractMemoriesBackground(sessionId, anonymousId, characterId, userMessage, assistantMessage).catch((err) => {
-      console.error("Error in background memory extraction:", err);
+    if (this.env.NODE_ENV === "test") {
+      void this.extractMemoriesBackground(
+        sessionId, anonymousId, characterId, userMessage, assistantMessage
+      ).catch(() => undefined);
+      return;
+    }
+
+    const idempotencyKey = createHash("sha256")
+      .update(`${sessionId}\0${anonymousId}\0${characterId}\0${userMessage}`)
+      .digest("hex");
+    if (MemoryService.activeExtractions.has(idempotencyKey)) return;
+
+    MemoryService.activeExtractions.add(idempotencyKey);
+    void this.persistAndRunExtraction({
+      idempotencyKey,
+      sessionId,
+      anonymousId,
+      characterId,
+      userMessage,
+      assistantMessage
+    }).finally(() => MemoryService.activeExtractions.delete(idempotencyKey));
+  }
+
+  private async persistAndRunExtraction(job: {
+    idempotencyKey: string;
+    sessionId: string;
+    anonymousId: string;
+    characterId: string;
+    userMessage: string;
+    assistantMessage: string;
+  }): Promise<void> {
+    if (!this.supabase) return;
+    const payload = {
+      sessionId: job.sessionId,
+      anonymousId: job.anonymousId,
+      characterId: job.characterId,
+      userMessage: job.userMessage,
+      assistantMessage: job.assistantMessage
+    };
+    const { error: enqueueError } = await this.supabase.from("memory_extraction_outbox").upsert({
+      idempotency_key: job.idempotencyKey,
+      anonymous_id: job.anonymousId,
+      session_id: job.sessionId,
+      payload,
+      status: "pending",
+      next_attempt_at: new Date().toISOString()
+    }, { onConflict: "idempotency_key", ignoreDuplicates: true });
+
+    // Migration 003 may not have been applied yet. Extraction still runs with
+    // bounded retry, but process-restart durability is unavailable until it is.
+    const durable = !enqueueError;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        if (durable) {
+          await this.supabase.from("memory_extraction_outbox").update({
+            status: "processing",
+            attempts: attempt,
+            updated_at: new Date().toISOString()
+          }).eq("idempotency_key", job.idempotencyKey);
+        }
+        await this.extractMemoriesBackground(
+          job.sessionId, job.anonymousId, job.characterId, job.userMessage, job.assistantMessage
+        );
+        if (durable) {
+          await this.supabase.from("memory_extraction_outbox").update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            last_error: null,
+            updated_at: new Date().toISOString()
+          }).eq("idempotency_key", job.idempotencyKey);
+        }
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+      }
+    }
+
+    const safeError = lastError instanceof Error ? lastError.message.slice(0, 500) : "Unknown extraction failure";
+    if (durable) {
+      await this.supabase.from("memory_extraction_outbox").update({
+        status: "failed",
+        last_error: safeError,
+        next_attempt_at: new Date(Date.now() + 60_000).toISOString(),
+        updated_at: new Date().toISOString()
+      }).eq("idempotency_key", job.idempotencyKey);
+    }
+    await this.supabase.from("memory_audit_log").insert({
+      event_type: "extraction_failed",
+      metadata: { idempotencyKey: job.idempotencyKey, error: safeError }
     });
+    console.error("Background memory extraction failed after bounded retry");
+  }
+
+  private async resumeExtractionOutbox(): Promise<void> {
+    if (!this.supabase) return;
+    const { data, error } = await this.supabase
+      .from("memory_extraction_outbox")
+      .select("idempotency_key, payload")
+      .in("status", ["pending", "processing", "failed"])
+      .lte("next_attempt_at", new Date().toISOString())
+      .order("created_at", { ascending: true })
+      .limit(20);
+    if (error) return;
+    for (const row of data || []) {
+      const payload = row.payload as any;
+      if (!payload?.sessionId || !payload?.anonymousId || !payload?.userMessage) continue;
+      const key = String(row.idempotency_key);
+      if (MemoryService.activeExtractions.has(key)) continue;
+      MemoryService.activeExtractions.add(key);
+      void this.persistAndRunExtraction({ idempotencyKey: key, ...payload })
+        .finally(() => MemoryService.activeExtractions.delete(key));
+    }
   }
 
   private async extractMemoriesBackground(

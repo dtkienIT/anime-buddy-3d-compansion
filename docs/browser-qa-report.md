@@ -1,5 +1,7 @@
 # Browser QA Report
 
+> Historical snapshot (2026-07-10). See `docs/CURRENT_STATUS.md` for current verified results.
+
 Date: 2026-07-10
 
 Browser: Chromium `149.0.7827.55`

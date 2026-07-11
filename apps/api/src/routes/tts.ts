@@ -14,11 +14,16 @@ export function registerTtsRoute(app: FastifyInstance, env: ApiEnv, tts: TtsServ
     bodyLimit: 8 * 1024
   }, async (request, reply) => {
     const body = ttsRequestSchema.parse(request.body);
-    const result = await tts.synthesize(body);
+    const requestId = typeof request.headers["x-buddy-tts-request-id"] === "string"
+      ? request.headers["x-buddy-tts-request-id"]
+      : request.id;
+    const result = await tts.synthesize(body, requestId);
+    const upstreamTiming = result.upstreamServerTiming ? `, ${result.upstreamServerTiming}` : "";
     const response = reply
       .header("Content-Type", result.contentType)
       .header("X-TTS-Cache", result.cacheStatus)
-      .header("Server-Timing", `tts-upstream-headers;dur=${result.upstreamHeadersMs.toFixed(2)}`);
+      .header("Server-Timing", `api-to-tts-headers;dur=${result.upstreamHeadersMs.toFixed(2)}${upstreamTiming}`)
+      .header("X-TTS-Request-Id", result.requestId ?? requestId);
     if (result.contentLength) response.header("Content-Length", result.contentLength);
     if (result.synthesisMs) response.header("X-TTS-Synthesis-Ms", result.synthesisMs);
     if (result.queueMs) response.header("X-TTS-Queue-Ms", result.queueMs);

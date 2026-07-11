@@ -20,6 +20,8 @@ export class ChatController {
   private readonly store = new MessageStore();
   private readonly outbox = new IndexedDbOutbox();
   private activeAbort: AbortController | null = null;
+  private activeRunId = 0;
+  private operationSequence = 0;
   private lastReply = "";
   private voiceSettings: VoiceSettings;
 
@@ -170,17 +172,25 @@ export class ChatController {
 
   setVoiceSettings(settings: VoiceSettings): void {
     this.voiceSettings = settings;
+    if (!settings.enabled && this.states.state === "SPEAKING") {
+      this.stopSpeaking();
+    }
     this.events.onStatus(settings.enabled ? "San sang" : "Da tat giong", this.states.state);
   }
 
   async send(message: string): Promise<void> {
     const normalized = sanitizeAiText(message, 600);
-    if (!normalized || this.isBusy()) {
+    if (!normalized) {
       return;
     }
 
-    perfMetrics.start();
-    this.cancelActive();
+    if (this.isBusy()) {
+      this.cancelActive();
+      this.safeTransition("IDLE");
+    }
+    const operationId = ++this.operationSequence;
+    const runId = perfMetrics.start();
+    this.activeRunId = runId;
     this.activeAbort = new AbortController();
 
     const userMessage = this.store.add({ role: "user", content: normalized });
@@ -205,7 +215,7 @@ export class ChatController {
       this.events.onSpeech("...", 0);
       void this.character.playAnimation("thinking", { loop: true });
 
-      perfMetrics.mark("chatRequestStartedAt");
+      perfMetrics.mark(runId, "chatRequestStartedAt");
       const reply = await this.api.sendChat({
         sessionId: this.store.getSessionId(),
         anonymousId: this.store.getAnonymousId(),
@@ -214,8 +224,12 @@ export class ChatController {
         availableAnimations: getAvailableAnimationIds(),
         signal: this.activeAbort.signal
       });
-      perfMetrics.mark("chatResponseReceivedAt");
+      perfMetrics.mark(runId, "chatResponseReceivedAt");
+      perfMetrics.mark(runId, "assistantReplyStartedAt");
+      perfMetrics.mark(runId, "assistantReplyCompletedAt");
       clearTimeout(memoryStatusTimeout);
+
+      if (operationId !== this.operationSequence) return;
 
       this.store.setSessionId(reply.sessionId);
       reply.warnings.forEach((warning) => this.events.onWarning(warning));
@@ -230,25 +244,28 @@ export class ChatController {
         expression: reply.expression
       });
       this.events.onAssistantMessage(assistantMessage);
-      perfMetrics.mark("replyRenderedAt");
+      perfMetrics.mark(runId, "replyRenderedAt");
+      perfMetrics.mark(runId, "firstVisibleTextAt");
       this.events.onSpeech(cleanReply, estimateSpeechBubbleMs(cleanReply));
       this.character.setExpression(reply.expression as CompanionExpression, reply.intensity);
 
       if (this.voiceSettings.enabled) {
-        await this.speak(cleanReply, reply.animation);
+        await this.speak(cleanReply, reply.animation, runId);
       } else {
         this.events.onWarning("Đã tắt giọng nói.");
       }
 
+      if (operationId !== this.operationSequence) return;
       this.setState("REACTING", "Đang phản ứng");
       await this.character.playAnimation(reply.animation, { loop: false, autoIdle: true });
-      await this.returnIdle();
+      if (operationId === this.operationSequence) await this.returnIdle();
+      perfMetrics.finish(runId, "completed");
 
       // Trigger background sync for any queued messages
       void this.syncOfflineMessages();
     } catch (error) {
       if (this.isAbortError(error)) {
-        await this.returnIdle();
+        if (operationId === this.operationSequence) await this.returnIdle();
         return;
       }
 
@@ -273,7 +290,7 @@ export class ChatController {
       await this.character.playAnimation("sad", { loop: false }).catch(() => undefined);
       await this.returnIdle();
     } finally {
-      this.activeAbort = null;
+      if (operationId === this.operationSequence) this.activeAbort = null;
     }
   }
 
@@ -282,12 +299,15 @@ export class ChatController {
     this.audioQueue.cancel();
     this.audioPlayer.stop();
     this.character.stopLipSync();
+    if (this.activeRunId) {
+      perfMetrics.mark(this.activeRunId, "cancelledAt");
+      perfMetrics.finish(this.activeRunId, "cancelled");
+    }
   }
 
   stopSpeaking(): void {
-    this.audioQueue.cancel();
-    this.audioPlayer.stop();
-    this.character.stopLipSync();
+    ++this.operationSequence;
+    this.cancelActive();
     void this.returnIdle();
   }
 
@@ -296,9 +316,11 @@ export class ChatController {
       return;
     }
 
-    perfMetrics.start();
-    perfMetrics.mark("replyRenderedAt");
-    void this.speak(this.lastReply, defaultAnimationId).then(() => this.returnIdle());
+    const runId = perfMetrics.start();
+    this.activeRunId = runId;
+    perfMetrics.mark(runId, "replyRenderedAt");
+    perfMetrics.mark(runId, "firstVisibleTextAt");
+    void this.speak(this.lastReply, defaultAnimationId, runId).then(() => this.returnIdle());
   }
 
   clear(): void {
@@ -311,27 +333,34 @@ export class ChatController {
     this.lastReply = "";
   }
 
-  private async speak(text: string, animationId: string): Promise<void> {
+  private async speak(text: string, animationId: string, runId: number): Promise<void> {
     this.setState("SPEAKING", "Đang chuẩn bị giọng...");
+    this.character.setRenderRate(1);
     void this.character.playAnimation(animationId || defaultAnimationId, { loop: true }).catch(() => undefined);
 
+    perfMetrics.mark(runId, "chunkSplitStartedAt");
     const chunks = splitIntoSpeechChunks(text);
+    perfMetrics.mark(runId, "chunkSplitCompletedAt");
 
     try {
       await this.audioQueue.playChunks(
         chunks,
         this.audioPlayer,
         async (chunkText, signal) => {
-          return await this.tts.synthesize(chunkText, this.voiceSettings, signal);
+          return await this.tts.synthesize(chunkText, this.voiceSettings, signal, runId);
         },
         () => {
+          this.character.setRenderRate(15);
           const activeAnalyser = this.audioPlayer.getAnalyser();
           if (activeAnalyser) {
             this.character.attachLipSyncAnalyser(activeAnalyser);
             this.character.startLipSync();
+            perfMetrics.addMetrics(runId, { lipSyncAnalyserConnected: 1, lipSyncActive: 1 });
           }
           this.setState("SPEAKING", "Đang nói...");
-        }
+        },
+        true,
+        runId
       );
     } catch (error) {
       if (!this.isAbortError(error)) {
@@ -339,6 +368,8 @@ export class ChatController {
       }
     } finally {
       this.character.stopLipSync();
+      this.character.setRenderRate(30);
+      perfMetrics.addMetrics(runId, { lipSyncActive: 0, lipSyncNeutralAfterPlayback: 1 });
     }
   }
 
@@ -347,6 +378,7 @@ export class ChatController {
       return;
     }
     this.safeTransition("IDLE");
+    this.character.setRenderRate(30);
     this.events.onStatus(this.voiceSettings.enabled ? "Sẵn sàng." : "Đã tắt giọng.", "IDLE");
     await this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
   }
