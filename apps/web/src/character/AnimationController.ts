@@ -48,6 +48,30 @@ export class AnimationController {
     }
   }
 
+  async preload(url: string): Promise<void> {
+    const vrm = this.currentVrm;
+    if (!vrm) {
+      return;
+    }
+    await this.loadClip(url, vrm);
+  }
+
+  async playAsset(url: string, options: PlayAnimationOptions = {}): Promise<void> {
+    const vrm = this.currentVrm;
+    if (!vrm) {
+      return;
+    }
+
+    const requestId = ++this.serial;
+    const loop = options.loop ?? false;
+    const fadeDuration = options.fadeDuration ?? 0.12;
+    const clip = await this.loadClip(url, vrm);
+    if (requestId !== this.serial || vrm !== this.currentVrm) {
+      return;
+    }
+    await this.applyClip(clip, loop, fadeDuration);
+  }
+
   stop(): void {
     this.serial += 1;
     if (this.currentAction) {
@@ -138,7 +162,7 @@ export class AnimationController {
       const durationMs = Number.isFinite(clip.duration) && clip.duration > 0
         ? clip.duration * 1000
         : 1000;
-      const timeoutMs = Math.min(Math.max(durationMs + 500, 1000), 15000);
+      const timeoutMs = Math.min(Math.max(durationMs + 500, 1000), 5 * 60 * 1000);
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const finish = () => {
         if (timeoutId) {

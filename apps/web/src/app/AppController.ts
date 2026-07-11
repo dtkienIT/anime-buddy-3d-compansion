@@ -11,6 +11,24 @@ import { ChatPanel } from "../ui/ChatPanel.js";
 import { CharacterStatus } from "../ui/CharacterStatus.js";
 import { ToastManager } from "../ui/ToastManager.js";
 import { VoiceControls } from "../ui/VoiceControls.js";
+import { LocalPerformanceController } from "../performance/LocalPerformanceController.js";
+import { isAipaiPerformanceRequest } from "../performance/performanceIntent.js";
+
+const blingBangBangBorn = {
+  label: "Bling-Bang-Bang-Born",
+  animationUrl: "/animations/Bling-Bang-Bang-Born.vrma",
+  audioUrl: "/audio/music/Bling-Bang-Bang-Born.mp3",
+  startSeconds: 0,
+  durationSeconds: 19.167
+} as const;
+
+const aipaiDanceHall = {
+  label: "Aipai Dance Hall",
+  animationUrl: "/animations/Aipai-Dance-Hall.vrma",
+  audioUrl: "/audio/music/Aipai-Dance-Hall.mp3",
+  startSeconds: 0,
+  durationSeconds: 32.7
+} as const;
 
 export class AppController {
   private readonly character: CharacterController;
@@ -19,6 +37,8 @@ export class AppController {
   private readonly status: CharacterStatus;
   private readonly toasts: ToastManager;
   private readonly voiceControls: VoiceControls;
+  private readonly performance: LocalPerformanceController;
+  private readonly aipaiPerformance: LocalPerformanceController;
 
   constructor() {
     const canvas = required<HTMLCanvasElement>("#stage");
@@ -60,7 +80,7 @@ export class AppController {
       required("#replay-reply"),
       required("#clear-chat"),
       {
-        send: (message) => void this.chat.send(message),
+        send: (message) => void this.handleChatMessage(message),
         stopSpeaking: () => this.chat.stopSpeaking(),
         replay: () => this.chat.replayLastReply(),
         clear: () => {
@@ -77,13 +97,65 @@ export class AppController {
       audioPlayer,
       this.character,
       {
-        onUserMessage: (message) => this.chatPanel.addMessage(message),
+        onUserMessage: (message) => {
+          this.performance.stop(false);
+          this.aipaiPerformance.stop(false);
+          this.chatPanel.addMessage(message);
+        },
         onAssistantMessage: (message) => this.chatPanel.addMessage(message),
         onStatus: (message, state) => this.setStatus(state, message),
         onWarning: (message) => this.toasts.show(message)
       },
       this.voiceControls.value
     );
+
+    this.performance = new LocalPerformanceController({
+      label: blingBangBangBorn.label,
+      button: required("#bling-performance"),
+      status: required("#performance-status"),
+      audioUrl: blingBangBangBorn.audioUrl,
+      startSeconds: blingBangBangBorn.startSeconds,
+      durationSeconds: blingBangBangBorn.durationSeconds,
+      onPrepare: () => this.character.preloadAnimationAsset(blingBangBangBorn.animationUrl),
+      onStart: async () => {
+        this.aipaiPerformance.stop(false);
+        this.chat.stopSpeaking();
+        document.body.classList.add("is-performing");
+        this.setStatus("REACTING", "Bling-Bang-Bang-Born");
+        await this.character.playAnimationAsset(blingBangBangBorn.animationUrl, { loop: false, fadeDuration: 0.08 });
+      },
+      onStop: async () => {
+        document.body.classList.remove("is-performing");
+        await this.character.playAnimation("relax", { loop: true });
+        this.setStatus("IDLE", "Sẵn sàng");
+        this.updateActiveButtons();
+      },
+      onWarning: (message) => this.toasts.show(message)
+    });
+
+    this.aipaiPerformance = new LocalPerformanceController({
+      label: aipaiDanceHall.label,
+      button: required("#aipai-performance"),
+      status: required("#aipai-performance-status"),
+      audioUrl: aipaiDanceHall.audioUrl,
+      startSeconds: aipaiDanceHall.startSeconds,
+      durationSeconds: aipaiDanceHall.durationSeconds,
+      onPrepare: () => this.character.preloadAnimationAsset(aipaiDanceHall.animationUrl),
+      onStart: async () => {
+        this.performance.stop(false);
+        this.chat.stopSpeaking();
+        document.body.classList.add("is-performing");
+        this.setStatus("REACTING", aipaiDanceHall.label);
+        await this.character.playAnimationAsset(aipaiDanceHall.animationUrl, { loop: false, fadeDuration: 0.08 });
+      },
+      onStop: async () => {
+        document.body.classList.remove("is-performing");
+        await this.character.playAnimation("relax", { loop: true });
+        this.setStatus("IDLE", "Sẵn sàng");
+        this.updateActiveButtons();
+      },
+      onWarning: (message) => this.toasts.show(message)
+    });
 
     this.voiceControls.addEventListener("change", (event) => {
       const settings = (event as CustomEvent).detail;
@@ -110,6 +182,13 @@ export class AppController {
 
     this.chat.setReady();
     this.chatPanel.setVoiceAvailable(true);
+
+    void this.performance.initialize().catch(() => {
+      this.toasts.show("Không chuẩn bị được animation trình diễn.");
+    });
+    void this.aipaiPerformance.initialize().catch(() => {
+      this.toasts.show("Không chuẩn bị được Aipai Dance Hall.");
+    });
 
   }
 
@@ -155,11 +234,15 @@ export class AppController {
       button.dataset[`${type}Id`] = option.id;
       button.addEventListener("click", () => {
         if (type === "model") {
+          this.performance.stop(false);
+          this.aipaiPerformance.stop(false);
           void this.character.switchModel(option.id).then(() => {
             this.chatPanel.setCharacterName(this.currentCharacterLabel());
             this.updateActiveButtons();
           });
         } else if (type === "animation") {
+          this.performance.stop(false);
+          this.aipaiPerformance.stop(false);
           const animation = getAnimationById(option.id);
           void this.character.playAnimation(option.id, { loop: animation.loop }).then(async () => {
             if (!animation.loop) {
@@ -191,6 +274,18 @@ export class AppController {
   private setStatus(state: CompanionState, detail?: string): void {
     this.status.set(state, detail);
     this.chatPanel.setState(state, detail || state);
+  }
+
+  private async handleChatMessage(message: string): Promise<void> {
+    if (!isAipaiPerformanceRequest(message)) {
+      await this.chat.send(message);
+      return;
+    }
+
+    const ready = await this.chat.respondLocally(message, "Dạ, vâng ạ");
+    if (ready) {
+      this.aipaiPerformance.start();
+    }
   }
 
   private initControlTabs(): void {

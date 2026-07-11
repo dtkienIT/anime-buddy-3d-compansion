@@ -130,9 +130,34 @@ body.is-error #loader {
 
 .control-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 12px;
+}
+
+.performance-section {
+  text-align: center;
+}
+
+.performance-status {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.performance-button {
+  width: 100%;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.performance-button + .performance-status {
+  margin-top: 12px;
 }
 
 .control-tab {

@@ -326,6 +326,51 @@ export class ChatController {
     }
   }
 
+  async respondLocally(message: string, reply: string): Promise<boolean> {
+    const normalized = sanitizeAiText(message, 600);
+    const cleanReply = sanitizeAiText(reply, 600);
+    if (!normalized || !cleanReply) {
+      return false;
+    }
+
+    if (this.isBusy()) {
+      this.cancelActive();
+      this.safeTransition("IDLE");
+    }
+
+    const operationId = ++this.operationSequence;
+    const runId = perfMetrics.start();
+    this.activeRunId = runId;
+
+    const userMessage = this.store.add({ role: "user", content: normalized });
+    this.events.onUserMessage(userMessage);
+    this.lastReply = cleanReply;
+    const assistantMessage = this.store.add({
+      role: "assistant",
+      content: cleanReply,
+      emotion: "happy",
+      animation: "greeting"
+    });
+    this.events.onAssistantMessage(assistantMessage);
+    perfMetrics.mark(runId, "replyRenderedAt");
+    perfMetrics.mark(runId, "firstVisibleTextAt");
+
+    await this.audioPlayer.resume().catch(() => undefined);
+    if (this.voiceSettings.enabled) {
+      await this.speak(cleanReply, "greeting", runId);
+    }
+
+    if (operationId !== this.operationSequence) {
+      perfMetrics.finish(runId, "cancelled");
+      return false;
+    }
+
+    this.safeTransition("IDLE");
+    this.events.onStatus("Sẵn sàng trình diễn", "IDLE");
+    perfMetrics.finish(runId, "completed");
+    return true;
+  }
+
   cancelActive(): void {
     this.activeAbort?.abort();
     this.audioQueue.cancel();

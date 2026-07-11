@@ -23,6 +23,7 @@
       <div class="control-tabs" role="tablist" aria-label="Nhóm tùy chỉnh">
         <button class="control-tab is-active" id="control-tab-models" type="button" role="tab" aria-selected="true" aria-controls="control-models">Nhân vật</button>
         <button class="control-tab" id="control-tab-animations" type="button" role="tab" aria-selected="false" aria-controls="control-animations">Động tác</button>
+        <button class="control-tab" id="control-tab-performance" type="button" role="tab" aria-selected="false" aria-controls="control-performance">Trình diễn</button>
         <button class="control-tab" id="control-tab-backgrounds" type="button" role="tab" aria-selected="false" aria-controls="control-backgrounds">Bối cảnh</button>
       </div>
 
@@ -34,6 +35,14 @@
       <section class="control-section" id="control-animations" role="tabpanel" aria-labelledby="control-tab-animations" hidden>
         <p class="control-title" id="animation-title">Động tác</p>
         <div class="button-grid" id="animation-buttons"></div>
+      </section>
+
+      <section class="control-section performance-section" id="control-performance" role="tabpanel" aria-labelledby="control-tab-performance" hidden>
+        <p class="control-title">Special performance</p>
+        <p class="performance-status" id="performance-status">Đang kiểm tra nhạc local…</p>
+        <button class="control-button performance-button" id="bling-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
+        <p class="performance-status" id="aipai-performance-status">Đang kiểm tra Aipai Dance Hall…</p>
+        <button class="control-button performance-button" id="aipai-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
       </section>
 
       <section class="control-section" id="control-backgrounds" role="tabpanel" aria-labelledby="control-tab-backgrounds" hidden>
