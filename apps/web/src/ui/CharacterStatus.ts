@@ -1,14 +1,14 @@
 import type { CompanionState } from "../chat/types.js";
 
 const stateLabels: Record<CompanionState, string> = {
-  BOOTING: "Dang khoi dong...",
-  IDLE: "San sang",
-  LISTENING: "Dang nghe",
-  THINKING: "Dang suy nghi...",
-  SPEAKING: "Dang noi...",
-  REACTING: "Dang phan ung",
-  ERROR: "Khong the ket noi",
-  DISPOSED: "Da dung"
+  BOOTING: "Đang khởi động...",
+  IDLE: "Sẵn sàng",
+  LISTENING: "Đang nghe",
+  THINKING: "Đang suy nghĩ...",
+  SPEAKING: "Đang nói...",
+  REACTING: "Đang phản ứng",
+  ERROR: "Không thể kết nối",
+  DISPOSED: "Đã dừng"
 };
 
 export class CharacterStatus {

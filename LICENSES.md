@@ -23,3 +23,8 @@ Package licenses are resolved from installed package metadata during dependency 
 ## Assets
 
 VRM models, VRMA animations, and backgrounds under `vrm-models/`, `animations/`, `backgrounds/`, and `apps/web/public/` are treated as project assets supplied with this repository. Confirm redistribution rights before publishing.
+
+- `ShakeHead.vrma` (`首を振るアニメーション`) by あずき物語: distributed free of charge on BOOTH with permission to use freely and no attribution requirement. Source: https://booth.pm/en/items/6186161
+- `Dance25.vrma` was supplied by the project owner from the free BOOTH release by kaanyan. Source: https://booth.pm/en/items/8121996
+- `WelcomePose.vrma`, `CutePose.vrma`, `VictoryPose.vrma`, and `PresentationPose.vrma` were supplied by the project owner from `ワンダフルなVRMAセット`. Use is permitted without attribution, but redistribution of unmodified files is prohibited. Source: https://booth.pm/en/items/5917598
+- `MotionPose.vrma`, `Dogeza.vrma`, `StepExercise.vrma`, `Hello.vrma`, `Smartphone.vrma`, `DrinkWater.vrma`, `Encourage.vrma`, and `Startled.vrma` are from `使いどころに困るモーションセット` by へすい/rerofumi, released under CC0. Source: https://booth.pm/ja/items/5527394

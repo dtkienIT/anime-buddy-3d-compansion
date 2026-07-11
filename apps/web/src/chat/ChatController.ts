@@ -5,14 +5,14 @@ import type { AudioQueue } from "../audio/AudioQueue.js";
 import type { TtsClient } from "../audio/TtsClient.js";
 import type { VoiceSettings } from "../audio/VoiceSettings.js";
 import type { CharacterController } from "../character/CharacterController.js";
-import type { ApiClient } from "../services/apiClient.js";
+import type { ApiClient, ConversationMessage, ExportData, MemoryRecord, SessionSummary } from "../services/apiClient.js";
 import { sanitizeAiText, splitIntoSpeechChunks } from "../utils/text.js";
 import { toUserMessage } from "../utils/errors.js";
 import { perfMetrics } from "../utils/PerformanceMetrics.js";
 import { getAvailableAnimationIds } from "./promptBuilder.js";
 import { ChatStateMachine } from "./chatStateMachine.js";
 import { MessageStore } from "./messageStore.js";
-import type { ChatControllerEvents, CompanionState } from "./types.js";
+import type { ChatControllerEvents, CompanionState, LocalChatMessage } from "./types.js";
 import { IndexedDbOutbox } from "../services/IndexedDbOutbox.js";
 
 export class ChatController {
@@ -39,7 +39,55 @@ export class ChatController {
   }
 
   setReady(): void {
-    this.setState("IDLE", "San sang");
+    this.setState("IDLE", "Sẵn sàng");
+  }
+
+  setDataHandlers(
+    onSessionsLoaded: (sessions: SessionSummary[]) => void,
+    onHistoryLoaded: (messages: LocalChatMessage[], sessionId: string) => void
+  ): void {
+    this.events.onSessionsLoaded = onSessionsLoaded;
+    this.events.onHistoryLoaded = onHistoryLoaded;
+  }
+
+  getAnonymousId(): string {
+    return this.store.getAnonymousId();
+  }
+
+  getSessionId(): string | undefined {
+    return this.store.getSessionId();
+  }
+
+  getSessions(): Promise<SessionSummary[]> {
+    return this.api.getSessions(this.store.getAnonymousId());
+  }
+
+  getMemories(): Promise<MemoryRecord[]> {
+    return this.api.getMemories(this.store.getAnonymousId());
+  }
+
+  exportData(): Promise<ExportData> {
+    return this.api.exportData(this.store.getAnonymousId());
+  }
+
+  setMemoryEnabled(enabled: boolean): Promise<void> {
+    return this.api.setMemoryEnabled(this.store.getAnonymousId(), enabled);
+  }
+
+  getMemoryEnabled(): Promise<boolean> {
+    return this.api.getMemoryEnabled(this.store.getAnonymousId());
+  }
+
+  deleteAllMemories(): Promise<void> {
+    return this.api.deleteAllMemories(this.store.getAnonymousId());
+  }
+
+  updateMemory(memoryId: string, content: string): Promise<void> {
+    return this.api.updateMemory(memoryId, this.store.getAnonymousId(), content);
+  }
+
+  deleteMemory(memoryId: string): Promise<void> {
+    return this.api.deleteMemory(memoryId, this.store.getAnonymousId());
   }
 
   async initializeHistory(): Promise<void> {
@@ -59,14 +107,7 @@ export class ChatController {
 
       if (sessionId) {
         const messages = await this.api.loadConversation(sessionId, anonymousId);
-        const localMessages = messages.map((m: any) => ({
-          role: m.role,
-          content: m.content,
-          emotion: m.emotion || undefined,
-          animation: m.animation || undefined,
-          expression: m.expression || undefined,
-          id: m.id || crypto.randomUUID()
-        }));
+        const localMessages = messages.map(toLocalMessage);
         this.store.setMessages(localMessages);
         this.events.onHistoryLoaded?.(localMessages, sessionId);
       }
@@ -85,14 +126,7 @@ export class ChatController {
     try {
       this.store.setSessionId(sessionId);
       const messages = await this.api.loadConversation(sessionId, anonymousId);
-      const localMessages = messages.map((m: any) => ({
-        role: m.role,
-        content: m.content,
-        emotion: m.emotion || undefined,
-        animation: m.animation || undefined,
-        expression: m.expression || undefined,
-        id: m.id || crypto.randomUUID()
-      }));
+      const localMessages = messages.map(toLocalMessage);
       this.store.setMessages(localMessages);
       this.events.onHistoryLoaded?.(localMessages, sessionId);
       this.setState("IDLE", "Sẵn sàng");
@@ -124,7 +158,7 @@ export class ChatController {
     const sessionId = this.store.getSessionId();
     if (!sessionId) return;
     try {
-      await this.api.renameSession(sessionId, title);
+      await this.api.renameSession(sessionId, this.store.getAnonymousId(), title);
       const sessions = await this.api.getSessions(this.store.getAnonymousId());
       this.events.onSessionsLoaded?.(sessions);
     } catch {
@@ -175,7 +209,7 @@ export class ChatController {
     if (!settings.enabled && this.states.state === "SPEAKING") {
       this.stopSpeaking();
     }
-    this.events.onStatus(settings.enabled ? "San sang" : "Da tat giong", this.states.state);
+    this.events.onStatus(settings.enabled ? "Sẵn sàng" : "Đã tắt giọng", this.states.state);
   }
 
   async send(message: string): Promise<void> {
@@ -280,7 +314,7 @@ export class ChatController {
         console.error("Failed to add to IndexedDB outbox:", dbErr);
       }
 
-      this.setState("ERROR", "Khong the ket noi");
+      this.setState("ERROR", "Không thể kết nối");
       const messageText = toUserMessage(error);
       const systemMessage = this.store.add({ role: "system", content: `${messageText} (Chưa đồng bộ)` });
       this.events.onAssistantMessage(systemMessage);
@@ -409,4 +443,15 @@ export class ChatController {
   private isAbortError(error: unknown): boolean {
     return error instanceof DOMException && error.name === "AbortError";
   }
+}
+
+function toLocalMessage(message: ConversationMessage): LocalChatMessage {
+  return {
+    role: message.role,
+    content: message.content,
+    emotion: message.emotion || undefined,
+    animation: message.animation || undefined,
+    expression: message.expression || undefined,
+    id: message.id || crypto.randomUUID()
+  };
 }

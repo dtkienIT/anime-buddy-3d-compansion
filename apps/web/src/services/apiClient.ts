@@ -14,6 +14,44 @@ const chatResponseSchema = z.object({
   warnings: z.array(z.string()).default([])
 });
 
+const conversationMessageSchema = z.object({
+  id: z.string().optional(),
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string(),
+  emotion: z.enum(companionEmotions).nullable().optional(),
+  animation: z.string().nullable().optional(),
+  expression: z.enum(companionExpressions).nullable().optional()
+});
+
+const sessionSummarySchema = z.object({
+  id: z.string(),
+  title: z.string().nullable().optional(),
+  character_id: z.string().nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string().nullable().optional()
+});
+
+const memoryRecordSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  kind: z.string(),
+  confidence: z.number().min(0).max(1).catch(0),
+  character_id: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().nullable().optional()
+});
+
+export type ConversationMessage = z.infer<typeof conversationMessageSchema>;
+export type SessionSummary = z.infer<typeof sessionSummarySchema>;
+export type MemoryRecord = z.infer<typeof memoryRecordSchema>;
+
+export interface ExportData {
+  anonymousId: string;
+  exportedAt: string;
+  sessions: unknown[];
+  memories: unknown[];
+}
+
 export interface SendChatInput {
   sessionId?: string;
   anonymousId: string;
@@ -42,7 +80,7 @@ export class ApiClient {
 
     const payload = await readJson(response);
     if (!response.ok) {
-      throw new Error(payload?.error || `Chat request failed with ${response.status}`);
+      throw new Error(readErrorMessage(payload) || `Chat request failed with ${response.status}`);
     }
 
     return chatResponseSchema.parse(payload);
@@ -54,26 +92,26 @@ export class ApiClient {
     });
   }
 
-  async loadConversation(sessionId: string, anonymousId: string): Promise<any[]> {
+  async loadConversation(sessionId: string, anonymousId: string): Promise<ConversationMessage[]> {
     const response = await fetch(`${this.baseUrl}/api/conversations?sessionId=${sessionId}&anonymousId=${encodeURIComponent(anonymousId)}`);
     if (!response.ok) {
       throw new Error(`Failed to load conversation: ${response.status}`);
     }
-    const payload = await response.json();
-    return payload.messages || [];
+    const payload = z.object({ messages: z.array(conversationMessageSchema).default([]) }).parse(await response.json());
+    return payload.messages;
   }
 
   // Session management
-  async getSessions(anonymousId: string): Promise<any[]> {
+  async getSessions(anonymousId: string): Promise<SessionSummary[]> {
     const response = await fetch(`${this.baseUrl}/api/sessions?anonymousId=${encodeURIComponent(anonymousId)}`);
     if (!response.ok) {
       throw new Error(`Failed to get sessions: ${response.status}`);
     }
-    const payload = await response.json();
-    return payload.sessions || [];
+    const payload = z.object({ sessions: z.array(sessionSummarySchema).default([]) }).parse(await response.json());
+    return payload.sessions;
   }
 
-  async createSession(anonymousId: string, characterId: string): Promise<any> {
+  async createSession(anonymousId: string, characterId: string): Promise<SessionSummary> {
     const response = await fetch(`${this.baseUrl}/api/sessions/new`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,12 +120,12 @@ export class ApiClient {
     if (!response.ok) {
       throw new Error(`Failed to create session: ${response.status}`);
     }
-    const payload = await response.json();
+    const payload = z.object({ session: sessionSummarySchema }).parse(await response.json());
     return payload.session;
   }
 
-  async renameSession(sessionId: string, title: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}`, {
+  async renameSession(sessionId: string, anonymousId: string, title: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}?anonymousId=${encodeURIComponent(anonymousId)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title })
@@ -107,7 +145,7 @@ export class ApiClient {
   }
 
   // Memory management
-  async getMemories(anonymousId: string, characterId?: string): Promise<any[]> {
+  async getMemories(anonymousId: string, characterId?: string): Promise<MemoryRecord[]> {
     let url = `${this.baseUrl}/api/memories?anonymousId=${encodeURIComponent(anonymousId)}`;
     if (characterId) {
       url += `&characterId=${encodeURIComponent(characterId)}`;
@@ -116,12 +154,12 @@ export class ApiClient {
     if (!response.ok) {
       throw new Error(`Failed to get memories: ${response.status}`);
     }
-    const payload = await response.json();
-    return payload.memories || [];
+    const payload = z.object({ memories: z.array(memoryRecordSchema).default([]) }).parse(await response.json());
+    return payload.memories;
   }
 
-  async updateMemory(memoryId: string, content: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/memories/${memoryId}`, {
+  async updateMemory(memoryId: string, anonymousId: string, content: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/memories/${memoryId}?anonymousId=${encodeURIComponent(anonymousId)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content })
@@ -131,8 +169,8 @@ export class ApiClient {
     }
   }
 
-  async deleteMemory(memoryId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/memories/${memoryId}`, {
+  async deleteMemory(memoryId: string, anonymousId: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/memories/${memoryId}?anonymousId=${encodeURIComponent(anonymousId)}`, {
       method: "DELETE"
     });
     if (!response.ok) {
@@ -166,17 +204,22 @@ export class ApiClient {
     if (!response.ok) {
       throw new Error(`Failed to get memory toggle: ${response.status}`);
     }
-    const payload = await response.json();
+    const payload = z.object({ enabled: z.boolean() }).parse(await response.json());
     return payload.enabled;
   }
 
   // Export
-  async exportData(anonymousId: string): Promise<any> {
+  async exportData(anonymousId: string): Promise<ExportData> {
     const response = await fetch(`${this.baseUrl}/api/export?anonymousId=${encodeURIComponent(anonymousId)}`);
     if (!response.ok) {
       throw new Error(`Failed to export data: ${response.status}`);
     }
-    return response.json();
+    return z.object({
+      anonymousId: z.string(),
+      exportedAt: z.string(),
+      sessions: z.array(z.unknown()).default([]),
+      memories: z.array(z.unknown()).default([])
+    }).parse(await response.json());
   }
 
   async saveOfflineMessage(sessionId: string, message: {
@@ -197,7 +240,7 @@ export class ApiClient {
   }
 }
 
-async function readJson(response: Response): Promise<any> {
+async function readJson(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) {
     return null;
@@ -208,4 +251,10 @@ async function readJson(response: Response): Promise<any> {
   } catch {
     throw new Error("Backend returned invalid JSON");
   }
+}
+
+function readErrorMessage(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) return undefined;
+  const error = (payload as { error?: unknown }).error;
+  return typeof error === "string" ? error : undefined;
 }

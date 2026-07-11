@@ -17,6 +17,7 @@ const envSchema = z.object({
   CHAT_MAX_CONTEXT_MESSAGES: z.coerce.number().int().min(1).max(50).default(20),
   CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
   TTS_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
+  DATA_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(240).default(60),
 
   // Memory settings
   MEMORY_ENABLED: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
