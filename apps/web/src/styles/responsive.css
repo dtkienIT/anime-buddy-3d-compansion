@@ -22,10 +22,6 @@
     max-height: 40vh;
   }
 
-  .speech-bubble {
-    top: 44%;
-  }
-
   .toast-region {
     right: 12px;
     bottom: calc(38vh + 24px);

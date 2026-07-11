@@ -9,7 +9,6 @@ import { ChatController } from "../chat/ChatController.js";
 import type { CompanionState } from "../chat/types.js";
 import { ChatPanel } from "../ui/ChatPanel.js";
 import { CharacterStatus } from "../ui/CharacterStatus.js";
-import { SpeechBubble } from "../ui/SpeechBubble.js";
 import { ToastManager } from "../ui/ToastManager.js";
 import { VoiceControls } from "../ui/VoiceControls.js";
 
@@ -18,7 +17,6 @@ export class AppController {
   private readonly chatPanel: ChatPanel;
   private readonly chat: ChatController;
   private readonly status: CharacterStatus;
-  private readonly speech: SpeechBubble;
   private readonly toasts: ToastManager;
   private readonly voiceControls: VoiceControls;
 
@@ -29,7 +27,6 @@ export class AppController {
     const controls = required<HTMLElement>("#controls");
 
     this.status = new CharacterStatus(required("#character-status"), required("#state-pill"));
-    this.speech = new SpeechBubble(required("#speech-bubble"));
     this.toasts = new ToastManager(required("#toast-region"));
 
     this.character = new CharacterController({
@@ -69,7 +66,6 @@ export class AppController {
         clear: () => {
           this.chat.clear();
           this.chatPanel.clearMessages();
-          this.speech.hide();
         }
       }
     );
@@ -84,8 +80,7 @@ export class AppController {
         onUserMessage: (message) => this.chatPanel.addMessage(message),
         onAssistantMessage: (message) => this.chatPanel.addMessage(message),
         onStatus: (message, state) => this.setStatus(state, message),
-        onWarning: (message) => this.toasts.show(message),
-        onSpeech: (text, timeoutMs) => this.speech.show(text, timeoutMs)
+        onWarning: (message) => this.toasts.show(message)
       },
       this.voiceControls.value
     );
@@ -115,9 +110,6 @@ export class AppController {
     this.chat.setReady();
     this.chatPanel.setVoiceAvailable(true);
 
-    if (this.chat["store"].all().length === 0) {
-      this.speech.show("Xin chao, minh san sang noi chuyen roi.", 3800);
-    }
   }
 
   private renderControlButtons(): void {
@@ -269,7 +261,6 @@ export class AppController {
     this.chat["events"].onHistoryLoaded = (messages, sessionId) => {
       this.chatPanel.clearMessages();
       messages.forEach(m => this.chatPanel.addMessage(m));
-      this.speech.hide();
       this.updateActiveSessionItem(sessionId);
     };
 

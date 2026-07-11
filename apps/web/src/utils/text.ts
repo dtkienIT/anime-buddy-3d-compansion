@@ -17,10 +17,6 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-export function estimateSpeechBubbleMs(text: string): number {
-  return clamp(1800 + text.length * 42, 2600, 9000);
-}
-
 export function splitIntoSpeechChunks(text: string): string[] {
   const clean = sanitizeAiText(text).trim();
   if (!clean) return [];

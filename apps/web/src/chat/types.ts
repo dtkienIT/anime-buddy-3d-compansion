@@ -19,7 +19,6 @@ export interface ChatControllerEvents {
   onAssistantMessage: (message: LocalChatMessage) => void;
   onStatus: (status: string, state: CompanionState) => void;
   onWarning: (message: string) => void;
-  onSpeech: (text: string, timeoutMs: number) => void;
   onSessionsLoaded?: (sessions: any[]) => void;
   onHistoryLoaded?: (messages: LocalChatMessage[], sessionId: string) => void;
 }

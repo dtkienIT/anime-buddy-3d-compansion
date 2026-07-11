@@ -6,7 +6,7 @@ import type { TtsClient } from "../audio/TtsClient.js";
 import type { VoiceSettings } from "../audio/VoiceSettings.js";
 import type { CharacterController } from "../character/CharacterController.js";
 import type { ApiClient } from "../services/apiClient.js";
-import { sanitizeAiText, estimateSpeechBubbleMs, splitIntoSpeechChunks } from "../utils/text.js";
+import { sanitizeAiText, splitIntoSpeechChunks } from "../utils/text.js";
 import { toUserMessage } from "../utils/errors.js";
 import { perfMetrics } from "../utils/PerformanceMetrics.js";
 import { getAvailableAnimationIds } from "./promptBuilder.js";
@@ -212,7 +212,6 @@ export class ChatController {
         }
       }, 300);
 
-      this.events.onSpeech("...", 0);
       void this.character.playAnimation("thinking", { loop: true });
 
       perfMetrics.mark(runId, "chatRequestStartedAt");
@@ -246,7 +245,6 @@ export class ChatController {
       this.events.onAssistantMessage(assistantMessage);
       perfMetrics.mark(runId, "replyRenderedAt");
       perfMetrics.mark(runId, "firstVisibleTextAt");
-      this.events.onSpeech(cleanReply, estimateSpeechBubbleMs(cleanReply));
       this.character.setExpression(reply.expression as CompanionExpression, reply.intensity);
 
       if (this.voiceSettings.enabled) {
@@ -335,7 +333,7 @@ export class ChatController {
 
   private async speak(text: string, animationId: string, runId: number): Promise<void> {
     this.setState("SPEAKING", "Đang chuẩn bị giọng...");
-    this.character.setRenderRate(1);
+    this.character.setRenderRate(30);
     void this.character.playAnimation(animationId || defaultAnimationId, { loop: true }).catch(() => undefined);
 
     perfMetrics.mark(runId, "chunkSplitStartedAt");
@@ -350,7 +348,7 @@ export class ChatController {
           return await this.tts.synthesize(chunkText, this.voiceSettings, signal, runId);
         },
         () => {
-          this.character.setRenderRate(15);
+          this.character.setRenderRate(30);
           const activeAnalyser = this.audioPlayer.getAnalyser();
           if (activeAnalyser) {
             this.character.attachLipSyncAnalyser(activeAnalyser);

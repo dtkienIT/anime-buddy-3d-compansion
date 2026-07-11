@@ -170,38 +170,6 @@
   opacity: 0.62;
 }
 
-.speech-bubble {
-  position: fixed;
-  left: 50%;
-  top: 18%;
-  z-index: 2;
-  width: min(420px, calc(100vw - 36px));
-  min-height: 44px;
-  max-height: 132px;
-  overflow: auto;
-  border: 1px solid rgba(255, 255, 255, 0.66);
-  border-radius: 8px;
-  padding: 11px 13px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 18px 54px rgba(15, 23, 42, 0.13);
-  color: #26313f;
-  font-size: 14px;
-  font-weight: 750;
-  line-height: 1.42;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -8px);
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease;
-  backdrop-filter: blur(16px);
-}
-
-.speech-bubble.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
 .toast-region {
   position: fixed;
   right: 18px;
