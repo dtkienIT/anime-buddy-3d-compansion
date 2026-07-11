@@ -193,6 +193,14 @@ export class CharacterController {
     this.currentAnimationId = animationId;
   }
 
+  async preloadAnimationAsset(url: string): Promise<void> {
+    await this.animations.preload(url);
+  }
+
+  async playAnimationAsset(url: string, options: PlayAnimationOptions = {}): Promise<void> {
+    await this.animations.playAsset(url, options);
+  }
+
   switchBackground(backgroundId: string): void {
     const next = getBackgroundById(backgroundId);
     this.currentBackgroundId = next.id;

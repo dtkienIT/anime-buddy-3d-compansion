@@ -18,6 +18,7 @@ const env: ApiEnv = {
   CHAT_MAX_CONTEXT_MESSAGES: 20,
   CHAT_RATE_LIMIT_PER_MINUTE: 2,
   TTS_RATE_LIMIT_PER_MINUTE: 2,
+  DATA_RATE_LIMIT_PER_MINUTE: 4,
   MEMORY_ENABLED: true,
   MEMORY_RECENT_MESSAGE_LIMIT: 24,
   MEMORY_TOP_K: 8,
@@ -75,6 +76,16 @@ describe("api", () => {
     await app.inject({ method: "POST", url: "/api/chat", payload });
     await app.inject({ method: "POST", url: "/api/chat", payload });
     const limited = await app.inject({ method: "POST", url: "/api/chat", payload });
+    expect(limited.statusCode).toBe(429);
+  });
+
+  it("applies data route rate limits", async () => {
+    const app = await createApp(env);
+    const url = "/api/sessions?anonymousId=anonymous-rate-test";
+    for (let index = 0; index < env.DATA_RATE_LIMIT_PER_MINUTE; index += 1) {
+      await app.inject({ method: "GET", url });
+    }
+    const limited = await app.inject({ method: "GET", url });
     expect(limited.statusCode).toBe(429);
   });
 

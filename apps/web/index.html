@@ -7,32 +7,46 @@
     <link rel="icon" href="data:," />
   </head>
   <body>
-    <canvas id="stage" aria-label="3D AI companion viewer"></canvas>
+    <canvas id="stage" aria-label="Nhân vật AI 3D"></canvas>
 
-    <div class="speech-bubble" id="speech-bubble" aria-live="polite"></div>
     <div class="toast-region" id="toast-region" aria-live="polite"></div>
 
-    <aside class="control-panel" id="controls" aria-label="Model, animation, and background controls">
+    <aside class="control-panel" id="controls" aria-label="Tùy chỉnh nhân vật">
       <div class="panel-header">
         <div>
           <p class="panel-title">3D AI Companion</p>
-          <p class="panel-subtitle" id="character-status">Dang khoi dong...</p>
+          <p class="panel-subtitle" id="character-status">Đang khởi động...</p>
         </div>
         <span class="state-pill" id="state-pill">BOOTING</span>
       </div>
 
-      <section class="control-section" aria-labelledby="model-title">
-        <p class="control-title" id="model-title">Models</p>
+      <div class="control-tabs" role="tablist" aria-label="Nhóm tùy chỉnh">
+        <button class="control-tab is-active" id="control-tab-models" type="button" role="tab" aria-selected="true" aria-controls="control-models">Nhân vật</button>
+        <button class="control-tab" id="control-tab-animations" type="button" role="tab" aria-selected="false" aria-controls="control-animations">Động tác</button>
+        <button class="control-tab" id="control-tab-performance" type="button" role="tab" aria-selected="false" aria-controls="control-performance">Trình diễn</button>
+        <button class="control-tab" id="control-tab-backgrounds" type="button" role="tab" aria-selected="false" aria-controls="control-backgrounds">Bối cảnh</button>
+      </div>
+
+      <section class="control-section is-active" id="control-models" role="tabpanel" aria-labelledby="control-tab-models">
+        <p class="control-title" id="model-title">Nhân vật</p>
         <div class="button-grid" id="model-buttons"></div>
       </section>
 
-      <section class="control-section" aria-labelledby="animation-title">
-        <p class="control-title" id="animation-title">Animations</p>
+      <section class="control-section" id="control-animations" role="tabpanel" aria-labelledby="control-tab-animations" hidden>
+        <p class="control-title" id="animation-title">Động tác</p>
         <div class="button-grid" id="animation-buttons"></div>
       </section>
 
-      <section class="control-section" aria-labelledby="background-title">
-        <p class="control-title" id="background-title">Backgrounds</p>
+      <section class="control-section performance-section" id="control-performance" role="tabpanel" aria-labelledby="control-tab-performance" hidden>
+        <p class="control-title">Special performance</p>
+        <p class="performance-status" id="performance-status">Đang kiểm tra nhạc local…</p>
+        <button class="control-button performance-button" id="bling-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
+        <p class="performance-status" id="aipai-performance-status">Đang kiểm tra Aipai Dance Hall…</p>
+        <button class="control-button performance-button" id="aipai-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
+      </section>
+
+      <section class="control-section" id="control-backgrounds" role="tabpanel" aria-labelledby="control-tab-backgrounds" hidden>
+        <p class="control-title" id="background-title">Bối cảnh</p>
         <div class="button-grid" id="background-buttons"></div>
       </section>
     </aside>
@@ -41,39 +55,39 @@
       <div class="chat-header">
         <div>
           <p class="chat-title" id="chat-character-name">Mika</p>
-          <p class="chat-status" id="chat-status">San sang</p>
+          <p class="chat-status" id="chat-status">Sẵn sàng</p>
         </div>
         <div class="chat-actions">
-          <button class="icon-button" id="voice-toggle" type="button" title="Bat/tat giong noi" aria-label="Bat/tat giong noi">On</button>
-          <button class="icon-button" id="toggle-menu" type="button" title="Cài đặt & Trí nhớ" aria-label="Cài đặt & Trí nhớ">Menu</button>
-          <button class="icon-button" id="collapse-chat" type="button" title="Thu gon chat" aria-label="Thu gon chat">Min</button>
+          <button class="icon-button" id="voice-toggle" type="button" title="Bật hoặc tắt giọng nói" aria-label="Bật hoặc tắt giọng nói" aria-pressed="true">On</button>
+          <button class="icon-button" id="toggle-menu" type="button" title="Cài đặt và trí nhớ" aria-label="Cài đặt và trí nhớ" aria-expanded="false" aria-controls="chat-menu">Menu</button>
+          <button class="icon-button" id="collapse-chat" type="button" title="Thu gọn trò chuyện" aria-label="Thu gọn trò chuyện" aria-expanded="true">Min</button>
         </div>
       </div>
 
       <div class="voice-toolbar" id="voice-toolbar">
-        <button class="tool-button" id="stop-speaking" type="button">Dung noi</button>
-        <button class="tool-button" id="replay-reply" type="button">Phat lai</button>
-        <button class="tool-button" id="clear-chat" type="button">Xoa hoi thoai</button>
+        <button class="tool-button" id="stop-speaking" type="button" disabled>Dừng nói</button>
+        <button class="tool-button" id="replay-reply" type="button" disabled>Phát lại</button>
+        <button class="tool-button" id="clear-chat" type="button">Xóa hội thoại</button>
       </div>
 
       <div class="chat-menu" id="chat-menu" style="display: none;">
-        <div class="menu-tabs">
-          <button class="menu-tab-btn is-active" id="tab-sessions-btn" type="button">Hội thoại</button>
-          <button class="menu-tab-btn" id="tab-memory-btn" type="button">Trí nhớ</button>
+        <div class="menu-tabs" role="tablist" aria-label="Dữ liệu trò chuyện">
+          <button class="menu-tab-btn is-active" id="tab-sessions-btn" type="button" role="tab" aria-selected="true" aria-controls="pane-sessions">Hội thoại</button>
+          <button class="menu-tab-btn" id="tab-memory-btn" type="button" role="tab" aria-selected="false" aria-controls="pane-memory">Trí nhớ</button>
         </div>
 
-        <div class="menu-pane" id="pane-sessions">
+        <div class="menu-pane" id="pane-sessions" role="tabpanel" aria-labelledby="tab-sessions-btn">
           <div class="menu-actions-row">
             <button class="tool-button" id="new-session-btn" type="button">Hội thoại mới</button>
             <button class="tool-button" id="export-btn" type="button">Xuất dữ liệu</button>
           </div>
           <div class="search-box">
-            <input class="search-input" id="session-search" type="text" placeholder="Tìm hội thoại..." />
+            <input class="search-input" id="session-search" type="search" placeholder="Tìm hội thoại…" aria-label="Tìm hội thoại" />
           </div>
           <div class="scroll-list" id="sessions-list"></div>
         </div>
 
-        <div class="menu-pane" id="pane-memory" style="display: none;">
+        <div class="menu-pane" id="pane-memory" role="tabpanel" aria-labelledby="tab-memory-btn" style="display: none;">
           <div class="memory-settings-row">
             <label class="toggle-container">
               <input id="toggle-memory-checkbox" type="checkbox" checked />
@@ -94,9 +108,10 @@
           name="message"
           maxlength="600"
           rows="2"
-          placeholder="Noi gi do voi minh..."
+          placeholder="Nói gì đó với mình…"
+          aria-label="Tin nhắn"
         ></textarea>
-        <button class="chat-send" id="chat-send" type="submit">Gui</button>
+        <button class="chat-send" id="chat-send" type="submit">Gửi</button>
       </form>
     </aside>
 

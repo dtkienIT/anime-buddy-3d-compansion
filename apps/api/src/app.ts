@@ -66,7 +66,7 @@ export async function createApp(env: ApiEnv = getEnv(), services: AppServices = 
   registerChatRoute(app, env, ai, supabase);
   registerTtsRoute(app, env, tts);
   registerConversationRoutes(app, supabase);
-  registerMemoryRoutes(app, supabase.getClient());
+  registerMemoryRoutes(app, supabase.getClient(), { rateLimitMax: env.DATA_RATE_LIMIT_PER_MINUTE });
 
   return app;
 }

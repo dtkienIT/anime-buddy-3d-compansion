@@ -44,9 +44,23 @@ export const characterRegistry: CharacterRegistryItem[] = [
 ];
 
 export const animationRegistry: AnimationRegistryItem[] = [
-  { id: "greeting", label: "Greeting", url: "/animations/vrma_02.vrma", loop: false, fadeDuration: 0.18, category: "gesture", fallbackId: "relax" },
+  { id: "greeting", label: "Greeting", url: "/animations/Greeting.vrma", loop: false, fadeDuration: 0.18, category: "gesture", fallbackId: "relax" },
   { id: "relax", label: "Relax", url: "/animations/Relax.vrma", loop: true, fadeDuration: 0.2, category: "idle", fallbackId: "relax" },
   { id: "thinking", label: "Thinking", url: "/animations/Thinking.vrma", loop: true, fadeDuration: 0.18, category: "thinking", fallbackId: "relax" },
+  { id: "shake-head", label: "Shake Head", url: "/animations/ShakeHead.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
+  { id: "dance-25", label: "Dance 25", url: "/animations/Dance25.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
+  { id: "welcome-pose", label: "Welcome Pose", url: "/animations/WelcomePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "cute-pose", label: "Cute Pose", url: "/animations/CutePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "victory-pose", label: "Victory Pose", url: "/animations/VictoryPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "presentation-pose", label: "Presentation Pose", url: "/animations/PresentationPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "motion-pose", label: "Motion Pose", url: "/animations/MotionPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "dogeza", label: "Dogeza", url: "/animations/Dogeza.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "step-exercise", label: "Step Exercise", url: "/animations/StepExercise.vrma", loop: true, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
+  { id: "hello", label: "Hello", url: "/animations/Hello.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "smartphone", label: "Smartphone", url: "/animations/Smartphone.vrma", loop: true, fadeDuration: 0.16, category: "idle", fallbackId: "relax" },
+  { id: "drink-water", label: "Drink Water", url: "/animations/DrinkWater.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "encourage", label: "Encourage", url: "/animations/Encourage.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
+  { id: "startled", label: "Startled", url: "/animations/Startled.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
   { id: "look-around", label: "Look Around", url: "/animations/LookAround.vrma", loop: false, fadeDuration: 0.18, category: "idle", fallbackId: "relax" },
   { id: "clapping", label: "Clapping", url: "/animations/Clapping.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
   { id: "goodbye", label: "Goodbye", url: "/animations/Goodbye.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
@@ -56,11 +70,11 @@ export const animationRegistry: AnimationRegistryItem[] = [
   { id: "sad", label: "Sad", url: "/animations/Sad.vrma", loop: false, fadeDuration: 0.18, category: "reaction", fallbackId: "relax" },
   { id: "sleepy", label: "Sleepy", url: "/animations/Sleepy.vrma", loop: false, fadeDuration: 0.2, category: "reaction", fallbackId: "relax" },
   { id: "surprised", label: "Surprised", url: "/animations/Surprised.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
-  { id: "peace", label: "Peace", url: "/animations/vrma_03.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "shoot", label: "Shoot", url: "/animations/vrma_04.vrma", loop: false, fadeDuration: 0.12, category: "gesture", fallbackId: "relax" },
-  { id: "spin", label: "Spin", url: "/animations/vrma_05.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
-  { id: "pose", label: "Pose", url: "/animations/vrma_06.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "squat", label: "Squat", url: "/animations/vrma_07.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "peace", label: "Peace", url: "/animations/Peace.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "shoot", label: "Shoot", url: "/animations/Shoot.vrma", loop: false, fadeDuration: 0.12, category: "gesture", fallbackId: "relax" },
+  { id: "spin", label: "Spin", url: "/animations/Spin.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
+  { id: "pose", label: "Pose", url: "/animations/Pose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "squat", label: "Squat", url: "/animations/Squat.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
   { id: "vrma-01", label: "VRMA 01", url: "/animations/vrma_01.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" }
 ];
 

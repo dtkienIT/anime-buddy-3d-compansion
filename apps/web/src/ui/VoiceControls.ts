@@ -26,5 +26,7 @@ export class VoiceControls extends EventTarget {
   private render(): void {
     this.toggleButton.textContent = this.settings.enabled ? "On" : "Off";
     this.toggleButton.classList.toggle("is-active", this.settings.enabled);
+    this.toggleButton.setAttribute("aria-pressed", String(this.settings.enabled));
+    this.toggleButton.title = this.settings.enabled ? "Tắt giọng nói" : "Bật giọng nói";
   }
 }

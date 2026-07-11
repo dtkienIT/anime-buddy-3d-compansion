@@ -1,5 +1,5 @@
 import { getAnimationById } from "@anime-buddy/shared";
-import { ApiClient } from "../services/apiClient.js";
+import { ApiClient, type MemoryRecord, type SessionSummary } from "../services/apiClient.js";
 import { AudioPlayer } from "../audio/AudioPlayer.js";
 import { AudioQueue } from "../audio/AudioQueue.js";
 import { TtsClient } from "../audio/TtsClient.js";
@@ -9,18 +9,36 @@ import { ChatController } from "../chat/ChatController.js";
 import type { CompanionState } from "../chat/types.js";
 import { ChatPanel } from "../ui/ChatPanel.js";
 import { CharacterStatus } from "../ui/CharacterStatus.js";
-import { SpeechBubble } from "../ui/SpeechBubble.js";
 import { ToastManager } from "../ui/ToastManager.js";
 import { VoiceControls } from "../ui/VoiceControls.js";
+import { LocalPerformanceController } from "../performance/LocalPerformanceController.js";
+import { isAipaiPerformanceRequest } from "../performance/performanceIntent.js";
+
+const blingBangBangBorn = {
+  label: "Bling-Bang-Bang-Born",
+  animationUrl: "/animations/Bling-Bang-Bang-Born.vrma",
+  audioUrl: "/audio/music/Bling-Bang-Bang-Born.mp3",
+  startSeconds: 0,
+  durationSeconds: 19.167
+} as const;
+
+const aipaiDanceHall = {
+  label: "Aipai Dance Hall",
+  animationUrl: "/animations/Aipai-Dance-Hall.vrma",
+  audioUrl: "/audio/music/Aipai-Dance-Hall.mp3",
+  startSeconds: 0,
+  durationSeconds: 32.7
+} as const;
 
 export class AppController {
   private readonly character: CharacterController;
   private readonly chatPanel: ChatPanel;
   private readonly chat: ChatController;
   private readonly status: CharacterStatus;
-  private readonly speech: SpeechBubble;
   private readonly toasts: ToastManager;
   private readonly voiceControls: VoiceControls;
+  private readonly performance: LocalPerformanceController;
+  private readonly aipaiPerformance: LocalPerformanceController;
 
   constructor() {
     const canvas = required<HTMLCanvasElement>("#stage");
@@ -29,7 +47,6 @@ export class AppController {
     const controls = required<HTMLElement>("#controls");
 
     this.status = new CharacterStatus(required("#character-status"), required("#state-pill"));
-    this.speech = new SpeechBubble(required("#speech-bubble"));
     this.toasts = new ToastManager(required("#toast-region"));
 
     this.character = new CharacterController({
@@ -63,13 +80,12 @@ export class AppController {
       required("#replay-reply"),
       required("#clear-chat"),
       {
-        send: (message) => void this.chat.send(message),
+        send: (message) => void this.handleChatMessage(message),
         stopSpeaking: () => this.chat.stopSpeaking(),
         replay: () => this.chat.replayLastReply(),
         clear: () => {
           this.chat.clear();
           this.chatPanel.clearMessages();
-          this.speech.hide();
         }
       }
     );
@@ -81,26 +97,78 @@ export class AppController {
       audioPlayer,
       this.character,
       {
-        onUserMessage: (message) => this.chatPanel.addMessage(message),
+        onUserMessage: (message) => {
+          this.performance.stop(false);
+          this.aipaiPerformance.stop(false);
+          this.chatPanel.addMessage(message);
+        },
         onAssistantMessage: (message) => this.chatPanel.addMessage(message),
         onStatus: (message, state) => this.setStatus(state, message),
-        onWarning: (message) => this.toasts.show(message),
-        onSpeech: (text, timeoutMs) => this.speech.show(text, timeoutMs)
+        onWarning: (message) => this.toasts.show(message)
       },
       this.voiceControls.value
     );
+
+    this.performance = new LocalPerformanceController({
+      label: blingBangBangBorn.label,
+      button: required("#bling-performance"),
+      status: required("#performance-status"),
+      audioUrl: blingBangBangBorn.audioUrl,
+      startSeconds: blingBangBangBorn.startSeconds,
+      durationSeconds: blingBangBangBorn.durationSeconds,
+      onPrepare: () => this.character.preloadAnimationAsset(blingBangBangBorn.animationUrl),
+      onStart: async () => {
+        this.aipaiPerformance.stop(false);
+        this.chat.stopSpeaking();
+        document.body.classList.add("is-performing");
+        this.setStatus("REACTING", "Bling-Bang-Bang-Born");
+        await this.character.playAnimationAsset(blingBangBangBorn.animationUrl, { loop: false, fadeDuration: 0.08 });
+      },
+      onStop: async () => {
+        document.body.classList.remove("is-performing");
+        await this.character.playAnimation("relax", { loop: true });
+        this.setStatus("IDLE", "Sẵn sàng");
+        this.updateActiveButtons();
+      },
+      onWarning: (message) => this.toasts.show(message)
+    });
+
+    this.aipaiPerformance = new LocalPerformanceController({
+      label: aipaiDanceHall.label,
+      button: required("#aipai-performance"),
+      status: required("#aipai-performance-status"),
+      audioUrl: aipaiDanceHall.audioUrl,
+      startSeconds: aipaiDanceHall.startSeconds,
+      durationSeconds: aipaiDanceHall.durationSeconds,
+      onPrepare: () => this.character.preloadAnimationAsset(aipaiDanceHall.animationUrl),
+      onStart: async () => {
+        this.performance.stop(false);
+        this.chat.stopSpeaking();
+        document.body.classList.add("is-performing");
+        this.setStatus("REACTING", aipaiDanceHall.label);
+        await this.character.playAnimationAsset(aipaiDanceHall.animationUrl, { loop: false, fadeDuration: 0.08 });
+      },
+      onStop: async () => {
+        document.body.classList.remove("is-performing");
+        await this.character.playAnimation("relax", { loop: true });
+        this.setStatus("IDLE", "Sẵn sàng");
+        this.updateActiveButtons();
+      },
+      onWarning: (message) => this.toasts.show(message)
+    });
 
     this.voiceControls.addEventListener("change", (event) => {
       const settings = (event as CustomEvent).detail;
       this.chat.setVoiceSettings(settings);
     });
 
+    this.initControlTabs();
     this.initMemoryAndSessionUi();
   }
 
   async init(): Promise<void> {
     this.renderControlButtons();
-    this.setStatus("BOOTING", "Dang khoi dong...");
+    this.setStatus("BOOTING", "Đang khởi động...");
     await this.character.init();
     this.updateActiveButtons();
     this.chatPanel.setCharacterName(this.currentCharacterLabel());
@@ -115,9 +183,13 @@ export class AppController {
     this.chat.setReady();
     this.chatPanel.setVoiceAvailable(true);
 
-    if (this.chat["store"].all().length === 0) {
-      this.speech.show("Xin chao, minh san sang noi chuyen roi.", 3800);
-    }
+    void this.performance.initialize().catch(() => {
+      this.toasts.show("Không chuẩn bị được animation trình diễn.");
+    });
+    void this.aipaiPerformance.initialize().catch(() => {
+      this.toasts.show("Không chuẩn bị được Aipai Dance Hall.");
+    });
+
   }
 
   private renderControlButtons(): void {
@@ -129,23 +201,55 @@ export class AppController {
   private renderButtons(container: HTMLElement, options: Array<{ id: string; label: string; url: string }>, type: "model" | "animation" | "background"): void {
     container.replaceChildren();
     const fragment = document.createDocumentFragment();
+    const categoryOrder = ["idle", "thinking", "talking", "gesture", "reaction"] as const;
+    const categoryLabels: Record<(typeof categoryOrder)[number], string> = {
+      idle: "Idle",
+      thinking: "Thinking",
+      talking: "Talking",
+      gesture: "Gestures",
+      reaction: "Reactions"
+    };
+    const renderedOptions = type === "animation"
+      ? [...options].sort((left, right) => categoryOrder.indexOf(getAnimationById(left.id).category) - categoryOrder.indexOf(getAnimationById(right.id).category))
+      : options;
+    let currentCategory = "";
 
-    for (const option of options) {
+    for (const option of renderedOptions) {
+      if (type === "animation") {
+        const category = getAnimationById(option.id).category;
+        if (category !== currentCategory) {
+          const heading = document.createElement("div");
+          heading.className = "button-grid-heading";
+          heading.textContent = categoryLabels[category];
+          fragment.append(heading);
+          currentCategory = category;
+        }
+      }
       const button = document.createElement("button");
       button.className = "control-button";
       button.type = "button";
       button.textContent = option.label;
       button.title = option.url;
+      button.setAttribute("aria-pressed", "false");
       button.dataset[`${type}Id`] = option.id;
       button.addEventListener("click", () => {
         if (type === "model") {
+          this.performance.stop(false);
+          this.aipaiPerformance.stop(false);
           void this.character.switchModel(option.id).then(() => {
             this.chatPanel.setCharacterName(this.currentCharacterLabel());
             this.updateActiveButtons();
           });
         } else if (type === "animation") {
+          this.performance.stop(false);
+          this.aipaiPerformance.stop(false);
           const animation = getAnimationById(option.id);
-          void this.character.playAnimation(option.id, { loop: animation.loop }).then(() => this.updateActiveButtons());
+          void this.character.playAnimation(option.id, { loop: animation.loop }).then(async () => {
+            if (!animation.loop) {
+              await this.character.playAnimation("relax", { loop: true });
+            }
+            this.updateActiveButtons();
+          });
         } else {
           this.character.switchBackground(option.id);
           this.updateActiveButtons();
@@ -169,8 +273,52 @@ export class AppController {
 
   private setStatus(state: CompanionState, detail?: string): void {
     this.status.set(state, detail);
-    this.chatPanel.setStatus(detail || state);
-    this.chatPanel.setBusy(state === "THINKING" || state === "SPEAKING" || state === "REACTING");
+    this.chatPanel.setState(state, detail || state);
+  }
+
+  private async handleChatMessage(message: string): Promise<void> {
+    if (!isAipaiPerformanceRequest(message)) {
+      await this.chat.send(message);
+      return;
+    }
+
+    const ready = await this.chat.respondLocally(message, "Dạ, vâng ạ");
+    if (ready) {
+      this.aipaiPerformance.start();
+    }
+  }
+
+  private initControlTabs(): void {
+    const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".control-tab"));
+    const panes = Array.from(document.querySelectorAll<HTMLElement>(".control-section[role='tabpanel']"));
+
+    const activate = (tab: HTMLButtonElement): void => {
+      const paneId = tab.getAttribute("aria-controls");
+      for (const candidate of tabs) {
+        const active = candidate === tab;
+        candidate.classList.toggle("is-active", active);
+        candidate.setAttribute("aria-selected", String(active));
+        candidate.tabIndex = active ? 0 : -1;
+      }
+      for (const pane of panes) {
+        const active = pane.id === paneId;
+        pane.classList.toggle("is-active", active);
+        pane.hidden = !active;
+        if (active) pane.scrollTop = 0;
+      }
+    };
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => activate(tab));
+      tab.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const offset = event.key === "ArrowRight" ? 1 : -1;
+        const next = tabs[(index + offset + tabs.length) % tabs.length];
+        activate(next);
+        next.focus();
+      });
+    });
   }
 
   private initMemoryAndSessionUi(): void {
@@ -195,6 +343,8 @@ export class AppController {
       chatMenu.style.display = isMenuOpen ? "flex" : "none";
       toggleMenu.textContent = isMenuOpen ? "Chat" : "Menu";
       toggleMenu.title = isMenuOpen ? "Quay lại trò chuyện" : "Cài đặt & Trí nhớ";
+      toggleMenu.setAttribute("aria-expanded", String(isMenuOpen));
+      chatPanel.scrollTop = 0;
 
       if (isMenuOpen) {
         void this.refreshSessionsList();
@@ -207,6 +357,8 @@ export class AppController {
       tabMemoryBtn.classList.remove("is-active");
       paneSessions.style.display = "flex";
       paneMemory.style.display = "none";
+      tabSessionsBtn.setAttribute("aria-selected", "true");
+      tabMemoryBtn.setAttribute("aria-selected", "false");
     });
 
     tabMemoryBtn.addEventListener("click", () => {
@@ -214,6 +366,8 @@ export class AppController {
       tabSessionsBtn.classList.remove("is-active");
       paneMemory.style.display = "flex";
       paneSessions.style.display = "none";
+      tabMemoryBtn.setAttribute("aria-selected", "true");
+      tabSessionsBtn.setAttribute("aria-selected", "false");
       void this.refreshMemoriesList();
     });
 
@@ -223,7 +377,7 @@ export class AppController {
 
     exportBtn.addEventListener("click", async () => {
       try {
-        const data = await this.chat["api"].exportData(this.chat["store"].getAnonymousId());
+        const data = await this.chat.exportData();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -239,7 +393,7 @@ export class AppController {
     toggleMemoryCheckbox.addEventListener("change", async () => {
       const enabled = toggleMemoryCheckbox.checked;
       try {
-        await this.chat["api"].setMemoryEnabled(this.chat["store"].getAnonymousId(), enabled);
+        await this.chat.setMemoryEnabled(enabled);
       } catch {
         this.toasts.show("Không thể cập nhật cấu hình.");
         toggleMemoryCheckbox.checked = !enabled;
@@ -249,7 +403,7 @@ export class AppController {
     clearMemoriesBtn.addEventListener("click", async () => {
       if (confirm("Bạn có chắc muốn xóa toàn bộ trí nhớ dài hạn?")) {
         try {
-          await this.chat["api"].deleteAllMemories(this.chat["store"].getAnonymousId());
+          await this.chat.deleteAllMemories();
           this.toasts.show("Đã xóa sạch bộ nhớ!");
           void this.refreshMemoriesList();
         } catch {
@@ -262,18 +416,16 @@ export class AppController {
       this.filterSessions(sessionSearch.value);
     });
 
-    this.chat["events"].onSessionsLoaded = (sessions) => {
-      this.renderSessionsList(sessions);
-    };
+    this.chat.setDataHandlers(
+      (sessions) => this.renderSessionsList(sessions),
+      (messages, sessionId) => {
+        this.chatPanel.clearMessages();
+        messages.forEach((message) => this.chatPanel.addMessage(message));
+        this.updateActiveSessionItem(sessionId);
+      }
+    );
 
-    this.chat["events"].onHistoryLoaded = (messages, sessionId) => {
-      this.chatPanel.clearMessages();
-      messages.forEach(m => this.chatPanel.addMessage(m));
-      this.speech.hide();
-      this.updateActiveSessionItem(sessionId);
-    };
-
-    void this.chat["api"].getMemoryEnabled(this.chat["store"].getAnonymousId())
+    void this.chat.getMemoryEnabled()
       .then(enabled => {
         toggleMemoryCheckbox.checked = enabled;
       })
@@ -282,7 +434,7 @@ export class AppController {
 
   private async refreshSessionsList(): Promise<void> {
     try {
-      const sessions = await this.chat["api"].getSessions(this.chat["store"].getAnonymousId());
+      const sessions = await this.chat.getSessions();
       this.renderSessionsList(sessions);
     } catch {
       // ignore
@@ -291,18 +443,18 @@ export class AppController {
 
   private async refreshMemoriesList(): Promise<void> {
     try {
-      const memories = await this.chat["api"].getMemories(this.chat["store"].getAnonymousId());
+      const memories = await this.chat.getMemories();
       this.renderMemoriesList(memories);
     } catch {
       // ignore
     }
   }
 
-  private renderSessionsList(sessions: any[]): void {
+  private renderSessionsList(sessions: SessionSummary[]): void {
     const list = required<HTMLElement>("#sessions-list");
     list.replaceChildren();
 
-    const activeSessionId = this.chat["store"].getSessionId();
+    const activeSessionId = this.chat.getSessionId();
 
     sessions.forEach(session => {
       const item = document.createElement("div");
@@ -351,7 +503,7 @@ export class AppController {
     });
   }
 
-  private renderMemoriesList(memories: any[]): void {
+  private renderMemoriesList(memories: MemoryRecord[]): void {
     const list = required<HTMLElement>("#memories-list");
     list.replaceChildren();
 
@@ -398,7 +550,7 @@ export class AppController {
         const newContent = prompt("Chỉnh sửa ký ức:", mem.content);
         if (newContent && newContent.trim()) {
           try {
-            await this.chat["api"].updateMemory(mem.id, newContent.trim());
+            await this.chat.updateMemory(mem.id, newContent.trim());
             void this.refreshMemoriesList();
           } catch {
             this.toasts.show("Không thể cập nhật ký ức.");
@@ -412,7 +564,7 @@ export class AppController {
       deleteBtn.addEventListener("click", async () => {
         if (confirm("Xóa ký ức này?")) {
           try {
-            await this.chat["api"].deleteMemory(mem.id);
+            await this.chat.deleteMemory(mem.id);
             void this.refreshMemoriesList();
           } catch {
             this.toasts.show("Không thể xóa ký ức.");
@@ -445,7 +597,9 @@ export class AppController {
 
 function toggleButtons(selector: string, activeId: string, dataKey: string): void {
   document.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
-    button.classList.toggle("is-active", button.dataset[dataKey] === activeId);
+    const active = button.dataset[dataKey] === activeId;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
   });
 }
 

@@ -1,4 +1,5 @@
 import type { CompanionChatResponse, ChatMessage } from "@anime-buddy/shared";
+import type { SessionSummary } from "../services/apiClient.js";
 
 export type CompanionState =
   | "BOOTING"
@@ -19,8 +20,7 @@ export interface ChatControllerEvents {
   onAssistantMessage: (message: LocalChatMessage) => void;
   onStatus: (status: string, state: CompanionState) => void;
   onWarning: (message: string) => void;
-  onSpeech: (text: string, timeoutMs: number) => void;
-  onSessionsLoaded?: (sessions: any[]) => void;
+  onSessionsLoaded?: (sessions: SessionSummary[]) => void;
   onHistoryLoaded?: (messages: LocalChatMessage[], sessionId: string) => void;
 }
 

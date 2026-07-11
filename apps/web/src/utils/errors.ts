@@ -1,10 +1,10 @@
 export function toUserMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error ?? "");
   if (message.includes("Failed to fetch")) {
-    return "Khong the ket noi backend.";
+    return "Không thể kết nối backend.";
   }
   if (message.includes("TTS")) {
-    return "Khong the phat giong noi luc nay.";
+    return "Không thể phát giọng nói lúc này.";
   }
-  return "Minh gap loi khi xu ly cau nay.";
+  return "Mình gặp lỗi khi xử lý câu này.";
 }

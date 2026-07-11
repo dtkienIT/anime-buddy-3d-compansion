@@ -117,13 +117,72 @@ body.is-error #loader {
   z-index: 3;
   width: min(360px, calc(100vw - 36px));
   max-height: calc(100vh - 36px);
-  overflow: auto;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.68);
   border-radius: 8px;
   padding: 14px;
   background: var(--panel);
   box-shadow: 0 18px 54px rgba(15, 23, 42, 0.16);
   backdrop-filter: blur(16px);
+}
+
+.control-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.performance-section {
+  text-align: center;
+}
+
+.performance-status {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.performance-button {
+  width: 100%;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.performance-button + .performance-status {
+  margin-top: 12px;
+}
+
+.control-tab {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.control-tab:hover,
+.control-tab:focus-visible {
+  border-color: rgba(35, 107, 142, 0.52);
+  outline: none;
+}
+
+.control-tab.is-active {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
 }
 
 .panel-header {
@@ -165,8 +224,15 @@ body.is-error #loader {
   overflow-wrap: anywhere;
 }
 
-.control-section + .control-section {
-  margin-top: 14px;
+.control-section {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  overscroll-behavior: contain;
+}
+
+.control-section:not(.is-active) {
+  display: none;
 }
 
 .control-title {
@@ -213,6 +279,21 @@ body.is-error #loader {
   border-color: rgba(35, 107, 142, 0.62);
   background: var(--blue);
   color: #fff;
+}
+
+.button-grid-heading {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.control-button:focus-visible {
+  outline: 3px solid rgba(35, 107, 142, 0.28);
+  outline-offset: 1px;
 }
 
 .control-button:disabled {
