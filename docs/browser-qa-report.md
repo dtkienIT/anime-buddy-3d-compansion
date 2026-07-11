@@ -1,5 +1,7 @@
 # Browser QA Report
 
+> Historical snapshot (2026-07-10). See `docs/CURRENT_STATUS.md` for current verified results.
+
 Date: 2026-07-10
 
 Browser: Chromium `149.0.7827.55`
@@ -28,6 +30,49 @@ Artifact: `test-results/browser/baseline/final-real-chat.json`
 - Duplicated frames: `0`.
 - Underflow count: `0`.
 - Replay `replyToAudioLatency`: `406.8 ms`.
+
+## Takeover Real Browser Rerun
+
+Date: 2026-07-10
+
+Artifacts:
+
+- `test-results/browser/baseline/final-real-chat.json`
+- `test-results/browser/baseline/multi-chunk-real-chat.json`
+- `test-results/browser/baseline/boot.png`
+- `test-results/browser/baseline/audio-playing.png`
+- `test-results/browser/baseline/cache-replay-playing.png`
+
+Verified:
+
+- Chromium `149.0.7827.55`.
+- Canvas rendered at `1440 x 960`.
+- Real `/api/chat` returned `200`.
+- `/api/sessions` no longer hung; missing `anonymousId` returned `400`, real Supabase failure returned bounded `503`.
+- TTS MISS WAV playback started after fixing queued playback stop-state reset.
+- Replay/cache HIT returned `f32le`, 48 kHz, mono, 4 bytes/sample.
+- Cache HIT replay metrics: `receivedFrames=230400`, `playedFrames=230400`, dropped `0`, duplicated `0`, underflow `0`.
+- Audio quality probe remained bit-aligned/correlated with cache references.
+
+Measured:
+
+| Scenario | Result |
+| --- | ---: |
+| Chat total with memory fallback | 2356 ms |
+| Browser MISS `replyToAudioLatency`, 79-char reply | 55838 ms |
+| Browser replay HIT `replyToAudioLatency`, 79-char reply | 728 ms |
+| Browser MISS `replyToAudioLatency`, 117-char reply | 53225 ms |
+| Chunk count in 117-char run | 1 |
+| Max measured inter-chunk gap in latest browser run | 0 ms (single chunk only) |
+
+Current caveats:
+
+- Supabase-backed memory E2E now passes after migrations and fixes. Artifact: `test-results/browser/memory/memory-e2e-after-forget-guard.json`.
+- Live memory E2E verified refresh, browser restart, new chat recall, contradiction, forget, memory disabled, guitar-not-stored, and final memory re-enable.
+- A stuck `REACTING` browser state was fixed by adding a bounded fallback for one-shot animation completion when the Three.js `finished` event is delayed/missed.
+- Remote memory query latency remains variable and still needs formal 5-run benchmarking.
+- The longer real-chat prompt still produced one TTS chunk; deterministic multi-chunk browser gap coverage remains pending.
+- Stop, rapid replacement, voice toggle, TTS unavailable, and security assertion specs remain pending.
 
 ## Mocked Audio Probes
 

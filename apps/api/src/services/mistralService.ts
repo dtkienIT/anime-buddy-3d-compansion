@@ -17,6 +17,7 @@ export interface CompleteCompanionInput {
   history: ChatMessage[];
   availableAnimationIds: string[];
   sessionId: string;
+  memoryContext?: string;
 }
 
 export interface CompanionAiService {
@@ -55,8 +56,12 @@ export class MistralService implements CompanionAiService {
   async complete(input: CompleteCompanionInput): Promise<Omit<CompanionChatResponse, "sessionId" | "warnings">> {
     const safeAnimations = animationRegistry.filter((animation) => input.availableAnimationIds.includes(animation.id));
     const allowedAnimations = safeAnimations.length > 0 ? safeAnimations : animationRegistry;
+    let systemPrompt = buildCharacterSystemPrompt(allowedAnimations);
+    if (input.memoryContext) {
+      systemPrompt += "\n" + input.memoryContext;
+    }
     const messages = [
-      { role: "system" as const, content: buildCharacterSystemPrompt(allowedAnimations) },
+      { role: "system" as const, content: systemPrompt },
       ...input.history.map((message) => ({
         role: message.role === "assistant" ? "assistant" as const : "user" as const,
         content: message.content

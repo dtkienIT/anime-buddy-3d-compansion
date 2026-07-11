@@ -20,6 +20,8 @@ export interface ChatControllerEvents {
   onStatus: (status: string, state: CompanionState) => void;
   onWarning: (message: string) => void;
   onSpeech: (text: string, timeoutMs: number) => void;
+  onSessionsLoaded?: (sessions: any[]) => void;
+  onHistoryLoaded?: (messages: LocalChatMessage[], sessionId: string) => void;
 }
 
 export type CompanionReply = CompanionChatResponse;

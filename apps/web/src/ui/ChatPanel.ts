@@ -54,8 +54,9 @@ export class ChatPanel {
   }
 
   setBusy(isBusy: boolean): void {
-    this.input.disabled = isBusy;
-    this.sendButton.disabled = isBusy || !this.input.value.trim();
+    this.root.classList.toggle("is-busy", isBusy);
+    this.input.disabled = false;
+    this.sendButton.disabled = !this.input.value.trim();
   }
 
   setVoiceAvailable(available: boolean): void {

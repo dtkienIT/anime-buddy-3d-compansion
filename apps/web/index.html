@@ -45,6 +45,7 @@
         </div>
         <div class="chat-actions">
           <button class="icon-button" id="voice-toggle" type="button" title="Bat/tat giong noi" aria-label="Bat/tat giong noi">On</button>
+          <button class="icon-button" id="toggle-menu" type="button" title="Cài đặt & Trí nhớ" aria-label="Cài đặt & Trí nhớ">Menu</button>
           <button class="icon-button" id="collapse-chat" type="button" title="Thu gon chat" aria-label="Thu gon chat">Min</button>
         </div>
       </div>
@@ -53,6 +54,35 @@
         <button class="tool-button" id="stop-speaking" type="button">Dung noi</button>
         <button class="tool-button" id="replay-reply" type="button">Phat lai</button>
         <button class="tool-button" id="clear-chat" type="button">Xoa hoi thoai</button>
+      </div>
+
+      <div class="chat-menu" id="chat-menu" style="display: none;">
+        <div class="menu-tabs">
+          <button class="menu-tab-btn is-active" id="tab-sessions-btn" type="button">Hội thoại</button>
+          <button class="menu-tab-btn" id="tab-memory-btn" type="button">Trí nhớ</button>
+        </div>
+
+        <div class="menu-pane" id="pane-sessions">
+          <div class="menu-actions-row">
+            <button class="tool-button" id="new-session-btn" type="button">Hội thoại mới</button>
+            <button class="tool-button" id="export-btn" type="button">Xuất dữ liệu</button>
+          </div>
+          <div class="search-box">
+            <input class="search-input" id="session-search" type="text" placeholder="Tìm hội thoại..." />
+          </div>
+          <div class="scroll-list" id="sessions-list"></div>
+        </div>
+
+        <div class="menu-pane" id="pane-memory" style="display: none;">
+          <div class="memory-settings-row">
+            <label class="toggle-container">
+              <input id="toggle-memory-checkbox" type="checkbox" checked />
+              <span class="toggle-label">Ghi nhớ dài hạn</span>
+            </label>
+            <button class="tool-button is-danger" id="clear-memories-btn" type="button">Xóa tất cả</button>
+          </div>
+          <div class="scroll-list" id="memories-list"></div>
+        </div>
       </div>
 
       <div class="chat-log" id="chat-log" aria-live="polite"></div>

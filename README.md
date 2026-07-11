@@ -55,6 +55,23 @@ See `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, and `docs/
 
 `pnpm-workspace.yaml` is present for pnpm users, but this machine did not have pnpm installed during implementation, so npm workspaces are the verified package manager.
 
+## Current QA Snapshot
+
+Takeover rerun on 2026-07-10 verified:
+
+- `/api/sessions` returns `400` for missing `anonymousId` and a bounded `503` fallback instead of hanging when Supabase reports `PGRST205`.
+- After applying `001_chat_schema.sql` and `002_persistent_memory.sql`, live browser memory E2E passed with Supabase-backed session creation, history restore, browser restart, new-chat recall, contradiction, forget, memory-disabled skip, and final memory re-enable.
+- `/api/chat` now emits request-local memory timing; disabled-memory responses include `memory-disabled;dur=0` and zero memory DB timings.
+- Browser real chat completed with Mistral `200`, TTS MISS WAV playback, and cache HIT replay.
+- Cache HIT replay used `f32le`, 48 kHz, mono PCM with `0` underflows, drops, and duplicated frames.
+- Audio quality probe correlation remained `1.0` for direct/Python/API streams and MISS cache comparison.
+
+Current blockers:
+
+- Formal 5-run memory performance benchmarking is still pending; the live E2E shows several remote Supabase subqueries near or above the 700 ms retrieval budget, so this is not marked as a performance pass.
+- Deterministic multi-chunk browser audio, stop/rapid replacement/voice toggle/TTS unavailable, and TTS MISS breakdown remain pending.
+- `npm audit --audit-level=high` was blocked by the approval layer because it would disclose dependency metadata to the npm registry.
+
 ## Security
 
 - Mistral requests go through `apps/api`; the frontend never receives `MISTRAL_API_KEY`.

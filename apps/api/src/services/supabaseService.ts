@@ -14,13 +14,25 @@ export class SupabaseService {
   constructor(env: ApiEnv) {
     this.client = env.SUPABASE_URL && env.SUPABASE_SECRET_KEY
       ? createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false }
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: {
+          fetch: (url, options) => {
+            const controller = new AbortController();
+            const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 10000);
+            return fetch(url, { ...options, signal: controller.signal })
+              .finally(() => clearTimeout(timeoutId));
+          }
+        }
       })
       : null;
   }
 
   isConfigured(): boolean {
     return Boolean(this.client);
+  }
+
+  getClient(): SupabaseClient | null {
+    return this.client;
   }
 
   async getOrCreateSession(input: {
@@ -146,7 +158,7 @@ export class SupabaseService {
     return true;
   }
 
-  private async saveMessage(input: {
+  async saveMessage(input: {
     sessionId: string;
     role: "user" | "assistant" | "system";
     content: string;

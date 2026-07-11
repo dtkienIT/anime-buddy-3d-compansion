@@ -16,7 +16,19 @@ const envSchema = z.object({
   TTS_SERVICE_URL: z.string().url().default("http://127.0.0.1:8000"),
   CHAT_MAX_CONTEXT_MESSAGES: z.coerce.number().int().min(1).max(50).default(20),
   CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
-  TTS_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20)
+  TTS_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
+
+  // Memory settings
+  MEMORY_ENABLED: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
+  MEMORY_RECENT_MESSAGE_LIMIT: z.coerce.number().int().min(1).default(24),
+  MEMORY_TOP_K: z.coerce.number().int().min(1).default(8),
+  MEMORY_SUMMARY_TRIGGER_MESSAGES: z.coerce.number().int().min(1).default(20),
+  MEMORY_SUMMARY_MAX_CHARS: z.coerce.number().int().min(1).default(4000),
+  MEMORY_MAX_CONTEXT_TOKENS: z.coerce.number().int().min(1).default(6000),
+  MEMORY_RETENTION_DAYS: z.coerce.number().int().min(0).default(0),
+  MEMORY_RETRIEVAL_TIMEOUT_MS: z.coerce.number().int().min(1).default(700),
+  MEMORY_EMBEDDINGS_ENABLED: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(false),
+  MISTRAL_EMBEDDING_MODEL: z.string().optional().or(z.literal(""))
 });
 
 export type ApiEnv = z.infer<typeof envSchema>;

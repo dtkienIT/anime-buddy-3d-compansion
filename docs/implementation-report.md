@@ -194,3 +194,59 @@ Date: 2026-07-10
 - Changed cache MISS to complete WAV fallback after browser QA proved live MISS streaming underflowed severely.
 - Added `scripts/audio_quality_probe.py`, browser audio probes, and audio quality/latency/browser QA reports.
 - Final integrity artifacts are under `test-results/audio-quality/final/`.
+
+## 22. Persistent Memory and Offline Synced Queue Addendum
+
+Date: 2026-07-10
+
+- Implemented four-tier memory architecture (Raw Archive, Recent Context, Session Summary, Long-Term Memory).
+- Added `supabase/migrations/002_persistent_memory.sql` introducing `conversation_memories`, `conversation_summaries`, and audit logs.
+- Added backend MemoryService for memory extraction, retrieval, and rolling summarization.
+- Added frontend `IndexedDbOutbox` for caching unsent messages during Supabase outages.
+- Extended `ApiClient` with session CRUD, memory controls, data exports, and offline message POST syncs.
+- Rewrote `AudioQueue` to split text responses into sentences and pipeline synthesis/playback sequentially.
+- Embedded a tabbed UI menu in `#chat-panel` with:
+  - "Hội thoại" tab for new chats, renaming, deleting, searching, and exporting conversations.
+  - "Trí nhớ" tab with long-term memory toggle, delete all, and scrollable lists of memories with inline editing/deleting.
+- Verified all workspace TypeScript, lint, Vitest unit tests, and production Vite compilation pass successfully.
+
+## 23. Takeover Reliability Addendum
+
+Date: 2026-07-10
+
+- Added `.agent-backups/` to `.gitignore` and created takeover backup artifacts under `.agent-backups/`.
+- Added bounded `GET /api/sessions` behavior with controlled `400`/`503` responses.
+- Added API tests for sessions success, missing `anonymousId`, unconfigured Supabase, Supabase error, Supabase timeout, and empty result.
+- Changed web Vitest script to `vitest run --configLoader runner` to avoid Vite writing config bundles under unwritable `apps/web/node_modules/.vite-temp` in this Windows sandbox.
+- Fixed queued audio playback by clearing `AudioPlayer.stopRequested` before direct `AudioQueue` playback.
+- Added per-chunk browser performance metrics under `window.__BUDDY_PERF__.runs[].chunks`.
+- Added browser probe failure artifacts: `last-failure.json` and `last-failure.png`.
+
+Latest regression:
+
+- `npm run check:env`: pass.
+- `npm run verify-assets`: pass.
+- `npm run lint`: pass.
+- `npm run typecheck`: pass.
+- `npm run test`: pass, 28 JS tests.
+- `npm run test:python`: pass, 6 tests, 2 warnings.
+- `npm run build`: pass, with existing Vite large chunk warning.
+- Bundle secret-name scan: no forbidden key names in `apps/web/dist`.
+- `npm audit --audit-level=high`: sandboxed request failed; unsandboxed request was rejected by approval policy because it discloses dependency metadata to the npm registry.
+
+## 24. Memory Timing and Browser E2E Addendum
+
+Date: 2026-07-10
+
+- Applied Supabase migrations externally before this rerun; `PGRST205` for `chat_sessions` is no longer the current blocker.
+- Fixed `/api/chat` Server-Timing isolation by returning request-local memory timing snapshots instead of reading shared `MemoryService` state.
+- Added disabled-memory timing marker: `memory-disabled;dur=0`, with zero `memory-db-*` timings.
+- Added API tests for enabled-to-disabled timing isolation, concurrent request isolation, and timeout-state isolation.
+- Changed memory retrieval timeout handling to use completed subquery results plus cache fallbacks instead of discarding all memory context when one subquery is slow.
+- Added forgotten-key guardrails so past summaries and assistant-only statements do not resurrect deleted user memories.
+- Added a bounded one-shot animation fallback so browser chat does not remain stuck in `REACTING`.
+- Live browser memory E2E passed: `test-results/browser/memory/memory-e2e-after-forget-guard.json`.
+
+Current remaining blocker:
+
+- TTS MISS breakdown, deterministic multi-chunk audio QA, and formal memory performance benchmarking remain pending.

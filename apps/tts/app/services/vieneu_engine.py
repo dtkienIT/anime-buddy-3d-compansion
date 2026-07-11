@@ -89,6 +89,42 @@ class VieNeuEngine:
         async with self._synthesis_lock:
             await asyncio.to_thread(self._synthesize_sync, normalized, voice, style, output_path)
 
+    async def synthesize_to_cache_fast(
+        self,
+        text: str,
+        voice: str,
+        style: str,
+        output_path: Path,
+    ) -> tuple[float, float, bool]:
+        """Populate one cache entry with the low-latency decoder.
+
+        The synthesis lock and the cache re-check make concurrent requests for the
+        same text collapse to one generation. Audio is still returned only after a
+        complete PCM16 WAV exists, so slow CPU inference cannot underflow browser
+        playback.
+        """
+        await self.ensure_loaded()
+        if self._engine is None:
+            raise RuntimeError("vieneu package is not installed or could not be loaded")
+
+        queued_at = time.perf_counter()
+        async with self._synthesis_lock:
+            queue_ms = (time.perf_counter() - queued_at) * 1000
+            if output_path.exists() and output_path.stat().st_size > 44:
+                return queue_ms, 0.0, False
+
+            started_at = time.perf_counter()
+            normalized = normalize_spoken_text(text)
+            await asyncio.to_thread(
+                self._synthesize_streaming_sync,
+                normalized,
+                voice,
+                style,
+                output_path,
+            )
+            synthesis_ms = (time.perf_counter() - started_at) * 1000
+            return queue_ms, synthesis_ms, True
+
     async def stream_to_cache_locked(
         self,
         text: str,
@@ -288,6 +324,31 @@ class VieNeuEngine:
                 return
 
         raise RuntimeError("Could not find a compatible vieneu synthesis function")
+
+    def _synthesize_streaming_sync(self, text: str, voice: str, style: str, output_path: Path) -> None:
+        import numpy as np
+        import soundfile as sf
+
+        temp_path = output_path.with_name(f".{output_path.name}.{uuid.uuid4().hex}.part")
+        try:
+            with sf.SoundFile(
+                str(temp_path),
+                mode="w",
+                samplerate=self.sample_rate,
+                channels=1,
+                subtype="PCM_16",
+                format="WAV",
+            ) as wav_file:
+                for raw_chunk in self._stream_chunks_sync(text, voice, style):
+                    chunk = np.asarray(raw_chunk, dtype="<f4").reshape(-1)
+                    if chunk.size:
+                        wav_file.write(chunk)
+
+            if not temp_path.exists() or temp_path.stat().st_size <= 44:
+                raise RuntimeError("VieNeu produced an empty audio stream")
+            os.replace(temp_path, output_path)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
     def _call_candidate(self, candidate: Any, text: str, voice: str, style: str, output_path: Path) -> Any:
         try:

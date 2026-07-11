@@ -53,6 +53,18 @@ describe("TtsClient", () => {
       style: "tu_nhien"
     })).rejects.toThrow(/X-Audio-Format/);
   });
+
+  it("times out a TTS request without leaving it pending", async () => {
+    globalThis.fetch = vi.fn((_url, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+    })) as typeof fetch;
+
+    await expect(new TtsClient("http://api.test", 5).synthesize("Xin chao", {
+      enabled: true,
+      voice: "Truc Ly",
+      style: "tu_nhien"
+    })).rejects.toThrow();
+  });
 });
 
 function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {

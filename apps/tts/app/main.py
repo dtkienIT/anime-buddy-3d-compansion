@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, Response
 
 from .audio_cache import AudioCache
@@ -51,7 +51,12 @@ async def voices() -> list[VoiceInfo]:
 
 
 @app.post("/synthesize")
-async def synthesize(request: SynthesizeRequest):
+async def synthesize(
+    request: SynthesizeRequest,
+    x_buddy_tts_request_id: str | None = Header(default=None),
+):
+    request_received_at = time.perf_counter()
+    request_id = (x_buddy_tts_request_id or "unassigned")[:128]
     text = normalize_spoken_text(request.text)
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty after normalization")
@@ -70,7 +75,7 @@ async def synthesize(request: SynthesizeRequest):
     path = cache.path_for(text, voice, style)
     if path.exists():
         if request.stream:
-            return await _cached_pcm_response(path, "HIT", "0")
+            return await _cached_pcm_response(path, "HIT", "0", request_id)
         return FileResponse(
             path,
             media_type="audio/wav",
@@ -80,39 +85,31 @@ async def synthesize(request: SynthesizeRequest):
                 "X-TTS-Synthesis-Ms": "0",
                 "X-TTS-Queue-Ms": "0",
                 "X-TTS-Engine-Warm": str(engine.warmed_up).lower(),
+                "X-TTS-Request-Id": request_id,
+                "Server-Timing": "tts-cache-read;dur=0, tts-total;dur=0",
             },
         )
 
-    if request.stream:
-        started_at = time.perf_counter()
-        await engine.synthesize(text, voice, style, path)
-        synthesis_ms = (time.perf_counter() - started_at) * 1000
-        cache.trim()
-        return FileResponse(
-            path,
-            media_type="audio/wav",
-            filename="speech.wav",
-            headers={
-                "X-TTS-Cache": "MISS",
-                "X-TTS-Synthesis-Ms": f"{synthesis_ms:.2f}",
-                "X-TTS-Queue-Ms": "0",
-                "X-TTS-Engine-Warm": str(engine.warmed_up).lower(),
-            },
-        )
-
-    started_at = time.perf_counter()
-    await engine.synthesize(text, voice, style, path)
-    synthesis_ms = (time.perf_counter() - started_at) * 1000
+    queue_ms, synthesis_ms, generated = await engine.synthesize_to_cache_fast(
+        text, voice, style, path
+    )
     cache.trim()
+    total_ms = (time.perf_counter() - request_received_at) * 1000
     return FileResponse(
         path,
         media_type="audio/wav",
         filename="speech.wav",
         headers={
-            "X-TTS-Cache": "MISS",
+            "X-TTS-Cache": "MISS" if generated else "HIT",
             "X-TTS-Synthesis-Ms": f"{synthesis_ms:.2f}",
-            "X-TTS-Queue-Ms": "0",
+            "X-TTS-Queue-Ms": f"{queue_ms:.2f}",
             "X-TTS-Engine-Warm": str(engine.warmed_up).lower(),
+            "X-TTS-Request-Id": request_id,
+            "Server-Timing": (
+                f"tts-queue;dur={queue_ms:.2f}, "
+                f"tts-synthesis;dur={synthesis_ms:.2f}, "
+                f"tts-total;dur={total_ms:.2f}"
+            ),
         },
     )
 
@@ -127,7 +124,7 @@ def _read_cached_pcm(path) -> tuple[bytes, int]:
     return np.asarray(audio, dtype="<f4").reshape(-1).tobytes(), int(sample_rate)
 
 
-async def _cached_pcm_response(path, cache_status: str, queue_ms: str) -> Response:
+async def _cached_pcm_response(path, cache_status: str, queue_ms: str, request_id: str = "unassigned") -> Response:
     pcm, sample_rate = await asyncio.to_thread(_read_cached_pcm, path)
     return Response(
         content=pcm,
@@ -138,6 +135,8 @@ async def _cached_pcm_response(path, cache_status: str, queue_ms: str) -> Respon
             "X-TTS-Synthesis-Ms": "0",
             "X-TTS-Queue-Ms": queue_ms,
             "X-TTS-Engine-Warm": str(engine.warmed_up).lower(),
+            "X-TTS-Request-Id": request_id,
             "X-Audio-Sample-Rate": str(sample_rate),
+            "Server-Timing": "tts-cache-read;dur=0, tts-total;dur=0",
         },
     )

@@ -49,6 +49,7 @@ export class CharacterController {
   private currentAnimationId = defaultAnimationId;
   private currentBackgroundId = defaultBackgroundId;
   private renderLoopStarted = false;
+  private targetRenderFps = 30;
   private lastRenderAt = 0;
   private modelSerial = 0;
 
@@ -441,7 +442,7 @@ export class CharacterController {
 
   private animate(timestamp: number): void {
     requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
-    if (timestamp - this.lastRenderAt < 1000 / 30) {
+    if (timestamp - this.lastRenderAt < 1000 / this.targetRenderFps) {
       return;
     }
     this.lastRenderAt = timestamp;
@@ -458,6 +459,10 @@ export class CharacterController {
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  setRenderRate(fps: number): void {
+    this.targetRenderFps = Math.max(1, Math.min(30, Math.round(fps)));
   }
 
   private resize(): void {

@@ -30,8 +30,15 @@ export class MessageStore {
     return [...this.messages];
   }
 
-  add(message: Omit<LocalChatMessage, "id">): LocalChatMessage {
-    const next = { ...message, id: crypto.randomUUID() };
+  setMessages(messages: LocalChatMessage[]): void {
+    this.messages = [...messages];
+    if (this.messages.length > chatLimits.maxLocalMessages) {
+      this.messages.splice(0, this.messages.length - chatLimits.maxLocalMessages);
+    }
+  }
+
+  add(message: Omit<LocalChatMessage, "id"> & { id?: string }): LocalChatMessage {
+    const next = { ...message, id: message.id || crypto.randomUUID() };
     this.messages.push(next);
     if (this.messages.length > chatLimits.maxLocalMessages) {
       this.messages.splice(0, this.messages.length - chatLimits.maxLocalMessages);
@@ -41,6 +48,9 @@ export class MessageStore {
 
   clear(): void {
     this.messages = [];
+  }
+
+  clearSession(): void {
     localStorage.removeItem(sessionKey);
   }
 }

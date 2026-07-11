@@ -12,27 +12,45 @@ export interface PcmAudioMetadata {
 }
 
 export type TtsAudio =
-  | { kind: "blob"; blob: Blob }
-  | ({ kind: "pcm-stream"; stream: ReadableStream<Uint8Array> } & PcmAudioMetadata);
+  | ({ kind: "blob"; blob: Blob } & TtsTransportTiming)
+  | ({ kind: "pcm-stream"; stream: ReadableStream<Uint8Array> } & PcmAudioMetadata & TtsTransportTiming);
+
+export interface TtsTransportTiming {
+  requestId: string;
+  requestStartedAt: number;
+  responseHeadersAt: number;
+  firstByteAt: number;
+  responseCompletedAt: number;
+  cache: string | null;
+  serverTiming: string | null;
+}
 
 export class TtsClient {
-  constructor(private readonly baseUrl = env.apiBaseUrl) {}
+  constructor(
+    private readonly baseUrl = env.apiBaseUrl,
+    private readonly timeoutMs = 30_000
+  ) {}
 
-  async synthesize(text: string, settings: VoiceSettings, signal?: AbortSignal): Promise<TtsAudio> {
-    perfMetrics.mark("ttsRequestStartedAt");
+  async synthesize(text: string, settings: VoiceSettings, signal?: AbortSignal, runId = 0): Promise<TtsAudio> {
+    const requestId = crypto.randomUUID();
+    const requestStartedAt = performance.now();
+    perfMetrics.mark(runId, "ttsRequestStartedAt", requestStartedAt);
+    const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
+    const requestSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
     const response = await fetch(`${this.baseUrl}/api/tts`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Buddy-TTS-Request-Id": requestId },
       body: JSON.stringify({
         text,
         voice: settings.voice,
         style: settings.style,
         stream: true
       }),
-      signal
+      signal: requestSignal
     });
-    perfMetrics.mark("ttsResponseHeadersAt");
-    perfMetrics.addTtsMetadata({
+    const responseHeadersAt = performance.now();
+    perfMetrics.mark(runId, "ttsResponseHeadersAt", responseHeadersAt);
+    perfMetrics.addTtsMetadata(runId, {
       cache: response.headers.get("x-tts-cache"),
       synthesisMs: response.headers.get("x-tts-synthesis-ms"),
       queueMs: response.headers.get("x-tts-queue-ms"),
@@ -49,15 +67,63 @@ export class TtsClient {
       throw new Error(detail || `TTS failed with ${response.status}`);
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.startsWith("application/octet-stream") && response.body) {
-      return { kind: "pcm-stream", stream: response.body, ...parsePcmMetadata(response.headers) };
-    }
+    const { bytes, firstByteAt, completedAt } = await readResponseBytes(response, requestSignal);
+    perfMetrics.mark(runId, "ttsFirstByteAt", firstByteAt);
+    perfMetrics.mark(runId, "ttsResponseCompletedAt", completedAt);
+    const timing: TtsTransportTiming = {
+      requestId,
+      requestStartedAt,
+      responseHeadersAt,
+      firstByteAt,
+      responseCompletedAt: completedAt,
+      cache: response.headers.get("x-tts-cache"),
+      serverTiming: response.headers.get("server-timing")
+    };
 
-    const blob = await response.blob();
-    perfMetrics.mark("ttsResponseCompletedAt");
-    return { kind: "blob", blob };
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.startsWith("application/octet-stream")) {
+      return { kind: "pcm-stream", stream: streamOf(bytes), ...parsePcmMetadata(response.headers), ...timing };
+    }
+    const blobBytes = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    return { kind: "blob", blob: new Blob([blobBytes], { type: contentType || "audio/wav" }), ...timing };
   }
+}
+
+async function readResponseBytes(response: Response, signal?: AbortSignal): Promise<{
+  bytes: Uint8Array;
+  firstByteAt: number;
+  completedAt: number;
+}> {
+  if (!response.body) throw new Error("TTS response body is empty");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let firstByteAt: number | undefined;
+  while (true) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value.byteLength && firstByteAt === undefined) firstByteAt = performance.now();
+    chunks.push(value);
+    total += value.byteLength;
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const completedAt = performance.now();
+  return { bytes, firstByteAt: firstByteAt ?? completedAt, completedAt };
+}
+
+function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    }
+  });
 }
 
 function parsePcmMetadata(headers: Headers): PcmAudioMetadata {

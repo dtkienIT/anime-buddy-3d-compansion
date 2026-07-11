@@ -15,6 +15,8 @@ export interface TtsProxyResult {
   channels?: string;
   bytesPerSample?: string;
   upstreamHeadersMs: number;
+  upstreamServerTiming?: string;
+  requestId?: string;
 }
 
 export class TtsService {
@@ -33,14 +35,17 @@ export class TtsService {
     }
   }
 
-  async synthesize(body: TtsRequestBody): Promise<TtsProxyResult> {
+  async synthesize(body: TtsRequestBody, requestId?: string): Promise<TtsProxyResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 120000);
     const startedAt = performance.now();
     try {
       const response = await fetch(`${this.env.TTS_SERVICE_URL}/synthesize`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(requestId ? { "X-Buddy-TTS-Request-Id": requestId } : {})
+        },
         body: JSON.stringify(body),
         signal: controller.signal
       });
@@ -66,7 +71,9 @@ export class TtsService {
         sampleRate: response.headers.get("x-audio-sample-rate") ?? undefined,
         channels: response.headers.get("x-audio-channels") ?? undefined,
         bytesPerSample: response.headers.get("x-audio-bytes-per-sample") ?? undefined,
-        upstreamHeadersMs: performance.now() - startedAt
+        upstreamHeadersMs: performance.now() - startedAt,
+        upstreamServerTiming: response.headers.get("server-timing") ?? undefined,
+        requestId: response.headers.get("x-tts-request-id") ?? requestId
       };
     } finally {
       clearTimeout(timer);

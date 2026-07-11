@@ -5,15 +5,53 @@ describe("AudioQueue", () => {
   it("cancels the previous task when replaced", async () => {
     const queue = new AudioQueue();
     let aborted = false;
-    const first = queue.run(async (signal) => {
+    let prepared = 0;
+
+    const mockContext = {
+      currentTime: 0.1,
+      state: "running"
+    };
+    const mockAudioPlayer = {
+      getContext: () => mockContext,
+      resume: async () => {},
+      stop: () => {},
+      prepareForPlayback: () => {
+        prepared += 1;
+      },
+      decodeWav: async () => ({ duration: 0.1 } as any),
+      trimAudioBuffer: (buf: any) => buf,
+      playBufferDirect: async () => {}
+    } as any;
+
+    const synthesize = async (text: string, signal: AbortSignal) => {
       signal.addEventListener("abort", () => {
         aborted = true;
       });
       await new Promise((resolve) => setTimeout(resolve, 20));
-    });
+      const now = performance.now();
+      return {
+        kind: "blob" as const,
+        blob: new Blob(),
+        requestId: text,
+        requestStartedAt: now,
+        responseHeadersAt: now,
+        firstByteAt: now,
+        responseCompletedAt: now,
+        cache: "MISS",
+        serverTiming: null
+      };
+    };
 
-    await queue.run(async () => undefined);
-    await first;
+    const first = queue.playChunks(["chunk1"], mockAudioPlayer, synthesize, () => {});
+    await queue.playChunks([], mockAudioPlayer, synthesize, () => {});
+
+    try {
+      await first;
+    } catch {
+      // ignore abort error
+    }
+
     expect(aborted).toBe(true);
+    expect(prepared).toBe(2);
   });
 });

@@ -17,7 +17,17 @@ const env: ApiEnv = {
   TTS_SERVICE_URL: "http://127.0.0.1:8000",
   CHAT_MAX_CONTEXT_MESSAGES: 20,
   CHAT_RATE_LIMIT_PER_MINUTE: 2,
-  TTS_RATE_LIMIT_PER_MINUTE: 2
+  TTS_RATE_LIMIT_PER_MINUTE: 2,
+  MEMORY_ENABLED: true,
+  MEMORY_RECENT_MESSAGE_LIMIT: 24,
+  MEMORY_TOP_K: 8,
+  MEMORY_SUMMARY_TRIGGER_MESSAGES: 20,
+  MEMORY_SUMMARY_MAX_CHARS: 4000,
+  MEMORY_MAX_CONTEXT_TOKENS: 6000,
+  MEMORY_RETENTION_DAYS: 0,
+  MEMORY_RETRIEVAL_TIMEOUT_MS: 700,
+  MEMORY_EMBEDDINGS_ENABLED: false,
+  MISTRAL_EMBEDDING_MODEL: ""
 };
 
 describe("api", () => {
@@ -28,7 +38,7 @@ describe("api", () => {
     const response = await app.inject({ method: "GET", url: "/health" });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ status: "ok", mistralConfigured: true, ttsReachable: true });
-  });
+  }, 15000);
 
   it("rejects invalid chat messages", async () => {
     const app = await createApp(env, {

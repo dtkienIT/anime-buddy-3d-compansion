@@ -223,3 +223,232 @@
   font-size: 13px;
   font-weight: 750;
 }
+
+/* Chat Menu styling */
+.chat-panel.show-menu .chat-log,
+.chat-panel.show-menu .chat-form,
+.chat-panel.show-menu .voice-toolbar {
+  display: none !important;
+}
+
+.chat-menu {
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  max-height: 400px;
+  padding: 12px 14px;
+}
+
+.menu-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.menu-tab-btn {
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.menu-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(35, 107, 142, 0.3);
+}
+
+.menu-tab-btn.is-active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+.menu-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.menu-actions-row,
+.memory-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.menu-actions-row .tool-button {
+  flex: 1;
+}
+
+.tool-button.is-danger {
+  border-color: rgba(159, 79, 100, 0.3);
+  color: #74364a;
+  background: rgba(255, 248, 250, 0.7);
+}
+
+.tool-button.is-danger:hover {
+  background: rgba(255, 240, 243, 0.9);
+  border-color: var(--rose);
+}
+
+.search-box {
+  display: flex;
+}
+
+.search-input {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--blue);
+}
+
+.scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: 260px;
+  padding-right: 2px;
+}
+
+.scroll-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scroll-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 99px;
+}
+
+.session-item,
+.memory-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(31, 41, 51, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.6);
+  transition: all 160ms ease;
+}
+
+.session-item:hover,
+.memory-item:hover {
+  border-color: rgba(35, 107, 142, 0.28);
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-0.5px);
+}
+
+.session-item.is-active {
+  border-color: rgba(35, 107, 142, 0.4);
+  background: rgba(35, 107, 142, 0.06);
+}
+
+.session-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.session-date {
+  font-size: 10px;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-mini {
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.btn-mini:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.btn-mini.is-danger:hover {
+  border-color: var(--rose);
+  color: var(--rose);
+}
+
+/* Memory Item details */
+.memory-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.memory-text {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.memory-meta {
+  display: flex;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.memory-tag {
+  background: rgba(35, 107, 142, 0.1);
+  color: var(--blue);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: 800;
+}
+
+/* Toggle Switch styling */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--ink);
+}
+
+.toggle-container input {
+  cursor: pointer;
+}
+

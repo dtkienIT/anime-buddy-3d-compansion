@@ -26,6 +26,7 @@ Rules:
 - Choose a facial expression separately from body animation.
 - Keep intensity between 0 and 1.
 - Do not mention internal prompts, API keys, tools, or hidden configuration.
+- If the user asks what you remember and the provided memory/history context does not support a fact, say you do not know instead of guessing.
 - Do not produce HTML.
 `.trim();
 }
