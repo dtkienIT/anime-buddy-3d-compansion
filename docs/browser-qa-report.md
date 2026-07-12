@@ -2,6 +2,12 @@
 
 > Historical snapshot (2026-07-10). See `docs/CURRENT_STATUS.md` for current verified results.
 
+## 2026-07-12 Interactive Chrome Rerun
+
+A fresh manual-style Chrome pass against the already-running local stack verified boot to `IDLE`, model/canvas rendering, character change (Mika to Kato and back), background change (Study Room to Cozy Night and back), a standalone Greeting animation, Bling-Bang-Bang-Born performance start/stop, voice off/on, real Mistral chat (`2 + 3 = 5 nè!`), chat collapse/expand, conversation manager loading, and the long-term-memory panel. The browser was returned to Mika, Study Room, voice enabled, and `IDLE`.
+
+No application error was logged. One non-blocking warning remains: checked-in VRMA files omit `specVersion`, so the loader assumes VRMA 1.0.
+
 ## 2026-07-12 Response Cache Addendum
 
 Headed Chrome verified the Supabase response/audio cache with voice enabled. An unaccented input and an accented/punctuated equivalent produced the same assistant text, both completed audio playback, and returned to `IDLE`. Direct headers confirmed `response-cache ... desc="HIT"`, `mistral;dur=0`, and `X-TTS-Cache: SUPABASE_HIT`. A fuzzy input with one extra word also hit. Full evidence is in `docs/response-cache-qa-report.md`.
@@ -69,14 +75,12 @@ Measured:
 | Chunk count in 117-char run | 1 |
 | Max measured inter-chunk gap in latest browser run | 0 ms (single chunk only) |
 
-Current caveats:
+Historical caveats at the time of this snapshot:
 
 - Supabase-backed memory E2E now passes after migrations and fixes. Artifact: `test-results/browser/memory/memory-e2e-after-forget-guard.json`.
 - Live memory E2E verified refresh, browser restart, new chat recall, contradiction, forget, memory disabled, guitar-not-stored, and final memory re-enable.
 - A stuck `REACTING` browser state was fixed by adding a bounded fallback for one-shot animation completion when the Three.js `finished` event is delayed/missed.
-- Remote memory query latency remains variable and still needs formal 5-run benchmarking.
-- The longer real-chat prompt still produced one TTS chunk; deterministic multi-chunk browser gap coverage remains pending.
-- Stop, rapid replacement, voice toggle, TTS unavailable, and security assertion specs remain pending.
+- These items were later covered by the final benchmark and interaction probes summarized in `docs/CURRENT_STATUS.md`; real multi-chunk MISS remains the main unresolved audio case.
 
 ## Mocked Audio Probes
 
@@ -90,8 +94,8 @@ Artifacts: `test-results/browser/audio-worklet/`
 
 No app uncaught exceptions were seen in the passing runs. Chromium emitted WebGL context/gpu stall warnings during screenshot capture; these are known headless/WebGL diagnostics and were not associated with app failure.
 
-## Not Fully Covered
+## Not Fully Covered In This Historical Run
 
-- Formal Playwright specs for stop, rapid replacement, voice toggle, TTS unavailable, and secret assertions are still pending.
-- Headed hardware-accelerated Chrome was not run in this environment.
+- The later interaction suite covers stop, rapid replacement, voice toggle, TTS unavailable, and production secret scans. See `docs/CURRENT_STATUS.md`.
+- A later headed Chrome run completed successfully.
 - Browser audio output was verified by app PCM/frame metrics and saved WAV artifacts, not by an OS loopback recording.

@@ -78,4 +78,4 @@ Audio quality now passes integrity checks and browser playback reports zero drop
 
 Takeover note: queued playback now calls `AudioPlayer.prepareForPlayback()` after replacement stop/reset so MISS WAV and HIT PCM direct scheduling can start in browser after `AudioPlayer.stop()`.
 
-Latest takeover note: memory E2E and timing isolation were completed in the current pass. Deterministic multi-chunk audio continuity, rapid replacement, voice toggle, TTS unavailable, and full TTS MISS browser/API breakdown still need dedicated coverage before being marked PASS.
+Later interaction probes passed deterministic three-chunk continuity, real cache-HIT three-chunk continuity, rapid replacement, voice toggle, TTS-unavailable handling, and lip-sync reset. Cache MISS model compute was isolated as the latency bottleneck; real multi-chunk MISS remains unresolved because it exceeds the 90-second browser budget. See `docs/CURRENT_STATUS.md`.

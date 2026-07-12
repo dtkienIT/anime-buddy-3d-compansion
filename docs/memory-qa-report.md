@@ -21,10 +21,10 @@ Verified in this rerun:
 - Final state re-enabled memory and left only `userName` active.
 - Disabled-memory `/api/chat` emitted `memory-disabled;dur=0` with zero memory DB timings.
 
-Remaining caveats:
+Current caveats:
 
-- Formal 5-run memory performance benchmark is still pending.
-- Live remote Supabase timings were variable; several memory subqueries reached the 700 ms retrieval budget.
+- The later formal 5-run benchmark passed: memory wall p95 was 497 ms, with 0 timeouts and 0 fallbacks. See `test-results/browser/memory/memory-benchmark-final.json`.
+- Remote Supabase timings remain variable and should continue to be monitored even though the measured run met the 700 ms budget.
 - The browser probe validates active memory state via public API, not hidden inactive/audit rows.
 
 ---

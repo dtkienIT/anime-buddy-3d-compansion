@@ -11,9 +11,9 @@
 
 ## Branch
 
-Current takeover work is on `feat/persistent-memory-and-fast-tts-miss`.
+Current working branch is `main` (verified 2026-07-12).
 
-Earlier audio work was done on `fix/tts-stream-audio-quality`.
+Historical takeover work referenced `feat/persistent-memory-and-fast-tts-miss`; earlier audio work referenced `fix/tts-stream-audio-quality`.
 
 ## Ports
 
@@ -92,9 +92,9 @@ node tests/browser/collect-baseline.mjs "1+3=?" "final-real-chat.json" replay
 
 ## Remaining Limits
 
-- Cache HIT browser latency is clean but measured slightly above the 400 ms target in final runs.
+- Cache HIT browser reply-to-audio p95 is 324 ms and meets the current 500 ms target.
 - Cache MISS WAV fallback is clean but slow on CPU.
-- Formal Playwright coverage for stop, rapid replacement, voice toggle, TTS unavailable, security assertions, and lip-sync thresholds still needs expansion.
-- Formal 5-run memory performance benchmarks are still pending; live memory E2E showed remote Supabase subqueries often near/over the 700 ms retrieval budget.
-- Current browser reruns measured single-chunk TTS plus cache HIT replay; formal multi-chunk inter-gap coverage still needs a deterministic browser scenario.
+- Deterministic browser coverage now passes stop, rapid replacement, voice toggle, TTS unavailable, lip-sync reset, and three-chunk continuity. Formal fault injection is still partial for Supabase outage, a missing VRMA `finished` event, and an initially suspended AudioContext.
+- The formal 5-run memory benchmark passes the 700 ms retrieval budget (p95 memory wall 497 ms); remote query variance remains worth monitoring.
+- Real three-chunk cache HIT continuity passes with zero scheduled gap, underflows, drops, or duplicates. A real multi-chunk MISS still exceeds the 90-second test budget.
 - `npm audit --audit-level=high` was attempted, but unsandboxed audit approval was rejected because it discloses dependency metadata to the npm registry.

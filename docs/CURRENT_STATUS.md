@@ -4,7 +4,7 @@ Authoritative as of 2026-07-12 (Asia/Saigon). Older audit and QA documents are h
 
 ## Repository and runtime
 
-- Branch: `perf/instant-chat-and-voice` (handoff expected `feat/persistent-memory-and-fast-tts-miss`, but both names point to the same pre-work commit).
+- Branch: `main` (verified with `git status --short --branch` on 2026-07-12). Older handoff branch names in historical reports are no longer current.
 - Commit before work: `6f28345b19d60d5036f71b04711dbfff59e297a1` (`v1.1`).
 - Commit after work: unchanged; the verified implementation is currently uncommitted.
 - OS/shell: Windows, PowerShell, timezone Asia/Saigon.
@@ -121,7 +121,7 @@ Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas
 - `npm run verify-assets`
 - `npm run lint`
 - `npm run typecheck`
-- `npm run test` (32 tests: shared 2, API 18, web 12)
+- `npm run test` (45 tests on 2026-07-12: shared 2, API 21, web 22)
 - `npm run test:python` (6 passed; one upstream Starlette deprecation warning)
 - `npm run build` (pass; existing >500 kB bundle warning)
 - `npm run smoke-test`
@@ -142,3 +142,4 @@ Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas
 - Formal browser fault injection for Supabase outage, missing VRMA `finished`, and a pre-suspended AudioContext remains partial.
 - Headless Chromium emits software-WebGL GPU/readback warnings; headed Chrome finished without application errors.
 - The production JS bundle remains ~868 kB before gzip and triggers Vite's size warning.
+- The checked-in VRMA assets do not declare `specVersion`; the loader assumes VRMA 1.0 and emits a non-blocking console warning when an animation is first loaded.

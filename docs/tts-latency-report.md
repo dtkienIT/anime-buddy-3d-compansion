@@ -40,4 +40,4 @@ Date: 2026-07-10
 - Investigate VieNeu full WAV CPU latency.
 - Test larger native `chunk_frames` values in a separate branch before re-enabling MISS streaming.
 - Consider sentence-level streaming only if integrity tests prove no underflow.
-- Takeover note: this pass prioritized memory timing/E2E fixes. The 6 s API MISS vs 50+ s browser MISS breakdown and deterministic multi-chunk browser timing remain pending.
+- The later five-run browser benchmark measured warm MISS p95 at 9.72 s and cache HIT reply-to-audio p95 at 324 ms. Deterministic and real cache-HIT three-chunk continuity pass with zero scheduled gap; real multi-chunk MISS still exceeds the 90-second browser budget. See `docs/CURRENT_STATUS.md`.

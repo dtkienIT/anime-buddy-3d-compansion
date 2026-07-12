@@ -1,5 +1,7 @@
 # Implementation Report
 
+> Historical implementation log. For the authoritative current branch, benchmarks, interaction coverage, migrations, and known limits, see `docs/CURRENT_STATUS.md`.
+
 Date: 2026-07-10
 
 ## 1. Summary
@@ -247,9 +249,7 @@ Date: 2026-07-10
 - Added a bounded one-shot animation fallback so browser chat does not remain stuck in `REACTING`.
 - Live browser memory E2E passed: `test-results/browser/memory/memory-e2e-after-forget-guard.json`.
 
-Current remaining blocker:
-
-- TTS MISS breakdown, deterministic multi-chunk audio QA, and formal memory performance benchmarking remain pending.
+This addendum's pending items were subsequently covered by the final benchmark/interaction runs except for real multi-chunk cache MISS, which still exceeds the 90-second browser budget. See `docs/CURRENT_STATUS.md`.
 
 ## 25. Supabase Response and Audio Cache Addendum
 

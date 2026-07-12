@@ -70,8 +70,9 @@ Takeover rerun on 2026-07-10 verified:
 
 Current blockers:
 
-- Formal 5-run memory performance benchmarking is still pending; the live E2E shows several remote Supabase subqueries near or above the 700 ms retrieval budget, so this is not marked as a performance pass.
-- Deterministic multi-chunk browser audio, stop/rapid replacement/voice toggle/TTS unavailable, and TTS MISS breakdown remain pending.
+- Real Mistral output is not token-streamed, so first visible text can miss the 1 s goal.
+- Warm cache MISS TTS remains CPU-bound (9.72 s p95 versus the 4 s goal), and a real multi-chunk MISS exceeds the 90 s browser budget.
+- Supabase outage, missing VRMA `finished`, and initially suspended AudioContext fault injection remain only partially covered.
 - `npm audit --audit-level=high` was blocked by the approval layer because it would disclose dependency metadata to the npm registry.
 
 ## Security
