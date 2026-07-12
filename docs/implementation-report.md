@@ -250,3 +250,16 @@ Date: 2026-07-10
 Current remaining blocker:
 
 - TTS MISS breakdown, deterministic multi-chunk audio QA, and formal memory performance benchmarking remain pending.
+
+## 25. Supabase Response and Audio Cache Addendum
+
+Date: 2026-07-12
+
+- Added `supabase/migrations/004_response_audio_cache.sql` with `response_cache`, `response_audio_cache`, trigram matching, RLS, and the private `response-audio` Storage bucket.
+- Added backend response matching before memory/LLM work and automatic `approved = true` insertion for this single-user testing version.
+- Added deterministic text normalization for Vietnamese accents, punctuation, casing, and whitespace.
+- Added TTS audio lookup/persistence keyed by text, voice, and style; a Storage hit bypasses local TTS synthesis.
+- Added cache timing/transport markers: `response-cache` in chat `Server-Timing` and `X-TTS-Cache: SUPABASE_HIT` for stored audio.
+- Headed Chrome passed first generation, normalized repeat, voice playback completion, and final `IDLE`.
+- Direct verification passed fuzzy matching, Mistral bypass, and a 576044-byte stored WAV hit.
+- Regression checks passed: lint, workspace typecheck, API tests, full workspace tests, and production build. See `docs/response-cache-qa-report.md`.

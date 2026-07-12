@@ -1,11 +1,47 @@
 import type { CompanionState, LocalChatMessage } from "../chat/types.js";
 import { sanitizeAiText } from "../utils/text.js";
 
+type SpeechInputRecognition = EventTarget & {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  onend: ((event: Event) => void) | null;
+  onerror: ((event: SpeechInputErrorEvent) => void) | null;
+  onresult: ((event: SpeechInputResultEvent) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechInputErrorEvent = Event & {
+  error: string;
+};
+
+type SpeechInputResultEvent = Event & {
+  readonly resultIndex: number;
+  readonly results: SpeechInputResultList;
+};
+
+type SpeechInputResultList = {
+  readonly length: number;
+  [index: number]: SpeechInputResult;
+};
+
+type SpeechInputResult = {
+  readonly isFinal: boolean;
+  [index: number]: SpeechInputAlternative | undefined;
+};
+
+type SpeechInputAlternative = {
+  readonly transcript: string;
+};
+
 export interface ChatPanelHandlers {
   send: (message: string) => void;
   stopSpeaking: () => void;
   replay: () => void;
   clear: () => void;
+  warn: (message: string) => void;
 }
 
 export class ChatPanel {
@@ -13,11 +49,15 @@ export class ChatPanel {
   private voiceAvailable = false;
   private hasReplay = false;
   private state: CompanionState = "BOOTING";
+  private isRecording = false;
+  private recognition: SpeechInputRecognition | null = null;
+  private speechBaseValue = "";
 
   constructor(
     private readonly root: HTMLElement,
     private readonly form: HTMLFormElement,
     private readonly input: HTMLTextAreaElement,
+    private readonly recordButton: HTMLButtonElement,
     private readonly sendButton: HTMLButtonElement,
     private readonly log: HTMLElement,
     private readonly status: HTMLElement,
@@ -45,12 +85,14 @@ export class ChatPanel {
     this.stopButton.addEventListener("click", handlers.stopSpeaking);
     this.replayButton.addEventListener("click", handlers.replay);
     this.clearButton.addEventListener("click", handlers.clear);
+    this.recordButton.addEventListener("click", () => this.toggleRecording(handlers.warn));
     this.root.addEventListener("scroll", () => {
       if (this.root.scrollTop !== 0) this.root.scrollTop = 0;
     }, { passive: true });
     window.addEventListener("resize", () => {
       this.root.scrollTop = 0;
     });
+    this.configureSpeechRecognition(handlers.warn);
     this.updateSendState();
     this.updatePlaybackButtons();
   }
@@ -109,6 +151,94 @@ export class ChatPanel {
     this.input.value = "";
     this.updateSendState();
     send(value);
+  }
+
+  private configureSpeechRecognition(warn: (message: string) => void): void {
+    const SpeechRecognitionCtor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      this.recordButton.disabled = true;
+      this.recordButton.title = "Trình duyệt này chưa hỗ trợ ghi âm thành chữ.";
+      return;
+    }
+
+    this.recognition = new SpeechRecognitionCtor();
+    this.recognition.lang = "vi-VN";
+    this.recognition.continuous = true;
+    this.recognition.interimResults = true;
+    this.recognition.maxAlternatives = 1;
+
+    this.recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result[0]?.transcript ?? "";
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      this.applySpeechTranscript(finalTranscript, interimTranscript);
+    };
+
+    this.recognition.onerror = (event) => {
+      this.setRecording(false);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        warn("Trình duyệt đang chặn quyền micro.");
+      } else {
+        warn("Không nghe rõ, thử ghi âm lại nhé.");
+      }
+    };
+
+    this.recognition.onend = () => {
+      this.setRecording(false);
+    };
+  }
+
+  private toggleRecording(warn: (message: string) => void): void {
+    if (!this.recognition) {
+      warn("Trình duyệt này chưa hỗ trợ ghi âm thành chữ.");
+      return;
+    }
+
+    if (this.isRecording) {
+      this.recognition.stop();
+      this.setRecording(false);
+      return;
+    }
+
+    this.speechBaseValue = this.input.value.trimEnd();
+    try {
+      this.recognition.start();
+      this.setRecording(true);
+    } catch {
+      warn("Không thể bắt đầu ghi âm lúc này.");
+      this.setRecording(false);
+    }
+  }
+
+  private applySpeechTranscript(finalTranscript: string, interimTranscript: string): void {
+    const spokenText = `${finalTranscript}${interimTranscript}`.trim();
+    if (!spokenText) {
+      return;
+    }
+
+    const separator = this.speechBaseValue ? " " : "";
+    this.input.value = `${this.speechBaseValue}${separator}${spokenText}`;
+    this.input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    if (finalTranscript.trim()) {
+      this.speechBaseValue = this.input.value.trimEnd();
+    }
+  }
+
+  private setRecording(isRecording: boolean): void {
+    this.isRecording = isRecording;
+    this.recordButton.classList.toggle("is-recording", isRecording);
+    this.recordButton.textContent = isRecording ? "Dừng" : "Mic";
+    this.recordButton.setAttribute("aria-pressed", String(isRecording));
+    this.recordButton.title = isRecording ? "Dừng ghi âm" : "Ghi âm lời nhắn";
   }
 
   private updateSendState(): void {

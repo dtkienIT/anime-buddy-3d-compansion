@@ -2,6 +2,10 @@
 
 > Historical snapshot (2026-07-10). See `docs/CURRENT_STATUS.md` for current verified results.
 
+## 2026-07-12 Response Cache Addendum
+
+Headed Chrome verified the Supabase response/audio cache with voice enabled. An unaccented input and an accented/punctuated equivalent produced the same assistant text, both completed audio playback, and returned to `IDLE`. Direct headers confirmed `response-cache ... desc="HIT"`, `mistral;dur=0`, and `X-TTS-Cache: SUPABASE_HIT`. A fuzzy input with one extra word also hit. Full evidence is in `docs/response-cache-qa-report.md`.
+
 Date: 2026-07-10
 
 Browser: Chromium `149.0.7827.55`

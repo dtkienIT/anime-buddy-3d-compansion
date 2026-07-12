@@ -71,6 +71,7 @@ export class AppController {
       required("#chat-panel"),
       required("#chat-form"),
       required("#chat-input"),
+      required("#record-message"),
       required("#chat-send"),
       required("#chat-log"),
       required("#chat-status"),
@@ -86,7 +87,8 @@ export class AppController {
         clear: () => {
           this.chat.clear();
           this.chatPanel.clearMessages();
-        }
+        },
+        warn: (message) => this.toasts.show(message)
       }
     );
 

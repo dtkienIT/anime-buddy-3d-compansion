@@ -51,11 +51,13 @@ uv --cache-dir .uv-cache run --project apps/tts python scripts/audio_quality_pro
 node tests/browser/probe-audio-worklet.mjs
 ```
 
-See `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, and `docs/browser-qa-report.md`.
+See `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, `docs/browser-qa-report.md`, and `docs/response-cache-qa-report.md`.
 
 `pnpm-workspace.yaml` is present for pnpm users, but this machine did not have pnpm installed during implementation, so npm workspaces are the verified package manager.
 
 ## Current QA Snapshot
+
+Response/audio cache verification on 2026-07-12 confirmed that normalized and fuzzy input variants reuse the approved Supabase response, bypass Mistral (`mistral;dur=0`), and return stored WAV audio with `X-TTS-Cache: SUPABASE_HIT`.
 
 Takeover rerun on 2026-07-10 verified:
 

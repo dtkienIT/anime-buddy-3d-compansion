@@ -27,3 +27,14 @@ Default voice:
 TTS_VOICE=Trúc Ly
 TTS_STYLE=tu_nhien
 ```
+
+## Hugging Face cache on Windows
+
+VieNeu-TTS downloads model files through Hugging Face. To keep those files on the E: drive, set these values in the repo root `.env` before starting the TTS service:
+
+```text
+HF_HOME=E:\python\build phase\1\anime-buddy-3d-viewer\.hf-cache
+HUGGINGFACE_HUB_CACHE=E:\python\build phase\1\anime-buddy-3d-viewer\.hf-cache\hub
+```
+
+Hugging Face can use symlinks on Windows only when Windows allows the current Python process to create them. Enable Windows Developer Mode, or run the TTS service from an elevated terminal.

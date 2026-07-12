@@ -9,6 +9,7 @@ os.environ.setdefault("TTS_SKIP_MODEL_LOAD", "1")
 
 from app.audio_cache import cache_key
 from app.main import PCM_STREAM_HEADERS, _read_cached_pcm, app
+from app.services.vieneu_engine import VieNeuEngine, voice_match_key
 
 
 client = TestClient(app)
@@ -65,3 +66,18 @@ def test_pcm_stream_headers_are_explicit():
         "X-Audio-Channels": "1",
         "X-Audio-Bytes-Per-Sample": "4",
     }
+
+
+def test_voice_resolver_falls_back_when_package_voice_is_mojibake():
+    class FakeEngine:
+        def list_preset_voices(self):
+            return ["Tr\ufffdc Ly", "Other"]
+
+    engine = VieNeuEngine()
+    engine._engine = FakeEngine()
+
+    assert engine._resolve_voice_sync("Trúc Ly") == "Tr\ufffdc Ly"
+
+
+def test_voice_match_key_normalizes_case_and_symbols():
+    assert voice_match_key("  Truc-Ly! ") == "trucly"

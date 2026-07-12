@@ -4,12 +4,14 @@ import { chatRequestSchema } from "../schemas/chatSchemas.js";
 import type { CompanionAiService } from "../services/mistralService.js";
 import type { SupabaseService } from "../services/supabaseService.js";
 import { createMemoryTimings, MemoryService, type MemoryContextResult } from "../services/memoryService.js";
+import type { ResponseCacheService } from "../services/responseCacheService.js";
 
 export function registerChatRoute(
   app: FastifyInstance,
   env: ApiEnv,
   ai: CompanionAiService,
-  supabase: SupabaseService
+  supabase: SupabaseService,
+  responseCache?: ResponseCacheService
 ): void {
   const memoryService = new MemoryService(env, supabase.getClient());
 
@@ -48,6 +50,29 @@ export function registerChatRoute(
 
     const [session, prefResult] = await Promise.all([sessionPromise, prefPromise]);
     const isMemoryEnabled = prefResult?.data ? prefResult.data.memory_enabled : true;
+
+    // Reusable responses bypass memory retrieval and the LLM, while remaining in chat history.
+    const cacheStartedAt = performance.now();
+    const cachedResponse = await responseCache?.findReply(body.message, body.characterId) ?? null;
+    const responseCacheMs = performance.now() - cacheStartedAt;
+    if (cachedResponse) {
+      await Promise.allSettled([
+        supabase.saveUserMessage(session.sessionId, body.message),
+        supabase.saveAssistantMessage(session.sessionId, cachedResponse)
+      ]);
+      const totalChatMs = performance.now() - requestStartedAt;
+      reply.header("Server-Timing", [
+        `response-cache;dur=${responseCacheMs.toFixed(1)};desc="HIT"`,
+        "memory-disabled;dur=0",
+        "mistral;dur=0",
+        `total;dur=${totalChatMs.toFixed(1)}`
+      ].join(", "));
+      return reply.send({
+        sessionId: session.sessionId,
+        ...cachedResponse,
+        warnings: session.warnings
+      });
+    }
 
     // 2. Fetch history AND retrieve memory context concurrently.
     let recentMessagesMs = 0;
@@ -101,6 +126,9 @@ export function registerChatRoute(
     supabase.saveAssistantMessage(session.sessionId, aiResponse).catch((err: unknown) => {
       console.error("Failed to save assistant message in background:", err);
     });
+    responseCache?.saveReply(body.message, body.characterId, aiResponse).catch((err: unknown) => {
+      console.error("Failed to save reusable response cache:", err);
+    });
 
     // 6. Background memory extraction & summarization
     if (isMemoryEnabled && memoryService.isConfigured() && env.MEMORY_ENABLED) {
@@ -135,6 +163,7 @@ export function registerChatRoute(
       `memory-timeouts;desc="${memoryTimings.timeoutCount}"`,
       `memory-fallbacks;desc="${memoryTimings.fallbackCount}"`,
       `memory-cache-hits;desc="${memoryTimings.cacheHitCount}"`,
+      `response-cache;dur=${responseCacheMs.toFixed(1)};desc="MISS"`,
       `mistral;dur=${mistralMs.toFixed(1)}`,
       `total;dur=${totalChatMs.toFixed(1)}`
     ];

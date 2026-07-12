@@ -20,6 +20,10 @@ Backend-only:
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
 - `TTS_SERVICE_URL`
+- `RESPONSE_CACHE_ENABLED`
+- `RESPONSE_CACHE_BUCKET`
+- `RESPONSE_CACHE_SIMILARITY_THRESHOLD`
+- `RESPONSE_CACHE_TOP_K`
 
 Frontend-safe:
 
@@ -35,6 +39,8 @@ supabase db push
 # Or run the files directly in Supabase SQL editor:
 # 1. supabase/migrations/001_chat_schema.sql
 # 2. supabase/migrations/002_persistent_memory.sql
+# 3. supabase/migrations/003_memory_extraction_outbox.sql
+# 4. supabase/migrations/004_response_audio_cache.sql
 ```
 
 ## Install
@@ -104,3 +110,16 @@ node tests/browser/collect-baseline.mjs "1+3=?" "final-real-chat.json" replay
 ```
 
 Generated WAVs and browser artifacts are written under `test-results/`, which is ignored by git.
+
+## Response and audio cache verification
+
+The default cache configuration is:
+
+```dotenv
+RESPONSE_CACHE_ENABLED=true
+RESPONSE_CACHE_BUCKET=response-audio
+RESPONSE_CACHE_SIMILARITY_THRESHOLD=0.90
+RESPONSE_CACHE_TOP_K=3
+```
+
+After applying migration `004`, send a message once and then send an accent/punctuation variant. A cache hit exposes `response-cache` with `desc="HIT"` and `mistral;dur=0` in the `/api/chat` `Server-Timing` header. Repeating TTS with the same text, voice, and style returns `X-TTS-Cache: SUPABASE_HIT`.

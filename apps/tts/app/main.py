@@ -63,7 +63,7 @@ async def synthesize(
     if len(text) > settings.max_text_length:
         raise HTTPException(status_code=400, detail="Text is too long")
 
-    voice = request.voice or settings.voice
+    voice = await engine.resolve_voice(request.voice or settings.voice)
     style = request.style or settings.style
     available_voices = await engine.list_voices()
     voice_names = {item["name"] for item in available_voices}

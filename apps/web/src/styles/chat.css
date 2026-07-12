@@ -133,7 +133,7 @@
 
 .chat-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   padding: 12px 14px 14px;
   border-top: 1px solid rgba(31, 41, 55, 0.1);
@@ -159,17 +159,48 @@
   border-color: rgba(35, 107, 142, 0.62);
 }
 
+.record-button,
 .chat-send {
   min-width: 72px;
   height: 42px;
   padding: 0 14px;
+  border: 1px solid rgba(31, 41, 55, 0.14);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 850;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.record-button {
+  min-width: 56px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #26313f;
+}
+
+.record-button:hover:not(:disabled),
+.record-button.is-recording {
+  border-color: rgba(159, 79, 100, 0.46);
+  background: rgba(255, 248, 250, 0.92);
+  color: #74364a;
+  transform: translateY(-1px);
+}
+
+.record-button.is-recording {
+  box-shadow: 0 0 0 3px rgba(159, 79, 100, 0.12);
+}
+
+.chat-send {
   background: var(--blue);
   color: #fff;
-  font-size: 13px;
 }
 
 .chat-send:disabled,
 .chat-input:disabled,
+.record-button:disabled,
 .tool-button:disabled {
   cursor: not-allowed;
   opacity: 0.62;

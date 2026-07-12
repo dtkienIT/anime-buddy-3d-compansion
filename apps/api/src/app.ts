@@ -13,6 +13,7 @@ import { registerConversationRoutes } from "./routes/conversations.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerTtsRoute } from "./routes/tts.js";
 import { registerMemoryRoutes } from "./routes/memoryRoutes.js";
+import { ResponseCacheService } from "./services/responseCacheService.js";
 
 
 export interface AppServices {
@@ -61,10 +62,11 @@ export async function createApp(env: ApiEnv = getEnv(), services: AppServices = 
   const supabase = services.supabase ?? new SupabaseService(env);
   const tts = services.tts ?? new TtsService(env);
   const ai = services.ai ?? new MistralService(env);
+  const responseCache = new ResponseCacheService(env, supabase.getClient());
 
   registerHealthRoute(app, env, supabase, tts);
-  registerChatRoute(app, env, ai, supabase);
-  registerTtsRoute(app, env, tts);
+  registerChatRoute(app, env, ai, supabase, responseCache);
+  registerTtsRoute(app, env, tts, responseCache);
   registerConversationRoutes(app, supabase);
   registerMemoryRoutes(app, supabase.getClient(), { rateLimitMax: env.DATA_RATE_LIMIT_PER_MINUTE });
 

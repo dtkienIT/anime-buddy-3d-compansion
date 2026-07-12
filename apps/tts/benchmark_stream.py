@@ -3,11 +3,13 @@
 from time import perf_counter
 
 from app.config import get_settings
+
+settings = get_settings()
+
 from vieneu.v3turbo import V3TurboVieNeuTTS
 from vieneu_utils.phonemize_text import phonemize_text_with_emotions
 
 
-settings = get_settings()
 started = perf_counter()
 engine = V3TurboVieNeuTTS(device="cpu", backend="onnx")
 print({"event": "loaded", "ms": round((perf_counter() - started) * 1000, 2)})

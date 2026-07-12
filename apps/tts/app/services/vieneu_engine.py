@@ -58,7 +58,8 @@ class VieNeuEngine:
         async with self._synthesis_lock:
             if self._warmed_up:
                 return
-            await asyncio.to_thread(self._warm_up_sync, voice, style)
+            resolved_voice = await asyncio.to_thread(self._resolve_voice_sync, voice)
+            await asyncio.to_thread(self._warm_up_sync, resolved_voice, style)
             self._warmed_up = True
 
     async def acquire_synthesis(self) -> float:
@@ -80,14 +81,21 @@ class VieNeuEngine:
             return [{"name": "Trúc Ly", "gender": "female", "locale": "vi-VN"}]
         return voices
 
+    async def resolve_voice(self, voice: str) -> str:
+        await self.ensure_loaded()
+        if self._engine is None:
+            return voice
+        return await asyncio.to_thread(self._resolve_voice_sync, voice)
+
     async def synthesize(self, text: str, voice: str, style: str, output_path: Path) -> None:
         await self.ensure_loaded()
         if self._engine is None:
             raise RuntimeError("vieneu package is not installed or could not be loaded")
 
+        resolved_voice = await asyncio.to_thread(self._resolve_voice_sync, voice)
         normalized = normalize_spoken_text(text)
         async with self._synthesis_lock:
-            await asyncio.to_thread(self._synthesize_sync, normalized, voice, style, output_path)
+            await asyncio.to_thread(self._synthesize_sync, normalized, resolved_voice, style, output_path)
 
     async def synthesize_to_cache_fast(
         self,
@@ -107,6 +115,7 @@ class VieNeuEngine:
         if self._engine is None:
             raise RuntimeError("vieneu package is not installed or could not be loaded")
 
+        resolved_voice = await asyncio.to_thread(self._resolve_voice_sync, voice)
         queued_at = time.perf_counter()
         async with self._synthesis_lock:
             queue_ms = (time.perf_counter() - queued_at) * 1000
@@ -118,7 +127,7 @@ class VieNeuEngine:
             await asyncio.to_thread(
                 self._synthesize_streaming_sync,
                 normalized,
-                voice,
+                resolved_voice,
                 style,
                 output_path,
             )
@@ -219,6 +228,21 @@ class VieNeuEngine:
             apply_watermark=True,
         ):
             pass
+
+    def _resolve_voice_sync(self, requested: str) -> str:
+        voices = self._list_voices_sync()
+        names = [str(voice["name"]) for voice in voices if voice.get("name")]
+        if not names:
+            return requested
+        if requested in names:
+            return requested
+
+        requested_key = voice_match_key(requested)
+        for name in names:
+            if voice_match_key(name) == requested_key:
+                return name
+
+        return names[0]
 
     def _stream_chunks_sync(self, text: str, voice: str, style: str):
         """Use the v3.1 ONNX decode-step API with a one-frame lead-in when available."""
@@ -387,3 +411,7 @@ def normalize_spoken_text(text: str) -> str:
     text = re.sub(r"[#*_`>\[\](){}|]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def voice_match_key(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", text.casefold())

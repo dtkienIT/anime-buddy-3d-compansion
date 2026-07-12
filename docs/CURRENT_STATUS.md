@@ -1,6 +1,6 @@
 # Current Status
 
-Authoritative as of 2026-07-11 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked `test-results/` artifacts for the current working tree.
+Authoritative as of 2026-07-12 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked reports/artifacts for the current working tree.
 
 ## Repository and runtime
 
@@ -16,11 +16,22 @@ Authoritative as of 2026-07-11 (Asia/Saigon). Older audit and QA documents are h
 ## Current architecture
 
 - `apps/web`: Vite/TypeScript/Three.js/VRM frontend, request-local performance runs, pipelined sentence audio queue, exact cached-PCM buffer scheduling, lip-sync and cancellable/replacement chat operations.
-- `apps/api`: Fastify Mistral/Supabase API, bounded and parallel memory retrieval, detailed `Server-Timing`, TTS proxy with propagated request IDs/timings.
+- `apps/api`: Fastify Mistral/Supabase API, bounded and parallel memory retrieval, approved reusable response matching, detailed `Server-Timing`, and a TTS proxy backed by Supabase Storage audio reuse.
 - `apps/tts`: warmed VieNeu v3 Turbo ONNX engine. MISS uses the incremental decoder to build a complete PCM16 WAV before response; HIT returns validated 48 kHz mono float32 PCM. Live MISS playback remains disabled to avoid underflow.
 - `packages/shared`: registries/types. `supabase/migrations`: chat, memory, indexes, and durable extraction outbox schema.
 
 ## Latest measured results
+
+### Supabase response and audio cache
+
+Headed Chrome and direct API verification passed on 2026-07-12. Report: `docs/response-cache-qa-report.md`.
+
+- An accent/punctuation variant reused the exact cached response.
+- A fuzzy variant with one additional word also matched at the configured `0.90` threshold.
+- Response hit: `response-cache;dur=191.9`, `mistral;dur=0`, total chat `1276.6 ms`.
+- Fuzzy hit: `response-cache;dur=227.9`, `mistral;dur=0`, total chat `1271.6 ms`.
+- Audio hit: `X-TTS-Cache: SUPABASE_HIT`, `audio/wav`, `576044` bytes.
+- Both Chrome messages completed voice playback and returned to `IDLE`.
 
 ### Browser TTS benchmark (5 runs per mode)
 
@@ -84,6 +95,8 @@ Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas
 | Normal real chat | PASS | `browser/baseline/post-change-throttled-real-chat.json` |
 | Cache MISS playback | PASS, target FAIL | `browser/tts-benchmark/final.json` |
 | Cache HIT replay | PASS | `browser/tts-benchmark/final.json` |
+| Supabase response cache normalized/fuzzy hit | PASS | `docs/response-cache-qa-report.md` |
+| Supabase Storage audio reuse | PASS | `docs/response-cache-qa-report.md` |
 | Deterministic ≥3 chunks | PASS | `browser/interactions/final.json` |
 | Real TTS ≥3 chunks (HIT) | PASS | `browser/audio-worklet/real-multi-chunk-hit-final.json` |
 | Real TTS ≥3 chunks (MISS) | FAIL (90 s budget) | `browser/audio-worklet/failure-real-multi-chunk-final.json` |
@@ -123,6 +136,7 @@ Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas
 ## Known limitations and blockers
 
 - Warm cache MISS p95 is 9.72 s, above the 4 s goal. The installed CPU ONNX path is the limiting stage; live MISS streaming remains disabled because prior deterministic measurements showed severe underflow.
+- A response-cache hit still waits for session/preference persistence and took about 1.27 s in the latest remote Supabase run; the frontend's 300 ms fallback status can temporarily say `Đang truy xuất ký ức...` even though memory and Mistral are bypassed.
 - Real Mistral chat is response-based, not token-streamed, so real first-visible text follows full Mistral completion and missed the 1 s goal.
 - Migration `003_memory_extraction_outbox.sql` must be applied to the configured remote Supabase project before extraction becomes restart-durable there. Until then, code detects the missing table and uses bounded in-process retry without delaying chat.
 - Formal browser fault injection for Supabase outage, missing VRMA `finished`, and a pre-suspended AudioContext remains partial.

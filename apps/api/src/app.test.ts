@@ -19,6 +19,10 @@ const env: ApiEnv = {
   CHAT_RATE_LIMIT_PER_MINUTE: 2,
   TTS_RATE_LIMIT_PER_MINUTE: 2,
   DATA_RATE_LIMIT_PER_MINUTE: 4,
+  RESPONSE_CACHE_ENABLED: false,
+  RESPONSE_CACHE_BUCKET: "response-audio",
+  RESPONSE_CACHE_SIMILARITY_THRESHOLD: 0.9,
+  RESPONSE_CACHE_TOP_K: 3,
   MEMORY_ENABLED: true,
   MEMORY_RECENT_MESSAGE_LIMIT: 24,
   MEMORY_TOP_K: 8,
@@ -118,6 +122,20 @@ describe("api", () => {
     expect(response.headers["x-audio-sample-rate"]).toBe("48000");
     expect(response.headers["x-audio-channels"]).toBe("1");
     expect(response.headers["x-audio-bytes-per-sample"]).toBe("4");
+  });
+
+  it("returns JSON errors even after an audio content type was selected", async () => {
+    const app = await createApp(env);
+    app.get("/test/audio-error", async (_request, reply) => {
+      reply.type("application/octet-stream");
+      throw new Error("audio stream failed");
+    });
+
+    const response = await app.inject({ method: "GET", url: "/test/audio-error" });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.headers["content-type"]).toContain("application/json");
+    expect(response.json()).toEqual({ error: "Internal server error" });
   });
 });
 

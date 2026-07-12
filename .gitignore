@@ -6,6 +6,7 @@ apps/tts/cache/*
 __pycache__/
 .venv/
 .uv-cache/
+.hf-cache/
 node_modules/
 dist/
 coverage/

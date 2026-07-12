@@ -2,8 +2,10 @@ import type { FastifyInstance } from "fastify";
 import type { ApiEnv } from "../config/env.js";
 import { ttsRequestSchema } from "../schemas/chatSchemas.js";
 import type { TtsService } from "../services/ttsService.js";
+import { readableToBuffer, type ResponseCacheService } from "../services/responseCacheService.js";
+import { Readable } from "node:stream";
 
-export function registerTtsRoute(app: FastifyInstance, env: ApiEnv, tts: TtsService): void {
+export function registerTtsRoute(app: FastifyInstance, env: ApiEnv, tts: TtsService, cache?: ResponseCacheService): void {
   app.post("/api/tts", {
     config: {
       rateLimit: {
@@ -17,7 +19,14 @@ export function registerTtsRoute(app: FastifyInstance, env: ApiEnv, tts: TtsServ
     const requestId = typeof request.headers["x-buddy-tts-request-id"] === "string"
       ? request.headers["x-buddy-tts-request-id"]
       : request.id;
-    const result = await tts.synthesize(body, requestId);
+    let result = await cache?.findAudio(body) ?? await tts.synthesize(body, requestId);
+    if (cache?.isConfigured() && result.cacheStatus !== "SUPABASE_HIT") {
+      const bytes = await readableToBuffer(result.audio);
+      result = { ...result, audio: Readable.from(bytes), contentLength: String(bytes.byteLength) };
+      void cache.saveAudio(body, result, bytes).catch((error: unknown) => {
+        request.log.warn({ err: error }, "Failed to persist response audio cache");
+      });
+    }
     const upstreamTiming = result.upstreamServerTiming ? `, ${result.upstreamServerTiming}` : "";
     const response = reply
       .header("Content-Type", result.contentType)

@@ -24,7 +24,6 @@
     "smoke-test": "node scripts/smoke-test.mjs",
     "test:browser:responsive": "node tests/browser/probe-responsive.mjs",
     "test:browser:animations": "node tests/browser/probe-animations.mjs",
-    "test:browser:animations": "node tests/browser/probe-animations.mjs",
     "tts:setup": "uv --cache-dir .uv-cache sync --project apps/tts"
   },
   "devDependencies": {

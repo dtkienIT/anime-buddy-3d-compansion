@@ -19,6 +19,12 @@ const envSchema = z.object({
   TTS_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
   DATA_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(240).default(60),
 
+  // Shared response/audio cache
+  RESPONSE_CACHE_ENABLED: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
+  RESPONSE_CACHE_BUCKET: z.string().min(1).default("response-audio"),
+  RESPONSE_CACHE_SIMILARITY_THRESHOLD: z.coerce.number().min(0.5).max(1).default(0.9),
+  RESPONSE_CACHE_TOP_K: z.coerce.number().int().min(1).max(10).default(3),
+
   // Memory settings
   MEMORY_ENABLED: z.preprocess((v) => v === "true" || v === true, z.boolean()).default(true),
   MEMORY_RECENT_MESSAGE_LIMIT: z.coerce.number().int().min(1).default(24),

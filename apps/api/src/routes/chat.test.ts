@@ -5,6 +5,7 @@ import type { ApiEnv } from "../config/env.js";
 import { registerErrorHandler } from "../middleware/errorHandler.js";
 import type { CompanionAiService } from "../services/mistralService.js";
 import type { SupabaseService } from "../services/supabaseService.js";
+import type { ResponseCacheService } from "../services/responseCacheService.js";
 import { registerChatRoute } from "./chat.js";
 
 vi.mock("@mistralai/mistralai", () => ({
@@ -32,6 +33,10 @@ const env: ApiEnv = {
   CHAT_RATE_LIMIT_PER_MINUTE: 100,
   TTS_RATE_LIMIT_PER_MINUTE: 100,
   DATA_RATE_LIMIT_PER_MINUTE: 100,
+  RESPONSE_CACHE_ENABLED: false,
+  RESPONSE_CACHE_BUCKET: "response-audio",
+  RESPONSE_CACHE_SIMILARITY_THRESHOLD: 0.9,
+  RESPONSE_CACHE_TOP_K: 3,
   MEMORY_ENABLED: true,
   MEMORY_RECENT_MESSAGE_LIMIT: 24,
   MEMORY_TOP_K: 8,
@@ -53,23 +58,37 @@ interface SupabaseFixtureOptions {
   preferences?: Record<string, boolean | boolean[]>;
   memoryDelayMs?: Record<string, number>;
   timeoutAnonymousIds?: Set<string>;
+  cachedResponse?: {
+    reply: string;
+    emotion: "happy";
+    animation: string;
+    expression: "happy";
+    intensity: number;
+    voiceStyle: "friendly";
+  };
+  aiComplete?: ReturnType<typeof vi.fn>;
 }
 
 async function buildChatApp(options: SupabaseFixtureOptions = {}) {
   const app = Fastify({ logger: false });
   registerErrorHandler(app);
-  const ai: CompanionAiService = {
-    complete: vi.fn(async ({ memoryContext }) => ({
+  const complete = options.aiComplete ?? vi.fn(async ({ memoryContext }) => ({
       reply: memoryContext ? "ok with memory" : "ok",
       emotion: "neutral" as const,
       animation: "relax",
       expression: "neutral" as const,
       intensity: 0.2,
       voiceStyle: "friendly" as const
-    }))
+    }));
+  const ai: CompanionAiService = {
+    complete
   };
   const supabase = createSupabaseService(options);
-  registerChatRoute(app, env, ai, supabase);
+  const responseCache = options.cachedResponse ? {
+    findReply: vi.fn(async () => options.cachedResponse),
+    saveReply: vi.fn(async () => undefined)
+  } as unknown as ResponseCacheService : undefined;
+  registerChatRoute(app, env, ai, supabase, responseCache);
   await app.ready();
   return app;
 }
@@ -201,6 +220,32 @@ function parseTiming(header: unknown) {
 describe("chat route memory Server-Timing", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("returns an approved cache hit without calling the AI", async () => {
+    const aiComplete = vi.fn();
+    const cachedResponse = {
+      reply: "Xin chao, rat vui duoc gap ban!",
+      emotion: "happy" as const,
+      animation: "greeting",
+      expression: "happy" as const,
+      intensity: 0.8,
+      voiceStyle: "friendly" as const
+    };
+    const app = await buildChatApp({ cachedResponse, aiComplete });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/chat",
+      payload: { ...chatPayload("anonymous-cache"), message: "xin chao" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject(cachedResponse);
+    expect(aiComplete).not.toHaveBeenCalled();
+    expect(response.headers["server-timing"]).toContain('response-cache;');
+    expect(response.headers["server-timing"]).toContain('desc="HIT"');
+    await app.close();
   });
 
   it("does not reuse enabled memory timings on a following disabled request", async () => {
