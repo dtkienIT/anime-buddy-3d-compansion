@@ -57,6 +57,8 @@ See `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, `docs/brow
 
 ## Current QA Snapshot
 
+Long-reply audio look-ahead verification on 2026-07-13 added timeout-safe speech chunks (target 100-120, hard split limit 140 characters) and a three-chunk initial WAV reserve. A browser fault-injection run using the reported Vietnamese cat story completed six delayed MISS-style TTS responses and scheduled all five chunk boundaries with `0 ms` gap. The local VieNeu CPU path remains the limiting factor: a real uncached long-chunk run can still reach the 120-second backend timeout under concurrent WebGL load, so the look-ahead queue removes frontend scheduling gaps when audio is ready but does not make slow model inference faster.
+
 Response/audio cache verification on 2026-07-12 confirmed that normalized and fuzzy input variants reuse the approved Supabase response, bypass Mistral (`mistral;dur=0`), and return stored WAV audio with `X-TTS-Cache: SUPABASE_HIT`.
 
 Takeover rerun on 2026-07-10 verified:

@@ -26,7 +26,18 @@ Default voice:
 ```text
 TTS_VOICE=Trúc Ly
 TTS_STYLE=tu_nhien
+TTS_DEVICE=cpu
+TTS_BACKEND=onnx
 ```
+
+The default `TTS_DEVICE=cpu` preserves the verified browser baseline. `TTS_DEVICE=auto` can select CUDA when ONNX Runtime exposes `CUDAExecutionProvider`, but CUDA is experimental on the 2 GB MX330 because it contends with browser WebGL. To install that optional Windows CUDA runtime:
+
+```powershell
+npm run tts:setup:gpu
+uv --cache-dir .uv-cache run --project apps/tts --no-sync python -c "import onnxruntime as ort; ort.preload_dlls(directory=''); print(ort.get_available_providers())"
+```
+
+The provider list must contain `CUDAExecutionProvider`. Run GPU-enabled TTS commands with `--no-sync`; a normal `uv sync` follows VieNeu's CPU dependency and replaces the manually selected GPU wheel.
 
 ## Hugging Face cache on Windows
 

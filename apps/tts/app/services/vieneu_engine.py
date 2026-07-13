@@ -209,10 +209,38 @@ class VieNeuEngine:
     def _create_engine(self) -> Any:
         module = importlib.import_module("vieneu.v3turbo")
         engine_class = getattr(module, "V3TurboVieNeuTTS")
+        requested_device = os.getenv("TTS_DEVICE", "cpu").strip().lower()
+        device = self._resolve_device(requested_device)
         return engine_class(
-            device=os.getenv("TTS_DEVICE", "cpu"),
+            device=device,
             backend=os.getenv("TTS_BACKEND", "onnx"),
         )
+
+    @staticmethod
+    def _resolve_device(requested_device: str) -> str:
+        if requested_device not in {"auto", "cpu", "cuda"}:
+            raise ValueError("TTS_DEVICE must be one of: auto, cpu, cuda")
+        if requested_device == "cpu":
+            return "cpu"
+
+        try:
+            ort = importlib.import_module("onnxruntime")
+            preload_dlls = getattr(ort, "preload_dlls", None)
+            if callable(preload_dlls):
+                preload_dlls(directory="")
+            providers = set(ort.get_available_providers())
+        except Exception:
+            if requested_device == "cuda":
+                raise
+            return "cpu"
+
+        if "CUDAExecutionProvider" in providers:
+            return "cuda"
+        if requested_device == "cuda":
+            raise RuntimeError(
+                "TTS_DEVICE=cuda was requested but CUDAExecutionProvider is unavailable"
+            )
+        return "cpu"
 
     def _warm_up_sync(self, voice: str, style: str) -> None:
         engine = self._engine

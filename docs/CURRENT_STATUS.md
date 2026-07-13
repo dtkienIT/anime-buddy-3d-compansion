@@ -1,6 +1,15 @@
 # Current Status
 
-Authoritative as of 2026-07-12 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked reports/artifacts for the current working tree.
+Authoritative as of 2026-07-13 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked reports/artifacts for the current working tree.
+
+## 2026-07-13 long-reply audio look-ahead
+
+- Long assistant replies are split into smaller timeout-safe speech chunks: first target 100 characters, later target 120 characters, and a hard per-chunk split limit of 140 characters before the bounded final merge.
+- `AudioQueue` synthesizes and buffers the first three complete WAV chunks before playback. Later chunks are synthesized while the initial reserve is playing, remain ordered, are decoded before scheduling, and retain the existing cancellation/replacement behavior.
+- The browser fault-injection probe used the reported 456-character Vietnamese cat story with six delayed MISS-style WAV responses. All requests returned `200`, all five scheduled boundaries measured `0 ms`, and the artifact is `test-results/browser/audio-prefetch/long-vietnamese-mocked-miss.json`.
+- Unit coverage verifies that three chunks finish synthesis before the first playback starts. Web tests now pass 28 tests.
+- This change fixes frontend readiness/scheduling gaps; it cannot overcome a backend that produces audio slower than playback. A real uncached run under current WebGL/CPU contention reached the structured `504 TTS_TIMEOUT` path after 120 seconds before a chunk was ready. Real VieNeu MISS continuity therefore remains performance-limited and is not reported as a production latency pass.
+- TTS timeout handling is now aligned: backend timeout 120 seconds, frontend timeout 125 seconds. Backend timeout responses use HTTP `504`, code `TTS_TIMEOUT`, and a correlated TTS request ID.
 
 ## Repository and runtime
 
@@ -21,6 +30,16 @@ Authoritative as of 2026-07-12 (Asia/Saigon). Older audit and QA documents are h
 - `packages/shared`: registries/types. `supabase/migrations`: chat, memory, indexes, and durable extraction outbox schema.
 
 ## Latest measured results
+
+### Local CUDA TTS probe
+
+On 2026-07-12, the TTS environment was switched from CPU-only `onnxruntime` to `onnxruntime-gpu` 1.26.0 with CUDA/cuDNN runtimes. The NVIDIA GeForce MX330 exposed `CUDAExecutionProvider`; VieNeu loaded successfully with automatic CUDA selection. A fresh 36-character Vietnamese MISS measured 3,105 ms after a 1,441 ms warm-up and produced a valid 215,084-byte WAV without exhausting the 2 GB VRAM. This is a focused local probe, not yet a replacement for the five-run browser benchmark.
+
+A subsequent five-run direct-TTS probe with longer unique Vietnamese inputs measured synthesis min 6,539 ms, p50 7,168 ms, p95 8,590 ms, max 8,894 ms. Four repeat cache HIT requests completed in 9.0-14.9 ms. Two browser benchmark attempts failed before collecting a run: with normal WebGL the TTS request exceeded the frontend timeout and Chromium reported WebGL context loss/GPU stalls; software WebGL still failed to start audio within the extended 120-second harness timeout. On this 2 GB MX330, CUDA therefore passes direct inference but is not yet a browser-level performance win while the 3D scene is active.
+
+After switching to `TTS_DEVICE=cpu`, a fresh five-run direct probe under the current desktop load measured min 5,820 ms, p50 6,809 ms, p95 14,845 ms, max 16,115 ms. Five end-to-end API MISS requests measured 9,023-10,549 ms wall time. The browser harness still aborted `/api/tts` at the frontend's 30-second timeout under concurrent headless WebGL load, so no valid five-run browser sample was collected. This current CPU run is not faster than the earlier CPU browser benchmark and indicates substantial load/thermal variance.
+
+The experimental GPU environment was then removed at the user's request. The active baseline is again `onnxruntime` 1.27.0 with only `CPUExecutionProvider`, and an unset `TTS_DEVICE` defaults to CPU. A fresh five-run direct probe after restart measured min 5,963 ms, p50 8,684 ms, p95 10,868 ms, max 11,034 ms. This is close to but does not exactly reproduce the historical 9.72-second browser p95; timing varies with system load and the direct/browser measurement surfaces are different.
 
 ### Supabase response and audio cache
 
@@ -135,7 +154,7 @@ Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas
 
 ## Known limitations and blockers
 
-- Warm cache MISS p95 is 9.72 s, above the 4 s goal. The installed CPU ONNX path is the limiting stage; live MISS streaming remains disabled because prior deterministic measurements showed severe underflow.
+- The historical CPU browser warm cache MISS p95 is 9.72 s. Direct CUDA p95 is 8.59 s for the later five-run probe, but CUDA browser runs currently time out under 3D/WebGL contention; GPU mode is not marked as a browser performance pass. Live MISS streaming remains disabled because prior deterministic measurements showed severe underflow.
 - A response-cache hit still waits for session/preference persistence and took about 1.27 s in the latest remote Supabase run; the frontend's 300 ms fallback status can temporarily say `Đang truy xuất ký ức...` even though memory and Mistral are bypassed.
 - Real Mistral chat is response-based, not token-streamed, so real first-visible text follows full Mistral completion and missed the 1 s goal.
 - Migration `003_memory_extraction_outbox.sql` must be applied to the configured remote Supabase project before extraction becomes restart-durable there. Until then, code detects the missing table and uses bounded in-process retry without delaying chat.

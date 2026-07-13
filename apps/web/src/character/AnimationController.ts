@@ -6,6 +6,7 @@ import {
 } from "@pixiv/three-vrm-animation";
 import { animationRegistry, getAnimationById } from "./animationRegistry.js";
 import type { PlayAnimationOptions, VrmInstance } from "./types.js";
+import { ensureVrmaSpecVersion } from "./vrmaMetadata.js";
 
 export class AnimationController {
   private mixer: THREE.AnimationMixer | null = null;
@@ -13,6 +14,7 @@ export class AnimationController {
   private currentVrm: VrmInstance | null = null;
   private clipCache = new Map<string, THREE.AnimationClip>();
   private serial = 0;
+  private finishCurrentAction: (() => void) | null = null;
 
   constructor(private readonly loader: GLTFLoader) {}
 
@@ -74,6 +76,7 @@ export class AnimationController {
 
   stop(): void {
     this.serial += 1;
+    this.finishCurrentAction?.();
     if (this.currentAction) {
       this.currentAction.stop();
       this.currentAction = null;
@@ -100,35 +103,28 @@ export class AnimationController {
       return cached;
     }
 
-    const originalWarn = console.warn;
-    console.warn = (...args: unknown[]) => {
-      const firstArg = args[0] ?? "";
-      const message = typeof firstArg === "string" ? firstArg : "";
-      if (message.includes("specVersion of the VRMA is not defined")) {
-        return;
-      }
-      originalWarn(...args);
-    };
-
-    try {
-      const gltf = await this.loader.loadAsync(url);
-      const vrmAnimation = gltf.userData.vrmAnimations?.[0];
-      if (!vrmAnimation) {
-        throw new Error(`VRMA not found: ${url}`);
-      }
-
-      if (vrm.lookAt && !vrm.scene.children.some((child: THREE.Object3D) => child instanceof VRMLookAtQuaternionProxy)) {
-        const proxy = new VRMLookAtQuaternionProxy(vrm.lookAt);
-        proxy.name = "VRMLookAtQuaternionProxy";
-        vrm.scene.add(proxy);
-      }
-
-      const clip = createVRMAnimationClip(vrmAnimation, vrm);
-      this.clipCache.set(url, clip);
-      return clip;
-    } finally {
-      console.warn = originalWarn;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Could not load VRMA ${url}: HTTP ${response.status}`);
     }
+    const data = ensureVrmaSpecVersion(await response.arrayBuffer());
+    const resolvedUrl = new URL(url, window.location.href);
+    const resourcePath = resolvedUrl.href.slice(0, resolvedUrl.href.lastIndexOf("/") + 1);
+    const gltf = await this.loader.parseAsync(data, resourcePath);
+    const vrmAnimation = gltf.userData.vrmAnimations?.[0];
+    if (!vrmAnimation) {
+      throw new Error(`VRMA not found: ${url}`);
+    }
+
+    if (vrm.lookAt && !vrm.scene.children.some((child: THREE.Object3D) => child instanceof VRMLookAtQuaternionProxy)) {
+      const proxy = new VRMLookAtQuaternionProxy(vrm.lookAt);
+      proxy.name = "VRMLookAtQuaternionProxy";
+      vrm.scene.add(proxy);
+    }
+
+    const clip = createVRMAnimationClip(vrmAnimation, vrm);
+    this.clipCache.set(url, clip);
+    return clip;
   }
 
   private async applyClip(clip: THREE.AnimationClip, loop: boolean, fadeDuration: number): Promise<void> {
@@ -164,12 +160,25 @@ export class AnimationController {
         : 1000;
       const timeoutMs = Math.min(Math.max(durationMs + 500, 1000), 5 * 60 * 1000);
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      let frameId: number | undefined;
+      let settled = false;
       const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
         if (timeoutId) {
           clearTimeout(timeoutId);
           timeoutId = undefined;
         }
+        if (frameId !== undefined) {
+          window.cancelAnimationFrame(frameId);
+          frameId = undefined;
+        }
         mixer.removeEventListener("finished", onFinished);
+        if (this.finishCurrentAction === finish) {
+          this.finishCurrentAction = null;
+        }
         resolve();
       };
       const onFinished = (event: any) => {
@@ -177,8 +186,25 @@ export class AnimationController {
           finish();
         }
       };
+      const observeCompletion = () => {
+        if (settled) {
+          return;
+        }
+        const reachedClipEnd = Number.isFinite(clip.duration)
+          && clip.duration > 0
+          && action.time >= clip.duration - 1 / 60;
+        if (reachedClipEnd || (!action.isRunning() && action.time > 0)) {
+          finish();
+          return;
+        }
+        frameId = requestAnimationFrame(observeCompletion);
+      };
+
+      this.finishCurrentAction?.();
+      this.finishCurrentAction = finish;
       mixer.addEventListener("finished", onFinished);
       timeoutId = setTimeout(finish, timeoutMs);
+      frameId = requestAnimationFrame(observeCompletion);
     });
   }
 }

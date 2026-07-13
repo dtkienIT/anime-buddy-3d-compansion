@@ -68,9 +68,9 @@ export function splitIntoSpeechChunks(text: string): string[] {
   }
 
   const chunks: string[] = [];
-  const firstChunkLimit = 220; // Target 140-220
-  const standardLimit = 280;    // Target 180-280
-  const maxLimit = 320;
+  const firstChunkLimit = 100;
+  const standardLimit = 120;
+  const maxLimit = 140;
 
   let activeChunk = "";
 
@@ -129,10 +129,11 @@ export function splitIntoSpeechChunks(text: string): string[] {
     }
   }
 
-  // Limit to max 6 chunks to prevent excessive calls for normal responses
-  if (chunks.length > 6) {
-    const mergedLast = chunks.slice(5).join(" ");
-    const finalChunks = chunks.slice(0, 5);
+  // Keep bounded request counts while allowing long replies to stay below the
+  // local CPU's per-request timeout envelope.
+  if (chunks.length > 8) {
+    const mergedLast = chunks.slice(7).join(" ");
+    const finalChunks = chunks.slice(0, 7);
     finalChunks.push(mergedLast);
     return finalChunks;
   }

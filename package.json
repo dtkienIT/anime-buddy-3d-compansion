@@ -12,19 +12,20 @@
     "dev": "concurrently -k -n WEB,API,TTS -c cyan,green,magenta \"npm run dev:web\" \"npm run dev:api\" \"npm run dev:tts\"",
     "dev:web": "npm --workspace @anime-buddy/web run dev",
     "dev:api": "npm --workspace @anime-buddy/api run dev",
-    "dev:tts": "uv --cache-dir .uv-cache run --project apps/tts uvicorn --app-dir apps/tts app.main:app --host 127.0.0.1 --port 8000",
+    "dev:tts": "uv --cache-dir .uv-cache run --project apps/tts --no-sync uvicorn --app-dir apps/tts app.main:app --host 127.0.0.1 --port 8000",
     "build": "npm --workspaces --if-present run build",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "npm --workspaces --if-present run typecheck",
     "test": "npm --workspaces --if-present run test",
-    "test:python": "uv --cache-dir .uv-cache run --project apps/tts pytest apps/tts/tests",
+    "test:python": "uv --cache-dir .uv-cache run --project apps/tts --no-sync pytest apps/tts/tests",
     "check": "npm run lint && npm run typecheck && npm run test && npm run test:python && npm run build",
     "check:env": "node scripts/check-env.mjs",
     "verify-assets": "node scripts/verify-assets.mjs",
     "smoke-test": "node scripts/smoke-test.mjs",
     "test:browser:responsive": "node tests/browser/probe-responsive.mjs",
     "test:browser:animations": "node tests/browser/probe-animations.mjs",
-    "tts:setup": "uv --cache-dir .uv-cache sync --project apps/tts"
+    "tts:setup": "uv --cache-dir .uv-cache sync --project apps/tts",
+    "tts:setup:gpu": "uv --cache-dir .uv-cache pip uninstall --python apps/tts/.venv/Scripts/python.exe onnxruntime && uv --cache-dir .uv-cache pip install --python apps/tts/.venv/Scripts/python.exe onnxruntime-gpu[cuda,cudnn]==1.26.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

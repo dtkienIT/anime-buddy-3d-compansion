@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import type { ApiEnv } from "./config/env.js";
 import { parseCompanionModelPayload } from "./services/mistralService.js";
+import { TtsTimeoutError } from "./services/ttsService.js";
 
 const env: ApiEnv = {
   NODE_ENV: "test",
@@ -15,6 +16,7 @@ const env: ApiEnv = {
   API_PORT: 3002,
   WEB_ORIGIN: "http://127.0.0.1:3001",
   TTS_SERVICE_URL: "http://127.0.0.1:8000",
+  TTS_REQUEST_TIMEOUT_MS: 120000,
   CHAT_MAX_CONTEXT_MESSAGES: 20,
   CHAT_RATE_LIMIT_PER_MINUTE: 2,
   TTS_RATE_LIMIT_PER_MINUTE: 2,
@@ -136,6 +138,31 @@ describe("api", () => {
     expect(response.statusCode).toBe(500);
     expect(response.headers["content-type"]).toContain("application/json");
     expect(response.json()).toEqual({ error: "Internal server error" });
+  });
+
+  it("returns a structured 504 when TTS synthesis times out", async () => {
+    const app = await createApp(env, {
+      tts: {
+        health: async () => true,
+        synthesize: async (_body: unknown, requestId?: string) => {
+          throw new TtsTimeoutError(env.TTS_REQUEST_TIMEOUT_MS, requestId);
+        }
+      } as any
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/tts",
+      headers: { "x-buddy-tts-request-id": "tts-timeout-test" },
+      payload: { text: "Xin chao", stream: true }
+    });
+
+    expect(response.statusCode).toBe(504);
+    expect(response.json()).toEqual({
+      error: "TTS service timed out",
+      code: "TTS_TIMEOUT",
+      requestId: "tts-timeout-test"
+    });
   });
 });
 

@@ -81,3 +81,16 @@ def test_voice_resolver_falls_back_when_package_voice_is_mojibake():
 
 def test_voice_match_key_normalizes_case_and_symbols():
     assert voice_match_key("  Truc-Ly! ") == "trucly"
+
+
+def test_device_resolver_honors_explicit_cpu():
+    assert VieNeuEngine._resolve_device("cpu") == "cpu"
+
+
+def test_device_resolver_rejects_unknown_device():
+    try:
+        VieNeuEngine._resolve_device("gpu")
+    except ValueError as exc:
+        assert "TTS_DEVICE" in str(exc)
+    else:
+        raise AssertionError("Unknown TTS device should be rejected")

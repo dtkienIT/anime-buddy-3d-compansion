@@ -37,6 +37,10 @@ Date: 2026-07-10
 
 ## Remaining Performance Work
 
+- A 2026-07-12 CUDA probe on the GeForce MX330 completed warm-up in 1.44 s and one short cache MISS in 3.11 s. A later five-run direct probe measured min/p50/p95/max synthesis of 6.54/7.17/8.59/8.89 s; repeat cache HIT requests took 9.0-14.9 ms. Browser benchmark attempts with normal and software WebGL timed out under severe 3D/TTS contention, so the historical CPU browser p95 must not yet be replaced by the direct CUDA figures.
+- A follow-up CPU run measured direct synthesis min/p50/p95/max of 5.82/6.81/14.84/16.11 s and end-to-end API MISS wall time of 9.02-10.55 s. Concurrent headless WebGL caused the frontend to abort TTS at its 30-second timeout, so the run did not produce a valid browser distribution and does not demonstrate an improvement over the historical CPU result.
+- The GPU packages were subsequently removed and the verified dependency baseline restored: `onnxruntime` 1.27.0, `CPUExecutionProvider`, and CPU as the default when `TTS_DEVICE` is unset. The first post-restore five-run direct probe measured min/p50/p95/max of 5.96/8.68/10.87/11.03 s; the historical 9.72-second figure remains the formal browser p95 rather than a guaranteed constant.
+
 - Investigate VieNeu full WAV CPU latency.
 - Test larger native `chunk_frames` values in a separate branch before re-enabling MISS streaming.
 - Consider sentence-level streaming only if integrity tests prove no underflow.

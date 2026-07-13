@@ -28,7 +28,7 @@ export interface TtsTransportTiming {
 export class TtsClient {
   constructor(
     private readonly baseUrl = env.apiBaseUrl,
-    private readonly timeoutMs = 30_000
+    private readonly timeoutMs = env.ttsRequestTimeoutMs
   ) {}
 
   async synthesize(text: string, settings: VoiceSettings, signal?: AbortSignal, runId = 0): Promise<TtsAudio> {
@@ -64,7 +64,7 @@ export class TtsClient {
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
-      throw new Error(detail || `TTS failed with ${response.status}`);
+      throw createTtsResponseError(response.status, detail);
     }
 
     const { bytes, firstByteAt, completedAt } = await readResponseBytes(response, requestSignal);
@@ -87,6 +87,24 @@ export class TtsClient {
     const blobBytes = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     return { kind: "blob", blob: new Blob([blobBytes], { type: contentType || "audio/wav" }), ...timing };
   }
+}
+
+function createTtsResponseError(status: number, detail: string): Error {
+  if (detail) {
+    try {
+      const payload = JSON.parse(detail) as { error?: unknown; code?: unknown; requestId?: unknown };
+      if (typeof payload.error === "string") {
+        const error = new Error(payload.error) as Error & { code?: string; requestId?: string; status?: number };
+        if (typeof payload.code === "string") error.code = payload.code;
+        if (typeof payload.requestId === "string") error.requestId = payload.requestId;
+        error.status = status;
+        return error;
+      }
+    } catch {
+      // Fall through to the plain-text response below.
+    }
+  }
+  return new Error(detail || `TTS failed with ${status}`);
 }
 
 async function readResponseBytes(response: Response, signal?: AbortSignal): Promise<{

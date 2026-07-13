@@ -19,6 +19,19 @@ export interface TtsProxyResult {
   requestId?: string;
 }
 
+export class TtsTimeoutError extends Error {
+  readonly statusCode = 504;
+  readonly code = "TTS_TIMEOUT";
+
+  constructor(
+    readonly timeoutMs: number,
+    readonly requestId?: string
+  ) {
+    super(`TTS synthesis timed out after ${timeoutMs}ms`);
+    this.name = "TtsTimeoutError";
+  }
+}
+
 export class TtsService {
   constructor(private readonly env: ApiEnv) {}
 
@@ -37,7 +50,7 @@ export class TtsService {
 
   async synthesize(body: TtsRequestBody, requestId?: string): Promise<TtsProxyResult> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 120000);
+    const timer = setTimeout(() => controller.abort(), this.env.TTS_REQUEST_TIMEOUT_MS);
     const startedAt = performance.now();
     try {
       const response = await fetch(`${this.env.TTS_SERVICE_URL}/synthesize`, {
@@ -75,8 +88,18 @@ export class TtsService {
         upstreamServerTiming: response.headers.get("server-timing") ?? undefined,
         requestId: response.headers.get("x-tts-request-id") ?? requestId
       };
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new TtsTimeoutError(this.env.TTS_REQUEST_TIMEOUT_MS, requestId);
+      }
+      throw error;
     } finally {
       clearTimeout(timer);
     }
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError"
+    || error instanceof Error && error.name === "AbortError";
 }

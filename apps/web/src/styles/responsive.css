@@ -33,8 +33,24 @@
 }
 
 @media (max-width: 520px) {
+  .control-panel {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    height: min(23svh, 194px);
+    padding: 10px;
+  }
+
+  .chat-panel {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    left: max(8px, env(safe-area-inset-left));
+    height: min(31svh, 264px);
+  }
+
   .button-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .chat-header {
@@ -54,7 +70,8 @@
   }
 
   .chat-form {
-    grid-template-columns: minmax(0, 1fr) 64px;
+    grid-template-columns: minmax(0, 1fr) 52px 52px;
+    gap: 6px;
     padding: 8px 12px 10px;
   }
 
@@ -63,10 +80,13 @@
     resize: none;
   }
 
+  .record-button,
   .chat-send {
     width: auto;
-    min-width: 64px;
+    min-width: 0;
     height: 38px;
+    padding: 0 6px;
+    font-size: 12px;
   }
 
   .panel-title,
@@ -78,6 +98,28 @@
     position: sticky;
     top: 0;
     z-index: 1;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .control-tab {
+    min-height: 36px;
+    padding-inline: 4px;
+    font-size: 10px;
+  }
+
+  .panel-header {
+    margin-bottom: 8px;
+  }
+
+  .control-button {
+    min-height: 36px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .control-section {
+    scrollbar-width: thin;
   }
 }
 
@@ -88,5 +130,15 @@
 
   .control-panel {
     height: 25svh;
+  }
+}
+
+@media (max-height: 620px) and (max-width: 520px) {
+  .chat-panel {
+    height: 35svh;
+  }
+
+  .control-panel {
+    height: 27svh;
   }
 }

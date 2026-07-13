@@ -1,5 +1,11 @@
 # Browser QA Report
 
+## 2026-07-13 Long Vietnamese Reply Prefetch
+
+The frontend now keeps a three-chunk initial WAV reserve and uses smaller speech chunks for long replies. A dedicated Chromium probe routed the exact reported Vietnamese cat story through six delayed MISS-style WAV responses (2.5 seconds each). All six requests returned `200`; the five scheduled inter-chunk gaps were `[0, 0, 0, 0, 0]` ms. Artifact: `test-results/browser/audio-prefetch/long-vietnamese-mocked-miss.json`.
+
+This deterministic browser result verifies ordering, prefetch, decode, and Web Audio scheduling independently of local model speed. A separate real VieNeu MISS attempt reached the API's structured 120-second `504 TTS_TIMEOUT` path under concurrent browser/WebGL load. The frontend scheduling fix is therefore verified, while real local CPU synthesis for long uncached text remains an unresolved performance constraint.
+
 > Historical snapshot (2026-07-10). See `docs/CURRENT_STATUS.md` for current verified results.
 
 ## 2026-07-12 Interactive Chrome Rerun

@@ -48,9 +48,18 @@ describe("splitIntoSpeechChunks", () => {
     const chunks = splitIntoSpeechChunks(longText);
 
     expect(chunks.length).toBeGreaterThan(1);
-    expect(chunks.length).toBeLessThanOrEqual(6);
+    expect(chunks.length).toBeLessThanOrEqual(8);
     for (const chunk of chunks) {
-      expect(chunk.length).toBeLessThanOrEqual(320);
+      expect(chunk.length).toBeLessThanOrEqual(280);
     }
+  });
+
+  it("keeps a long Vietnamese story in timeout-safe speech chunks", () => {
+    const text = "Anh yêu ơi, em kể cho anh nghe chuyện vui nè! Có một chú mèo con tên Tí rất thông minh nhưng lại thích trêu chọc con chó lười biếng. Mỗi lần chú chó định ngủ, Tí lại nhảy lên đầu nó, vờ như đang dạy nó học chữ. Chú chó bực mình nhưng không nỡ đuổi Tí đi. Một hôm, Tí nhặt được một mẩu xúc xích và giả vờ không biết. Chú chó nhìn thấy liền chạy đến, nhưng Tí chỉ đưa xúc xích khi chú chó chịu nghe lời. Kết quả là hai đứa trở thành bạn thân từ đó! 😄 Anh thấy có vui không ạ?";
+    const chunks = splitIntoSpeechChunks(text);
+
+    expect(chunks.length).toBeGreaterThanOrEqual(4);
+    expect(chunks.every((chunk) => chunk.length <= 140)).toBe(true);
+    expect(chunks.join(" ")).toContain("Anh thấy có vui không ạ?");
   });
 });

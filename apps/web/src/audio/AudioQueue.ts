@@ -78,6 +78,19 @@ export class AudioQueue {
       // Start pre-fetching chunk 0 synchronously to minimize latency and ensure correct abort listener registration
       preFetched[0] = startSynthesize(0);
 
+      // VieNeu serializes inference on the local CPU. Buffer the first three complete
+      // WAVs before playback so synthesis that is slower than real time cannot leave
+      // a pause between the opening chunks. Later chunks are produced while this
+      // initial audio reserve is playing.
+      const initialPrefetchCount = Math.min(3, chunks.length);
+      for (let index = 1; index < initialPrefetchCount; index += 1) {
+        preFetched[index] = preFetched[index - 1].then(() => startSynthesize(index));
+      }
+      if (initialPrefetchCount > 1) {
+        await preFetched[initialPrefetchCount - 1];
+        if (abort.signal.aborted) return;
+      }
+
       const context = (audioPlayer as any).getContext();
       await audioPlayer.resume();
 
@@ -92,7 +105,7 @@ export class AudioQueue {
         const audio = await preFetched[i];
 
         // Start pre-fetching next chunk immediately
-        if (i + 1 < chunks.length) {
+        if (i + 1 < chunks.length && !preFetched[i + 1]) {
           preFetched[i + 1] = startSynthesize(i + 1);
         }
 

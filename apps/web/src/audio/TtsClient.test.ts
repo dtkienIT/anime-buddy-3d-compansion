@@ -65,6 +65,30 @@ describe("TtsClient", () => {
       style: "tu_nhien"
     })).rejects.toThrow();
   });
+
+  it("surfaces a structured backend timeout error", async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+      error: "TTS service timed out",
+      code: "TTS_TIMEOUT",
+      requestId: "tts-request-1"
+    }), {
+      status: 504,
+      headers: { "content-type": "application/json" }
+    })) as typeof fetch;
+
+    const promise = new TtsClient("http://api.test").synthesize("Xin chao", {
+      enabled: true,
+      voice: "Truc Ly",
+      style: "tu_nhien"
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      message: "TTS service timed out",
+      code: "TTS_TIMEOUT",
+      requestId: "tts-request-1",
+      status: 504
+    });
+  });
 });
 
 function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {

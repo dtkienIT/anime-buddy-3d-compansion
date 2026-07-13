@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   readonly VITE_ENABLE_PERF_METRICS?: string;
+  readonly VITE_TTS_REQUEST_TIMEOUT_MS?: string;
 }
 
 interface Window {
