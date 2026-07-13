@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import asyncio
+import secrets
 import time
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, Response
 
 from .audio_cache import AudioCache
@@ -35,7 +36,16 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Anime Buddy Local TTS", version="0.2.0", lifespan=lifespan)
 
 
-@app.get("/health", response_model=HealthResponse)
+def require_tts_token(authorization: str | None = Header(default=None)) -> None:
+    """Require a bearer token only when TTS_API_TOKEN is configured."""
+    if not settings.api_token:
+        return
+    expected = f"Bearer {settings.api_token}"
+    if authorization is None or not secrets.compare_digest(authorization, expected):
+        raise HTTPException(status_code=401, detail="Invalid or missing TTS bearer token")
+
+
+@app.get("/health", response_model=HealthResponse, dependencies=[Depends(require_tts_token)])
 async def health() -> HealthResponse:
     return HealthResponse(
         status="ok" if engine.model_loaded and engine.warmed_up else "warming",
@@ -45,12 +55,12 @@ async def health() -> HealthResponse:
     )
 
 
-@app.get("/voices", response_model=list[VoiceInfo])
+@app.get("/voices", response_model=list[VoiceInfo], dependencies=[Depends(require_tts_token)])
 async def voices() -> list[VoiceInfo]:
     return [VoiceInfo(**voice) for voice in await engine.list_voices()]
 
 
-@app.post("/synthesize")
+@app.post("/synthesize", dependencies=[Depends(require_tts_token)])
 async def synthesize(
     request: SynthesizeRequest,
     x_buddy_tts_request_id: str | None = Header(default=None),

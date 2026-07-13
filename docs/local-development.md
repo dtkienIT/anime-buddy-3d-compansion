@@ -20,6 +20,7 @@ Backend-only:
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
 - `TTS_SERVICE_URL`
+- `TTS_SERVICE_TOKEN` (optional bearer token for a remote/tunneled TTS service)
 - `RESPONSE_CACHE_ENABLED`
 - `RESPONSE_CACHE_BUCKET`
 - `RESPONSE_CACHE_SIMILARITY_THRESHOLD`
@@ -110,6 +111,20 @@ node tests/browser/collect-baseline.mjs "1+3=?" "final-real-chat.json" replay
 ```
 
 Generated WAVs and browser artifacts are written under `test-results/`, which is ignored by git.
+
+## Remote GPU TTS development
+
+When using the prepared EC2 GPU service, set `TTS_SERVICE_URL` to the local SSH
+tunnel endpoint and set the matching token:
+
+```dotenv
+TTS_SERVICE_URL=http://127.0.0.1:8001
+TTS_SERVICE_TOKEN=replace_with_the_ec2_token
+```
+
+Run `npm run dev:web` and `npm run dev:api` separately so the local CPU TTS is
+not started. The complete Free Plan-conscious runbook is
+`docs/aws-gpu-tts-deployment.md`.
 
 ## Response and audio cache verification
 

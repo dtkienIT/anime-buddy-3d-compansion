@@ -2,6 +2,22 @@
 
 Authoritative as of 2026-07-13 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked reports/artifacts for the current working tree.
 
+## 2026-07-13 prepared AWS GPU TTS path
+
+- AWS rejected the initial Singapore `Running On-Demand G and VT instances`
+  quota request for 4 vCPUs and invited a detailed appeal. No EC2 instance has
+  been launched and no cloud GPU benchmark is claimed.
+- `deploy/aws/tts/` now contains a native Ubuntu/DLAMI installer, a hardened
+  systemd unit template, and a verification script that fails unless ONNX
+  exposes `CUDAExecutionProvider`.
+- The zero-extra-service connection design binds EC2 TTS to localhost and uses
+  an SSH tunnel. Port 8000 remains closed; no domain, load balancer, or Elastic
+  IP is required.
+- TTS supports an optional `TTS_API_TOKEN`, and the Fastify proxy forwards the
+  matching backend-only `TTS_SERVICE_TOKEN` for health and synthesis requests.
+- The full launch, install, tunnel, test, stop, and termination procedure is in
+  `docs/aws-gpu-tts-deployment.md`.
+
 ## 2026-07-13 long-reply audio look-ahead
 
 - Long assistant replies are split into smaller timeout-safe speech chunks: first target 100 characters, later target 120 characters, and a hard per-chunk split limit of 140 characters before the bounded final merge.

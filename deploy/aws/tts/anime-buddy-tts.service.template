@@ -1,0 +1,24 @@
+[Unit]
+Description=Anime Buddy VieNeu GPU TTS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__RUN_USER__
+Group=__RUN_USER__
+WorkingDirectory=__REPO_ROOT__
+EnvironmentFile=__ENV_FILE__
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=__UVICORN__ --app-dir apps/tts app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=600
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

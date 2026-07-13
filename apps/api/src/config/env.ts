@@ -14,6 +14,7 @@ const envSchema = z.object({
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3002),
   WEB_ORIGIN: z.string().url().default("http://127.0.0.1:3001"),
   TTS_SERVICE_URL: z.string().url().default("http://127.0.0.1:8000"),
+  TTS_SERVICE_TOKEN: z.string().optional().default(""),
   TTS_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(10 * 60 * 1000).default(120000),
   CHAT_MAX_CONTEXT_MESSAGES: z.coerce.number().int().min(1).max(50).default(20),
   CHAT_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),

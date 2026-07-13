@@ -53,6 +53,10 @@ node tests/browser/probe-audio-worklet.mjs
 
 See `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, `docs/browser-qa-report.md`, and `docs/response-cache-qa-report.md`.
 
+For the prepared AWS EC2 GPU path, including Free Plan guardrails, CUDA
+verification, SSH tunneling, and shutdown steps, see
+`docs/aws-gpu-tts-deployment.md`.
+
 `pnpm-workspace.yaml` is present for pnpm users, but this machine did not have pnpm installed during implementation, so npm workspaces are the verified package manager.
 
 ## Current QA Snapshot

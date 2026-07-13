@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("TTS_SKIP_MODEL_LOAD", "1")
 
 from app.audio_cache import cache_key
-from app.main import PCM_STREAM_HEADERS, _read_cached_pcm, app
+from app.main import PCM_STREAM_HEADERS, _read_cached_pcm, app, settings
 from app.services.vieneu_engine import VieNeuEngine, voice_match_key
 
 
@@ -23,6 +23,21 @@ def test_health_endpoint():
     assert payload["engine"] == "vieneu"
     assert payload["modelLoaded"] is False
     assert payload["warmedUp"] is False
+
+
+def test_configured_bearer_token_protects_tts_endpoints():
+    previous = settings.api_token
+    settings.api_token = "unit-test-token"
+    try:
+        assert client.get("/health").status_code == 401
+        assert client.get("/health", headers={"Authorization": "Bearer wrong"}).status_code == 401
+        response = client.get(
+            "/health",
+            headers={"Authorization": "Bearer unit-test-token"},
+        )
+        assert response.status_code == 200
+    finally:
+        settings.api_token = previous
 
 
 def test_empty_text_rejected():

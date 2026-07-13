@@ -19,6 +19,7 @@ class Settings(BaseModel):
     max_text_length: int = Field(default=600)
     cache_dir: Path = Field(default=APP_DIR / "cache")
     cache_max_files: int = Field(default=200)
+    api_token: str = Field(default="")
 
 
 @lru_cache(maxsize=1)
@@ -36,6 +37,7 @@ def get_settings() -> Settings:
         max_text_length=int(os.getenv("TTS_MAX_TEXT_LENGTH", "600")),
         cache_dir=cache_dir,
         cache_max_files=int(os.getenv("TTS_CACHE_MAX_FILES", "200")),
+        api_token=os.getenv("TTS_API_TOKEN", "").strip(),
     )
 
 

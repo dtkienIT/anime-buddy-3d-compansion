@@ -39,7 +39,10 @@ export class TtsService {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 1200);
     try {
-      const response = await fetch(`${this.env.TTS_SERVICE_URL}/health`, { signal: controller.signal });
+      const response = await fetch(`${this.env.TTS_SERVICE_URL}/health`, {
+        headers: this.authHeaders(),
+        signal: controller.signal
+      });
       return response.ok;
     } catch {
       return false;
@@ -57,6 +60,7 @@ export class TtsService {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...this.authHeaders(),
           ...(requestId ? { "X-Buddy-TTS-Request-Id": requestId } : {})
         },
         body: JSON.stringify(body),
@@ -96,6 +100,12 @@ export class TtsService {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private authHeaders(): Record<string, string> {
+    return this.env.TTS_SERVICE_TOKEN
+      ? { Authorization: `Bearer ${this.env.TTS_SERVICE_TOKEN}` }
+      : {};
   }
 }
 

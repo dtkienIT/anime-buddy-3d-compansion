@@ -39,6 +39,13 @@ uv --cache-dir .uv-cache run --project apps/tts --no-sync python -c "import onnx
 
 The provider list must contain `CUDAExecutionProvider`. Run GPU-enabled TTS commands with `--no-sync`; a normal `uv sync` follows VieNeu's CPU dependency and replaces the manually selected GPU wheel.
 
+## AWS EC2 GPU
+
+The prepared EC2 deployment binds TTS to `127.0.0.1`, requires a bearer token,
+and is reached from the local Fastify API through an SSH tunnel. It deliberately
+does not expose port 8000 or require a domain/load balancer. See
+`../../docs/aws-gpu-tts-deployment.md` and `../../deploy/aws/tts/`.
+
 ## Hugging Face cache on Windows
 
 VieNeu-TTS downloads model files through Hugging Face. To keep those files on the E: drive, set these values in the repo root `.env` before starting the TTS service:
