@@ -2,13 +2,15 @@
 
 Authoritative as of 2026-07-13 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked reports/artifacts for the current working tree.
 
-## 2026-07-13 long-reply audio look-ahead
+## 2026-07-13 first-audio latency fix
 
 - Long assistant replies are split into smaller timeout-safe speech chunks: first target 100 characters, later target 120 characters, and a hard per-chunk split limit of 140 characters before the bounded final merge.
-- `AudioQueue` synthesizes and buffers the first three complete WAV chunks before playback. Later chunks are synthesized while the initial reserve is playing, remain ordered, are decoded before scheduling, and retain the existing cancellation/replacement behavior.
-- The browser fault-injection probe used the reported 456-character Vietnamese cat story with six delayed MISS-style WAV responses. All requests returned `200`, all five scheduled boundaries measured `0 ms`, and the artifact is `test-results/browser/audio-prefetch/long-vietnamese-mocked-miss.json`.
-- Unit coverage verifies that three chunks finish synthesis before the first playback starts. Web tests now pass 28 tests.
-- This change fixes frontend readiness/scheduling gaps; it cannot overcome a backend that produces audio slower than playback. A real uncached run under current WebGL/CPU contention reached the structured `504 TTS_TIMEOUT` path after 120 seconds before a chunk was ready. Real VieNeu MISS continuity therefore remains performance-limited and is not reported as a production latency pass.
+- `AudioQueue` now schedules the first WAV as soon as chunk 0 is ready. Chunk 1 synthesis starts immediately after chunk 0 synthesis and overlaps chunk 0 playback; later chunks remain ordered and retain cancellation/replacement behavior.
+- This replaces the earlier three-chunk startup reserve, which made long cache-MISS replies appear silent while three serial VieNeu requests completed.
+- Unit coverage verifies that playback starts after exactly one completed synthesis and that the next synthesis overlaps the first playback. Web tests pass 28 tests.
+- The change removes the avoidable three-chunk startup delay. It cannot make local synthesis faster than playback, so uncached long replies may have pauses between later chunks under heavy WebGL/CPU contention, but they no longer wait for three complete chunks before producing the first sound.
+- Chrome verification at 745 x 712 found and fixed a responsive grid overflow that placed the chat form outside the clipped panel, allowing the Three.js canvas to intercept clicks on `Gửi`. The responsive grid now permits the chat log row to shrink while keeping the form inside the panel.
+- A real two-chunk cache-MISS Chrome run entered audible `Đang nói...` at 10.88 seconds, completed speech at 19.25 seconds, and returned to `IDLE` at 25.35 seconds. Replay entered `Đang nói...` at 2.60 seconds and returned to `IDLE` at 11.65 seconds. The final Chrome console contained no warnings or errors.
 - TTS timeout handling is now aligned: backend timeout 120 seconds, frontend timeout 125 seconds. Backend timeout responses use HTTP `504`, code `TTS_TIMEOUT`, and a correlated TTS request ID.
 
 ## Repository and runtime

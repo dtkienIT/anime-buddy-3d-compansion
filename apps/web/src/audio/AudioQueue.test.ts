@@ -55,10 +55,18 @@ describe("AudioQueue", () => {
     expect(prepared).toBe(2);
   });
 
-  it("buffers the first three chunks before starting playback", async () => {
+  it("starts playback after the first chunk and synthesizes the rest in order", async () => {
     const queue = new AudioQueue();
     let completedSynthesis = 0;
     let completedWhenPlaybackStarted = 0;
+    let playbackStarted = false;
+    let secondSynthesisStarted = false;
+    let synthesisOverlappedPlayback = false;
+    let releaseFirstPlayback: (() => void) | undefined;
+    const firstPlaybackFinished = new Promise<void>((resolve) => {
+      releaseFirstPlayback = resolve;
+    });
+    let playbackCalls = 0;
     const mockContext = { currentTime: 0.1, state: "running" };
     const mockAudioPlayer = {
       getContext: () => mockContext,
@@ -68,14 +76,27 @@ describe("AudioQueue", () => {
       decodeWav: async () => ({ duration: 1 } as any),
       trimAudioBuffer: (buffer: any) => buffer,
       playBufferDirect: async () => {
+        playbackCalls += 1;
         if (completedWhenPlaybackStarted === 0) {
           completedWhenPlaybackStarted = completedSynthesis;
+        }
+        if (playbackCalls === 1) {
+          playbackStarted = true;
+          if (secondSynthesisStarted) releaseFirstPlayback?.();
+          await firstPlaybackFinished;
         }
       }
     } as any;
 
     const synthesize = async (text: string) => {
+      if (text === "two") {
+        secondSynthesisStarted = true;
+      }
       await new Promise((resolve) => setTimeout(resolve, 2));
+      if (text === "two") {
+        synthesisOverlappedPlayback = playbackStarted;
+        if (playbackStarted) releaseFirstPlayback?.();
+      }
       completedSynthesis += 1;
       const now = performance.now();
       return {
@@ -93,7 +114,8 @@ describe("AudioQueue", () => {
 
     await queue.playChunks(["one", "two", "three", "four"], mockAudioPlayer, synthesize, () => {});
 
-    expect(completedWhenPlaybackStarted).toBeGreaterThanOrEqual(3);
+    expect(completedWhenPlaybackStarted).toBe(1);
+    expect(synthesisOverlappedPlayback).toBe(true);
     expect(completedSynthesis).toBe(4);
   });
 });
