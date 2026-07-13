@@ -134,4 +134,4 @@ Additional takeover fixes:
 - Deleted memory keys are included as guardrails so past summaries and assistant text do not resurrect facts the user asked to forget.
 - Background extraction is instructed and guarded not to recreate deleted keys from assistant-only statements.
 
-Remaining performance note: the live Supabase environment still produced several memory subqueries near or over the 700 ms retrieval budget, so formal 5-run benchmarking remains pending.
+The later formal five-run enabled/disabled benchmark passed the retrieval budget. Enabled memory wall p95 was 497 ms against the 700 ms target, with 0 timeouts and 0 fallbacks; disabled runs reported zero memory wall/subquery/context timing. Artifact: `test-results/browser/memory/memory-benchmark-final.json`. Remote Supabase subquery latency is still variable and should continue to be monitored.

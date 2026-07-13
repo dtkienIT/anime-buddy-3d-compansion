@@ -92,8 +92,12 @@ export class ChatController {
 
   async initializeHistory(): Promise<void> {
     const anonymousId = this.store.getAnonymousId();
+    const operationId = ++this.operationSequence;
+    this.lastReply = "";
     try {
       const sessions = await this.api.getSessions(anonymousId);
+      if (operationId !== this.operationSequence) return;
+
       this.events.onSessionsLoaded?.(sessions);
 
       let sessionId = this.store.getSessionId();
@@ -107,81 +111,137 @@ export class ChatController {
 
       if (sessionId) {
         const messages = await this.api.loadConversation(sessionId, anonymousId);
+        if (operationId !== this.operationSequence) return;
+
         const localMessages = messages.map(toLocalMessage);
         this.store.setMessages(localMessages);
+        this.syncLastReply(localMessages);
         this.events.onHistoryLoaded?.(localMessages, sessionId);
       }
 
       // Try syncing any pending offline messages
       void this.syncOfflineMessages();
     } catch {
+      if (operationId !== this.operationSequence) return;
       this.events.onWarning("Không thể tải lịch sử từ server. Chat offline.");
     }
   }
 
-  async loadSession(sessionId: string): Promise<void> {
+  async loadSession(sessionId: string): Promise<boolean> {
     const anonymousId = this.store.getAnonymousId();
-    this.cancelActive();
+    const operationId = this.beginContextSwitch();
+    this.lastReply = "";
     this.setState("THINKING", "Tải cuộc trò chuyện...");
     try {
-      this.store.setSessionId(sessionId);
       const messages = await this.api.loadConversation(sessionId, anonymousId);
+      if (operationId !== this.operationSequence) return false;
+
       const localMessages = messages.map(toLocalMessage);
+      this.store.setSessionId(sessionId);
       this.store.setMessages(localMessages);
+      this.syncLastReply(localMessages);
       this.events.onHistoryLoaded?.(localMessages, sessionId);
       this.setState("IDLE", "Sẵn sàng");
+      return true;
     } catch {
+      if (operationId !== this.operationSequence) return false;
+      this.syncLastReply(this.store.all());
       this.setState("ERROR", "Lỗi tải cuộc trò chuyện");
       this.events.onWarning("Không thể tải cuộc trò chuyện này.");
-      void this.returnIdle();
+      await this.returnIdle();
+      return false;
     }
   }
 
-  async createNewSession(): Promise<void> {
+  async createNewSession(): Promise<boolean> {
     const anonymousId = this.store.getAnonymousId();
     const characterId = this.character.getCurrentCharacterId();
-    this.cancelActive();
+    const operationId = this.beginContextSwitch();
+    this.lastReply = "";
+    this.setState("THINKING", "Đang tạo hội thoại mới...");
     try {
       const session = await this.api.createSession(anonymousId, characterId);
+      if (operationId !== this.operationSequence) return false;
+
       this.store.setSessionId(session.id);
       this.store.clear();
-      
-      const sessions = await this.api.getSessions(anonymousId);
-      this.events.onSessionsLoaded?.(sessions);
       this.events.onHistoryLoaded?.([], session.id);
+
+      try {
+        const sessions = await this.api.getSessions(anonymousId);
+        if (operationId !== this.operationSequence) return false;
+        this.events.onSessionsLoaded?.(sessions);
+      } catch {
+        if (operationId !== this.operationSequence) return false;
+        this.events.onWarning("Đã tạo hội thoại mới nhưng chưa thể làm mới danh sách.");
+      }
+      await this.returnIdle();
+      return true;
     } catch {
+      if (operationId !== this.operationSequence) return false;
+      this.syncLastReply(this.store.all());
       this.events.onWarning("Không thể tạo cuộc trò chuyện mới.");
+      await this.returnIdle();
+      return false;
     }
   }
 
-  async renameActiveSession(title: string): Promise<void> {
-    const sessionId = this.store.getSessionId();
-    if (!sessionId) return;
+  async renameSession(sessionId: string, title: string): Promise<boolean> {
     try {
       await this.api.renameSession(sessionId, this.store.getAnonymousId(), title);
       const sessions = await this.api.getSessions(this.store.getAnonymousId());
       this.events.onSessionsLoaded?.(sessions);
+      return true;
     } catch {
       this.events.onWarning("Không thể đổi tên cuộc trò chuyện.");
+      return false;
     }
   }
 
-  async deleteSession(sessionId: string): Promise<void> {
+  /** @deprecated Pass the selected session ID to renameSession instead. */
+  async renameActiveSession(title: string): Promise<boolean> {
+    const sessionId = this.store.getSessionId();
+    if (!sessionId) return false;
+    return await this.renameSession(sessionId, title);
+  }
+
+  async deleteSession(sessionId: string): Promise<boolean> {
     const anonymousId = this.store.getAnonymousId();
+    const deletingActiveSession = this.store.getSessionId() === sessionId;
+    const operationId = deletingActiveSession
+      ? this.beginContextSwitch()
+      : this.operationSequence;
+
+    if (deletingActiveSession) {
+      this.lastReply = "";
+      this.setState("THINKING", "Đang xóa hội thoại...");
+    }
+
     try {
       await this.api.deleteSession(sessionId, anonymousId);
-      if (this.store.getSessionId() === sessionId) {
+      if (deletingActiveSession && operationId !== this.operationSequence) return false;
+
+      if (deletingActiveSession) {
         this.store.clearSession();
         this.store.clear();
         this.events.onHistoryLoaded?.([], "");
       }
       const sessions = await this.api.getSessions(anonymousId);
+      if (deletingActiveSession && operationId !== this.operationSequence) return false;
+
       this.events.onSessionsLoaded?.(sessions);
       if (sessions.length > 0 && !this.store.getSessionId()) {
         await this.loadSession(sessions[0].id);
+      } else if (deletingActiveSession) {
+        await this.returnIdle();
       }
+      return true;
     } catch {
+      if (deletingActiveSession && operationId !== this.operationSequence) return false;
+      if (deletingActiveSession) this.syncLastReply(this.store.all());
       this.events.onWarning("Không thể xóa cuộc trò chuyện.");
+      if (deletingActiveSession) await this.returnIdle();
+      return false;
     }
   }
 
@@ -212,12 +272,35 @@ export class ChatController {
     this.events.onStatus(settings.enabled ? "Sẵn sàng" : "Đã tắt giọng", this.states.state);
   }
 
+  async setListening(active: boolean): Promise<void> {
+    if (this.states.state === "DISPOSED") return;
+
+    if (active) {
+      if (this.states.state === "LISTENING") return;
+      if (this.isBusy()) {
+        this.beginContextSwitch();
+      } else if (this.states.state !== "IDLE") {
+        this.safeTransition("IDLE");
+      }
+      this.setState("LISTENING", "Đang nghe...");
+      await this.character.playAnimation("listening", { loop: true }).catch(() => undefined);
+      return;
+    }
+
+    if (this.states.state === "LISTENING") {
+      await this.returnIdle();
+    }
+  }
+
   async send(message: string): Promise<void> {
     const normalized = sanitizeAiText(message, 600);
     if (!normalized) {
       return;
     }
 
+    if (this.states.state === "BOOTING") {
+      this.safeTransition("IDLE");
+    }
     if (this.isBusy()) {
       this.cancelActive();
       this.safeTransition("IDLE");
@@ -230,18 +313,21 @@ export class ChatController {
     const userMessage = this.store.add({ role: "user", content: normalized });
     this.events.onUserMessage(userMessage);
 
-    let sessionId = this.store.getSessionId();
+    const sessionId = this.store.getSessionId();
     const tempSessionId = sessionId || crypto.randomUUID();
     if (!sessionId) {
       this.store.setSessionId(tempSessionId);
     }
 
+    let memoryStatusTimeout: ReturnType<typeof setTimeout> | null = null;
     try {
       await this.audioPlayer.resume().catch(() => undefined);
+      if (operationId !== this.operationSequence) return;
+
       this.setState("THINKING", "Đang suy nghĩ...");
-      
-      const memoryStatusTimeout = setTimeout(() => {
-        if (this.states.state === "THINKING") {
+
+      memoryStatusTimeout = setTimeout(() => {
+        if (operationId === this.operationSequence && this.states.state === "THINKING") {
           this.setState("THINKING", "Đang truy xuất ký ức...");
         }
       }, 300);
@@ -260,7 +346,6 @@ export class ChatController {
       perfMetrics.mark(runId, "chatResponseReceivedAt");
       perfMetrics.mark(runId, "assistantReplyStartedAt");
       perfMetrics.mark(runId, "assistantReplyCompletedAt");
-      clearTimeout(memoryStatusTimeout);
 
       if (operationId !== this.operationSequence) return;
 
@@ -282,22 +367,24 @@ export class ChatController {
       this.character.setExpression(reply.expression as CompanionExpression, reply.intensity);
 
       if (this.voiceSettings.enabled) {
-        await this.speak(cleanReply, reply.animation, runId);
+        await this.speak(cleanReply, runId, operationId);
       } else {
         this.events.onWarning("Đã tắt giọng nói.");
       }
 
       if (operationId !== this.operationSequence) return;
       this.setState("REACTING", "Đang phản ứng");
-      await this.character.playAnimation(reply.animation, { loop: false, autoIdle: true });
+      await this.character.playAnimation(reply.animation, { loop: false, maxDurationMs: 7_000 });
       if (operationId === this.operationSequence) await this.returnIdle();
       perfMetrics.finish(runId, "completed");
 
       // Trigger background sync for any queued messages
       void this.syncOfflineMessages();
     } catch (error) {
+      if (operationId !== this.operationSequence) return;
+
       if (this.isAbortError(error)) {
-        if (operationId === this.operationSequence) await this.returnIdle();
+        await this.returnIdle();
         return;
       }
 
@@ -322,7 +409,11 @@ export class ChatController {
       await this.character.playAnimation("sad", { loop: false }).catch(() => undefined);
       await this.returnIdle();
     } finally {
-      if (operationId === this.operationSequence) this.activeAbort = null;
+      if (memoryStatusTimeout) clearTimeout(memoryStatusTimeout);
+      if (operationId === this.operationSequence) {
+        this.activeAbort = null;
+        this.activeRunId = 0;
+      }
     }
   }
 
@@ -333,6 +424,9 @@ export class ChatController {
       return false;
     }
 
+    if (this.states.state === "BOOTING" || this.states.state === "LISTENING") {
+      this.safeTransition("IDLE");
+    }
     if (this.isBusy()) {
       this.cancelActive();
       this.safeTransition("IDLE");
@@ -356,8 +450,13 @@ export class ChatController {
     perfMetrics.mark(runId, "firstVisibleTextAt");
 
     await this.audioPlayer.resume().catch(() => undefined);
+    if (operationId !== this.operationSequence) {
+      perfMetrics.finish(runId, "cancelled");
+      return false;
+    }
+
     if (this.voiceSettings.enabled) {
-      await this.speak(cleanReply, "greeting", runId);
+      await this.speak(cleanReply, runId, operationId);
     }
 
     if (operationId !== this.operationSequence) {
@@ -368,6 +467,7 @@ export class ChatController {
     this.safeTransition("IDLE");
     this.events.onStatus("Sẵn sàng trình diễn", "IDLE");
     perfMetrics.finish(runId, "completed");
+    this.activeRunId = 0;
     return true;
   }
 
@@ -376,16 +476,18 @@ export class ChatController {
     this.audioQueue.cancel();
     this.audioPlayer.stop();
     this.character.stopLipSync();
-    if (this.activeRunId) {
-      perfMetrics.mark(this.activeRunId, "cancelledAt");
-      perfMetrics.finish(this.activeRunId, "cancelled");
+    const runId = this.activeRunId;
+    this.activeRunId = 0;
+    if (runId) {
+      perfMetrics.mark(runId, "cancelledAt");
+      perfMetrics.finish(runId, "cancelled");
     }
   }
 
-  stopSpeaking(): void {
+  async stopSpeaking(): Promise<void> {
     ++this.operationSequence;
     this.cancelActive();
-    void this.returnIdle();
+    await this.returnIdle();
   }
 
   replayLastReply(): void {
@@ -393,27 +495,46 @@ export class ChatController {
       return;
     }
 
+    const operationId = ++this.operationSequence;
+    this.cancelActive();
     const runId = perfMetrics.start();
     this.activeRunId = runId;
     perfMetrics.mark(runId, "replyRenderedAt");
     perfMetrics.mark(runId, "firstVisibleTextAt");
-    void this.speak(this.lastReply, defaultAnimationId, runId).then(() => this.returnIdle());
+    void this.speak(this.lastReply, runId, operationId).then(async () => {
+      if (operationId !== this.operationSequence) return;
+      await this.returnIdle();
+      if (operationId === this.operationSequence) this.activeRunId = 0;
+    });
   }
 
-  clear(): void {
+  async clear(): Promise<boolean> {
+    const operationId = this.beginContextSwitch();
     const sessionId = this.store.getSessionId();
     const anonymousId = this.store.getAnonymousId();
-    if (sessionId) {
-      void this.api.clearConversation(sessionId, anonymousId);
-    }
     this.store.clear();
     this.lastReply = "";
+    this.events.onStatus(this.voiceSettings.enabled ? "Sẵn sàng." : "Đã tắt giọng.", "IDLE");
+
+    if (!sessionId) return true;
+
+    try {
+      await this.api.clearConversation(sessionId, anonymousId);
+      return true;
+    } catch {
+      if (operationId === this.operationSequence) {
+        this.events.onWarning("Đã xóa hội thoại trên thiết bị nhưng chưa thể đồng bộ với server.");
+      }
+      return false;
+    }
   }
 
-  private async speak(text: string, animationId: string, runId: number): Promise<void> {
+  private async speak(text: string, runId: number, operationId: number): Promise<void> {
+    if (operationId !== this.operationSequence) return;
+
     this.setState("SPEAKING", "Đang chuẩn bị giọng...");
     this.character.setRenderRate(30);
-    void this.character.playAnimation(animationId || defaultAnimationId, { loop: true }).catch(() => undefined);
+    void this.character.playAnimation("talking", { loop: true }).catch(() => undefined);
 
     perfMetrics.mark(runId, "chunkSplitStartedAt");
     const chunks = splitIntoSpeechChunks(text);
@@ -427,6 +548,8 @@ export class ChatController {
           return await this.tts.synthesize(chunkText, this.voiceSettings, signal, runId);
         },
         () => {
+          if (operationId !== this.operationSequence) return;
+
           this.character.setRenderRate(30);
           const activeAnalyser = this.audioPlayer.getAnalyser();
           if (activeAnalyser) {
@@ -440,13 +563,15 @@ export class ChatController {
         runId
       );
     } catch (error) {
-      if (!this.isAbortError(error)) {
+      if (operationId === this.operationSequence && !this.isAbortError(error)) {
         this.events.onWarning("TTS không sẵn sàng, chat text vẫn tiếp tục.");
       }
     } finally {
-      this.character.stopLipSync();
-      this.character.setRenderRate(30);
-      perfMetrics.addMetrics(runId, { lipSyncActive: 0, lipSyncNeutralAfterPlayback: 1 });
+      if (operationId === this.operationSequence) {
+        this.character.stopLipSync();
+        this.character.setRenderRate(30);
+        perfMetrics.addMetrics(runId, { lipSyncActive: 0, lipSyncNeutralAfterPlayback: 1 });
+      }
     }
   }
 
@@ -463,6 +588,21 @@ export class ChatController {
   private setState(state: CompanionState, status: string): void {
     this.safeTransition(state);
     this.events.onStatus(status, state);
+  }
+
+  private beginContextSwitch(): number {
+    const operationId = ++this.operationSequence;
+    this.cancelActive();
+    this.safeTransition("IDLE");
+    void this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
+    return operationId;
+  }
+
+  private syncLastReply(messages: LocalChatMessage[]): void {
+    this.lastReply = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant" && message.content.trim())
+      ?.content.trim() ?? "";
   }
 
   private safeTransition(state: CompanionState): void {

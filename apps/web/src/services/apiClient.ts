@@ -87,9 +87,13 @@ export class ApiClient {
   }
 
   async clearConversation(sessionId: string, anonymousId: string): Promise<void> {
-    await fetch(`${this.baseUrl}/api/conversations/${sessionId}?anonymousId=${encodeURIComponent(anonymousId)}`, {
+    const response = await fetch(`${this.baseUrl}/api/conversations/${encodeURIComponent(sessionId)}?anonymousId=${encodeURIComponent(anonymousId)}`, {
       method: "DELETE"
     });
+    if (!response.ok) {
+      const payload = await readJson(response).catch(() => null);
+      throw new Error(readErrorMessage(payload) || `Failed to clear conversation: ${response.status}`);
+    }
   }
 
   async loadConversation(sessionId: string, anonymousId: string): Promise<ConversationMessage[]> {

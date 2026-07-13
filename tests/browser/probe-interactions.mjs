@@ -1,6 +1,12 @@
 import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  seedUiPreferences,
+  setVoiceEnabled,
+  waitForAppReady,
+  waitForCompanionState
+} from "./ui-test-helpers.mjs";
 
 const outputDir = path.resolve("test-results/browser/interactions");
 await mkdir(outputDir, { recursive: true });
@@ -14,6 +20,8 @@ const ttsRequests = [];
 const scenarios = [];
 let ttsMode = "normal";
 let ttsSequence = 0;
+
+await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
 
 page.on("console", (message) => {
   if (["error", "warning"].includes(message.type())) {
@@ -100,12 +108,12 @@ async function submit(message) {
 }
 
 async function waitIdle(timeout = 30_000) {
-  await page.waitForFunction(() => document.querySelector("#state-pill")?.textContent === "IDLE", null, { timeout });
+  await waitForCompanionState(page, "IDLE", timeout);
 }
 
 try {
   await page.goto("http://127.0.0.1:3001", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+  await waitForAppReady(page);
 
   await run("deterministic-multi-chunk", async () => {
     ttsMode = "normal";
@@ -156,18 +164,18 @@ try {
   });
 
   await run("voice-toggle", async () => {
-    if ((await page.locator("#voice-toggle").textContent()) !== "On") await page.locator("#voice-toggle").click();
-    await page.locator("#voice-toggle").click();
+    await setVoiceEnabled(page, true);
+    await setVoiceEnabled(page, false);
     const before = ttsRequests.length;
     await submit("short voice-off-before-send");
     await waitIdle();
     if (ttsRequests.length !== before) throw new Error("TTS called while voice was off");
-    await page.locator("#voice-toggle").click();
+    await setVoiceEnabled(page, true);
     await submit("voice on during playback");
     await page.waitForFunction(() => window.__BUDDY_PERF__?.runs.at(-1)?.marks.audioPlayingAt, null, { timeout: 15_000 });
-    await page.locator("#voice-toggle").click();
+    await setVoiceEnabled(page, false);
     await waitIdle();
-    await page.locator("#voice-toggle").click();
+    await setVoiceEnabled(page, true);
     return { requestDelta: ttsRequests.length - before };
   });
 
@@ -176,7 +184,7 @@ try {
       ttsMode = mode;
       await submit(`short tts ${mode}`);
       await waitIdle(mode === "timeout" ? 45_000 : 30_000);
-      if ((await page.locator("#state-pill").textContent()) !== "IDLE") throw new Error("state not IDLE");
+      if (await page.locator("#state-pill").getAttribute("data-state") !== "IDLE") throw new Error("state not IDLE");
       return { toasts: await page.locator(".toast").allTextContents() };
     });
   }
@@ -194,7 +202,8 @@ try {
     ttsRequests,
     consoleMessages,
     failedRequests,
-    finalState: await page.locator("#state-pill").textContent().catch(() => null),
+    finalState: await page.locator("#state-pill").getAttribute("data-state").catch(() => null),
+    finalStateLabel: await page.locator("#state-pill").textContent().catch(() => null),
     appPerformance: await page.evaluate(() => window.__BUDDY_PERF__).catch(() => null)
   };
   await writeFile(outputPath, JSON.stringify(result, null, 2));

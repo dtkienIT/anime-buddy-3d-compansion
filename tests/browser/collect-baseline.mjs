@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { seedUiPreferences, waitForAppReady, waitForCompanionState } from "./ui-test-helpers.mjs";
 
 const outputDir = path.resolve("test-results/browser/baseline");
 const message = process.argv[2] ?? "1+3=?";
@@ -16,6 +17,8 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 960 
 const page = await context.newPage();
 const consoleMessages = [];
 const network = [];
+
+await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
 
 page.on("console", (message) => {
   if (["error", "warning"].includes(message.type())) {
@@ -95,7 +98,7 @@ await page.addInitScript(() => {
 
 try {
   await page.goto("http://127.0.0.1:3001", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+  await waitForAppReady(page);
   const canvas = await page.locator("#stage").evaluate((element) => ({
     width: element.clientWidth,
     height: element.clientHeight,
@@ -115,11 +118,7 @@ try {
     { timeout: 240_000 }
   );
   await page.screenshot({ path: path.join(outputDir, "audio-playing.png"), fullPage: true });
-  await page.waitForFunction(
-    () => document.querySelector("#state-pill")?.textContent === "IDLE",
-    null,
-    { timeout: 120_000 }
-  );
+  await waitForCompanionState(page, "IDLE", 120_000);
 
   if (replay) {
     const previousRuns = await page.evaluate(() => window.__BUDDY_PERF__?.runs.length ?? 0);
@@ -133,11 +132,7 @@ try {
       { timeout: 120_000 }
     );
     await page.screenshot({ path: path.join(outputDir, "cache-replay-playing.png"), fullPage: true });
-    await page.waitForFunction(
-      () => document.querySelector("#state-pill")?.textContent === "IDLE",
-      null,
-      { timeout: 120_000 }
-    );
+    await waitForCompanionState(page, "IDLE", 120_000);
   }
 
   const performanceData = await page.evaluate(() => window.__BASELINE_PERF__);
@@ -161,6 +156,7 @@ try {
     const assistantMessages = Array.from(document.querySelectorAll(".chat-message.is-assistant"));
     const lastAssistant = assistantMessages.at(-1)?.textContent ?? "";
     return {
+      state: document.querySelector("#state-pill")?.getAttribute("data-state") ?? null,
       statePill: document.querySelector("#state-pill")?.textContent ?? null,
       bodyReady: document.body.classList.contains("is-ready"),
       assistantCount: assistantMessages.length,

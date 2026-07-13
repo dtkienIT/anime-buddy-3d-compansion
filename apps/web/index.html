@@ -2,125 +2,313 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D AI Companion</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f4efe9" />
+    <meta name="description" content="Không gian trò chuyện cùng người bạn AI 3D của bạn." />
+    <title>Mika · 3D AI Companion</title>
     <link rel="icon" href="data:," />
   </head>
   <body>
-    <canvas id="stage" aria-label="Nhân vật AI 3D"></canvas>
+    <a class="skip-link" href="#chat-input">Đi đến ô trò chuyện</a>
+    <main class="stage-shell" aria-label="Không gian nhân vật 3D">
+      <canvas id="stage" aria-label="Không gian tương tác với nhân vật AI 3D"></canvas>
+      <div class="scene-wash" aria-hidden="true"></div>
+    </main>
 
-    <div class="toast-region" id="toast-region" aria-live="polite"></div>
-
-    <aside class="control-panel" id="controls" aria-label="Tùy chỉnh nhân vật">
-      <div class="panel-header">
+    <header class="app-bar" aria-label="Thanh điều hướng chính">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">M</span>
         <div>
-          <p class="panel-title">3D AI Companion</p>
-          <p class="panel-subtitle" id="character-status">Đang khởi động...</p>
+          <p class="brand-name">Mika space</p>
+          <p class="brand-caption">your everyday companion</p>
         </div>
-        <span class="state-pill" id="state-pill">BOOTING</span>
+      </div>
+
+      <div class="presence" id="network-status" data-online="true" role="status">
+        <span class="presence-dot" aria-hidden="true"></span>
+        <span id="network-status-label">Đang kết nối</span>
+      </div>
+
+      <nav class="app-actions" aria-label="Điều khiển không gian">
+        <button class="app-action" id="studio-toggle" type="button" aria-controls="controls" aria-expanded="false">
+          <span aria-hidden="true">✦</span><span class="app-action-label">Tùy chỉnh</span>
+        </button>
+        <button class="app-action" id="focus-toggle" type="button" aria-pressed="false">
+          <span aria-hidden="true">◫</span><span class="app-action-label">Tập trung</span>
+        </button>
+        <button class="app-action" id="help-toggle" type="button" aria-controls="help-dialog" aria-expanded="false">
+          <span aria-hidden="true">?</span><span class="app-action-label">Trợ giúp</span>
+        </button>
+      </nav>
+    </header>
+
+    <div class="companion-bubble" id="stage-dialogue" role="status" aria-live="polite" hidden></div>
+
+    <div class="stage-busy" id="stage-busy" role="status" hidden>
+      <span class="stage-busy-spinner" aria-hidden="true"></span>
+      <span id="stage-busy-label">Đang chuẩn bị nhân vật…</span>
+    </div>
+
+    <div class="performance-live" id="performance-live" role="status" hidden>
+      <span class="performance-live-pulse" aria-hidden="true"></span>
+      <span id="performance-live-label">Đang trình diễn</span>
+      <button id="stop-performance-live" type="button">Dừng</button>
+    </div>
+
+    <nav class="stage-toolbar" aria-label="Điều khiển góc nhìn 3D">
+      <button class="stage-tool" id="camera-zoom-out" type="button" aria-label="Thu nhỏ nhân vật" title="Thu nhỏ">
+        <span aria-hidden="true">−</span>
+      </button>
+      <button class="stage-tool stage-tool-wide" id="camera-reset" type="button" title="Căn lại góc nhìn (R)">
+        <span aria-hidden="true">⌖</span><span>Căn giữa</span>
+      </button>
+      <button class="stage-tool" id="camera-zoom-in" type="button" aria-label="Phóng to nhân vật" title="Phóng to">
+        <span aria-hidden="true">＋</span>
+      </button>
+      <span class="stage-tool-divider" aria-hidden="true"></span>
+      <button class="stage-tool stage-tool-wide" id="stage-wave" type="button" title="Chào Mika">
+        <span aria-hidden="true">◌</span><span>Chào bạn</span>
+      </button>
+      <button class="stage-tool" id="fullscreen-toggle" type="button" aria-label="Toàn màn hình" title="Toàn màn hình">
+        <span aria-hidden="true">⛶</span>
+      </button>
+    </nav>
+
+    <p class="stage-hint" id="stage-hint">Kéo để xoay · cuộn để zoom · chạm vào Mika để tương tác</p>
+
+    <aside class="control-panel" id="controls" aria-label="Tùy chỉnh nhân vật" aria-hidden="true">
+      <div class="panel-header">
+        <div class="panel-heading">
+          <span class="eyebrow">COMPANION STUDIO</span>
+          <p class="panel-title">Tạo không gian của bạn</p>
+          <p class="panel-subtitle" id="character-status">Đang khởi động…</p>
+        </div>
+        <div class="panel-header-actions">
+          <span class="state-pill" id="state-pill" data-state="BOOTING">Đang mở</span>
+          <button class="panel-close" id="close-controls" type="button" aria-label="Đóng bảng tùy chỉnh">×</button>
+        </div>
       </div>
 
       <div class="control-tabs" role="tablist" aria-label="Nhóm tùy chỉnh">
-        <button class="control-tab is-active" id="control-tab-models" type="button" role="tab" aria-selected="true" aria-controls="control-models">Nhân vật</button>
-        <button class="control-tab" id="control-tab-animations" type="button" role="tab" aria-selected="false" aria-controls="control-animations">Động tác</button>
-        <button class="control-tab" id="control-tab-performance" type="button" role="tab" aria-selected="false" aria-controls="control-performance">Trình diễn</button>
-        <button class="control-tab" id="control-tab-backgrounds" type="button" role="tab" aria-selected="false" aria-controls="control-backgrounds">Bối cảnh</button>
+        <button class="control-tab is-active" id="control-tab-models" type="button" role="tab" aria-selected="true" aria-controls="control-models">
+          <span aria-hidden="true">◉</span><span>Nhân vật</span>
+        </button>
+        <button class="control-tab" id="control-tab-animations" type="button" role="tab" aria-selected="false" aria-controls="control-animations" tabindex="-1">
+          <span aria-hidden="true">↝</span><span>Động tác</span>
+        </button>
+        <button class="control-tab" id="control-tab-performance" type="button" role="tab" aria-selected="false" aria-controls="control-performance" tabindex="-1">
+          <span aria-hidden="true">♫</span><span>Trình diễn</span>
+        </button>
+        <button class="control-tab" id="control-tab-backgrounds" type="button" role="tab" aria-selected="false" aria-controls="control-backgrounds" tabindex="-1">
+          <span aria-hidden="true">▧</span><span>Bối cảnh</span>
+        </button>
       </div>
 
       <section class="control-section is-active" id="control-models" role="tabpanel" aria-labelledby="control-tab-models">
-        <p class="control-title" id="model-title">Nhân vật</p>
-        <div class="button-grid" id="model-buttons"></div>
+        <div class="section-heading">
+          <div><span class="eyebrow">DÀNH CHO BẠN</span><p class="control-title">Chọn người bạn đồng hành</p></div>
+          <span class="section-count" id="model-count">10</span>
+        </div>
+        <div class="button-grid model-grid" id="model-buttons"></div>
       </section>
 
       <section class="control-section" id="control-animations" role="tabpanel" aria-labelledby="control-tab-animations" hidden>
-        <p class="control-title" id="animation-title">Động tác</p>
-        <div class="button-grid" id="animation-buttons"></div>
+        <div class="section-heading">
+          <div><span class="eyebrow">CHUYỂN ĐỘNG</span><p class="control-title">Biểu cảm & hành động</p></div>
+          <span class="section-count" id="animation-count">0</span>
+        </div>
+        <label class="control-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="animation-search" type="search" placeholder="Tìm động tác…" autocomplete="off" />
+        </label>
+        <div class="button-grid animation-grid" id="animation-buttons"></div>
+        <p class="empty-filter" id="animation-empty" hidden>Không tìm thấy động tác phù hợp.</p>
       </section>
 
       <section class="control-section performance-section" id="control-performance" role="tabpanel" aria-labelledby="control-tab-performance" hidden>
-        <p class="control-title">Special performance</p>
-        <p class="performance-status" id="performance-status">Đang kiểm tra nhạc local…</p>
-        <button class="control-button performance-button" id="bling-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
-        <p class="performance-status" id="aipai-performance-status">Đang kiểm tra Aipai Dance Hall…</p>
-        <button class="control-button performance-button" id="aipai-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
+        <div class="section-heading">
+          <div><span class="eyebrow">LIVE MOMENTS</span><p class="control-title">Sân khấu riêng của Mika</p></div>
+        </div>
+        <article class="performance-card">
+          <span class="performance-art" aria-hidden="true">B</span>
+          <div class="performance-copy">
+            <strong>Bling-Bang-Bang-Born</strong>
+            <p class="performance-status" id="performance-status">Đang kiểm tra nhạc local…</p>
+          </div>
+          <button class="control-button performance-button" id="bling-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
+        </article>
+        <article class="performance-card is-violet">
+          <span class="performance-art" aria-hidden="true">A</span>
+          <div class="performance-copy">
+            <strong>Aipai Dance Hall</strong>
+            <p class="performance-status" id="aipai-performance-status">Đang kiểm tra nhạc local…</p>
+          </div>
+          <button class="control-button performance-button" id="aipai-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
+        </article>
       </section>
 
       <section class="control-section" id="control-backgrounds" role="tabpanel" aria-labelledby="control-tab-backgrounds" hidden>
-        <p class="control-title" id="background-title">Bối cảnh</p>
-        <div class="button-grid" id="background-buttons"></div>
+        <div class="section-heading">
+          <div><span class="eyebrow">KHÔNG GIAN</span><p class="control-title">Chọn một nơi dễ chịu</p></div>
+          <span class="section-count" id="background-count">7</span>
+        </div>
+        <div class="button-grid background-grid" id="background-buttons"></div>
       </section>
     </aside>
 
-    <aside class="chat-panel" id="chat-panel" aria-label="AI companion chat">
+    <aside class="chat-panel" id="chat-panel" aria-label="Trò chuyện cùng AI companion">
       <div class="chat-header">
-        <div>
-          <p class="chat-title" id="chat-character-name">Mika</p>
-          <p class="chat-status" id="chat-status">Sẵn sàng</p>
+        <div class="companion-identity">
+          <span class="companion-avatar" id="chat-avatar" aria-hidden="true">M</span>
+          <div>
+            <p class="chat-title" id="chat-character-name">Mika</p>
+            <p class="chat-status" id="chat-status" aria-live="polite">Đang thức dậy…</p>
+          </div>
         </div>
         <div class="chat-actions">
-          <button class="icon-button" id="voice-toggle" type="button" title="Bật hoặc tắt giọng nói" aria-label="Bật hoặc tắt giọng nói" aria-pressed="true">On</button>
-          <button class="icon-button" id="toggle-menu" type="button" title="Cài đặt và trí nhớ" aria-label="Cài đặt và trí nhớ" aria-expanded="false" aria-controls="chat-menu">Menu</button>
-          <button class="icon-button" id="collapse-chat" type="button" title="Thu gọn trò chuyện" aria-label="Thu gọn trò chuyện" aria-expanded="true">Min</button>
+          <button class="icon-button voice-button" id="voice-toggle" type="button" title="Bật hoặc tắt giọng nói" aria-label="Bật hoặc tắt giọng nói" aria-pressed="true">
+            <span aria-hidden="true">◖</span><span class="button-label">Giọng</span>
+          </button>
+          <button class="icon-button" id="toggle-menu" type="button" title="Hội thoại, trí nhớ và cài đặt" aria-label="Mở dữ liệu và cài đặt" aria-expanded="false" aria-controls="chat-menu">
+            <span aria-hidden="true">•••</span>
+          </button>
+          <button class="icon-button" id="collapse-chat" type="button" title="Thu gọn trò chuyện" aria-label="Thu gọn trò chuyện" aria-expanded="true">
+            <span aria-hidden="true">⌄</span>
+          </button>
         </div>
       </div>
 
       <div class="voice-toolbar" id="voice-toolbar">
-        <button class="tool-button" id="stop-speaking" type="button" disabled>Dừng nói</button>
-        <button class="tool-button" id="replay-reply" type="button" disabled>Phát lại</button>
-        <button class="tool-button" id="clear-chat" type="button">Xóa hội thoại</button>
+        <button class="tool-button" id="stop-speaking" type="button" disabled><span aria-hidden="true">■</span><span>Dừng</span></button>
+        <button class="tool-button" id="replay-reply" type="button" disabled><span aria-hidden="true">↻</span><span>Phát lại</span></button>
+        <button class="tool-button" id="new-chat-quick" type="button"><span aria-hidden="true">＋</span><span>Chat mới</span></button>
       </div>
 
-      <div class="chat-menu" id="chat-menu" style="display: none;">
-        <div class="menu-tabs" role="tablist" aria-label="Dữ liệu trò chuyện">
+      <div class="chat-menu" id="chat-menu" hidden>
+        <div class="menu-tabs" role="tablist" aria-label="Dữ liệu và trải nghiệm">
           <button class="menu-tab-btn is-active" id="tab-sessions-btn" type="button" role="tab" aria-selected="true" aria-controls="pane-sessions">Hội thoại</button>
-          <button class="menu-tab-btn" id="tab-memory-btn" type="button" role="tab" aria-selected="false" aria-controls="pane-memory">Trí nhớ</button>
+          <button class="menu-tab-btn" id="tab-memory-btn" type="button" role="tab" aria-selected="false" aria-controls="pane-memory" tabindex="-1">Trí nhớ</button>
+          <button class="menu-tab-btn" id="tab-experience-btn" type="button" role="tab" aria-selected="false" aria-controls="pane-experience" tabindex="-1">Trải nghiệm</button>
         </div>
 
         <div class="menu-pane" id="pane-sessions" role="tabpanel" aria-labelledby="tab-sessions-btn">
+          <div class="menu-pane-intro"><strong>Các cuộc trò chuyện</strong><span>Được lưu tự động</span></div>
           <div class="menu-actions-row">
-            <button class="tool-button" id="new-session-btn" type="button">Hội thoại mới</button>
+            <button class="tool-button is-primary" id="new-session-btn" type="button">＋ Hội thoại mới</button>
             <button class="tool-button" id="export-btn" type="button">Xuất dữ liệu</button>
           </div>
-          <div class="search-box">
-            <input class="search-input" id="session-search" type="search" placeholder="Tìm hội thoại…" aria-label="Tìm hội thoại" />
-          </div>
-          <div class="scroll-list" id="sessions-list"></div>
+          <label class="search-box">
+            <span class="visually-hidden">Tìm hội thoại</span>
+            <input class="search-input" id="session-search" type="search" placeholder="Tìm hội thoại…" />
+          </label>
+          <div class="scroll-list" id="sessions-list" aria-live="polite"></div>
         </div>
 
-        <div class="menu-pane" id="pane-memory" role="tabpanel" aria-labelledby="tab-memory-btn" style="display: none;">
+        <div class="menu-pane" id="pane-memory" role="tabpanel" aria-labelledby="tab-memory-btn" hidden>
+          <div class="menu-pane-intro"><strong>Trí nhớ dài hạn</strong><span id="memory-setting-status">Đang kiểm tra thiết lập…</span></div>
           <div class="memory-settings-row">
             <label class="toggle-container">
-              <input id="toggle-memory-checkbox" type="checkbox" checked />
-              <span class="toggle-label">Ghi nhớ dài hạn</span>
+              <input id="toggle-memory-checkbox" type="checkbox" disabled />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span class="toggle-label">Cho phép Mika ghi nhớ</span>
             </label>
             <button class="tool-button is-danger" id="clear-memories-btn" type="button">Xóa tất cả</button>
           </div>
-          <div class="scroll-list" id="memories-list"></div>
+          <p class="privacy-note">Bạn luôn có thể xem, sửa hoặc xóa từng điều Mika ghi nhớ.</p>
+          <div class="scroll-list" id="memories-list" aria-live="polite"></div>
+        </div>
+
+        <div class="menu-pane experience-pane" id="pane-experience" role="tabpanel" aria-labelledby="tab-experience-btn" hidden>
+          <div class="menu-pane-intro"><strong>Cảm giác sử dụng</strong><span>Cá nhân hóa trên thiết bị này</span></div>
+          <label class="setting-card">
+            <span><strong>Giảm chuyển động</strong><small>Hạn chế idle, hiệu ứng và chuyển cảnh không cần thiết.</small></span>
+            <input id="reduced-motion-checkbox" type="checkbox" />
+          </label>
+          <button class="setting-action" id="show-help-btn" type="button"><span>Hướng dẫn & phím tắt</span><span aria-hidden="true">→</span></button>
+          <button class="setting-action" id="reset-experience-btn" type="button"><span>Đặt lại góc nhìn & giao diện</span><span aria-hidden="true">↻</span></button>
+          <button class="setting-action is-danger" id="clear-chat" type="button"><span>Xóa nội dung hội thoại hiện tại</span><span aria-hidden="true">×</span></button>
         </div>
       </div>
 
-      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <div class="chat-content" id="chat-content">
+        <section class="chat-empty" id="chat-empty-state">
+          <span class="chat-empty-spark" aria-hidden="true">✦</span>
+          <h1>Mika đang ở đây</h1>
+          <p>Bắt đầu bằng một câu hỏi, một câu chuyện hoặc chỉ đơn giản là lời chào.</p>
+          <div class="prompt-grid" aria-label="Gợi ý bắt đầu">
+            <button type="button" data-prompt="Giới thiệu một chút về bạn đi">Bạn là ai?</button>
+            <button type="button" data-prompt="Kể cho mình một chuyện vui nhé">Kể chuyện vui</button>
+            <button type="button" data-prompt="Hãy nhảy một điệu cho mình xem nhé">Nhảy một điệu</button>
+            <button type="button" data-prompt="Bạn đang nhớ những gì về mình?">Bạn nhớ gì?</button>
+          </div>
+        </section>
+        <div class="chat-log" id="chat-log" role="log" aria-label="Lịch sử trò chuyện" aria-live="polite" aria-relevant="additions"></div>
+      </div>
 
       <form class="chat-form" id="chat-form">
-        <textarea
-          class="chat-input"
-          id="chat-input"
-          name="message"
-          maxlength="600"
-          rows="2"
-          placeholder="Nói gì đó với mình…"
-          aria-label="Tin nhắn"
-        ></textarea>
-        <button class="record-button" id="record-message" type="button" title="Ghi âm lời nhắn" aria-label="Ghi âm lời nhắn" aria-pressed="false">Mic</button>
-        <button class="chat-send" id="chat-send" type="submit">Gửi</button>
+        <div class="composer-shell">
+          <textarea
+            class="chat-input"
+            id="chat-input"
+            name="message"
+            maxlength="600"
+            rows="1"
+            placeholder="Nhắn điều gì đó cho Mika…"
+            aria-label="Tin nhắn"
+          ></textarea>
+          <div class="composer-meta">
+            <span id="message-count">0 / 600</span>
+            <span class="composer-hint">Enter để gửi · Shift + Enter xuống dòng</span>
+          </div>
+        </div>
+        <button class="record-button" id="record-message" type="button" title="Nói để nhập tin nhắn" aria-label="Nói để nhập tin nhắn" aria-pressed="false">
+          <span aria-hidden="true">◉</span>
+        </button>
+        <button class="chat-send" id="chat-send" type="submit" aria-label="Gửi tin nhắn">
+          <span>Gửi</span><span aria-hidden="true">↑</span>
+        </button>
       </form>
     </aside>
 
+    <section class="welcome-card" id="welcome-card" aria-label="Hướng dẫn bắt đầu" hidden>
+      <button class="welcome-close" id="welcome-dismiss" type="button" aria-label="Đóng hướng dẫn">×</button>
+      <span class="eyebrow">CHÀO MỪNG BẠN</span>
+      <h2>Đây là không gian của bạn và Mika</h2>
+      <p>Kéo để đổi góc nhìn, chạm Mika để nhận phản hồi hoặc bắt đầu một cuộc trò chuyện thật tự nhiên.</p>
+      <div class="welcome-actions">
+        <button class="welcome-primary" id="welcome-start" type="button">Trò chuyện ngay</button>
+        <button class="welcome-secondary" id="welcome-explore" type="button">Tự khám phá</button>
+      </div>
+    </section>
+
+    <div class="modal-backdrop" id="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+      <section class="help-card">
+        <button class="help-close" id="help-close" type="button" aria-label="Đóng trợ giúp">×</button>
+        <span class="eyebrow">MẸO NHỎ</span>
+        <h2 id="help-title">Tận hưởng không gian 3D</h2>
+        <div class="help-grid">
+          <div><span aria-hidden="true">↔</span><strong>Kéo nhân vật</strong><p>Xoay góc nhìn bằng chuột hoặc một ngón tay.</p></div>
+          <div><span aria-hidden="true">⌁</span><strong>Zoom gần hơn</strong><p>Cuộn chuột hoặc chụm hai ngón tay.</p></div>
+          <div><span aria-hidden="true">◉</span><strong>Nói tự nhiên</strong><p>Chạm micro để Mika chuyển lời nói thành tin nhắn.</p></div>
+          <div><span aria-hidden="true">✦</span><strong>Chạm để phản hồi</strong><p>Chạm trực tiếp vào Mika khi bạn muốn tương tác nhanh.</p></div>
+        </div>
+        <div class="shortcut-list" aria-label="Phím tắt">
+          <span><kbd>/</kbd> Chat</span><span><kbd>C</kbd> Tùy chỉnh</span><span><kbd>R</kbd> Căn giữa</span><span><kbd>F</kbd> Tập trung</span><span><kbd>Esc</kbd> Đóng</span>
+        </div>
+      </section>
+    </div>
+
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+
     <div id="loader" role="status" aria-live="polite">
       <div class="loader-card">
-        <p class="loader-label">Loading 3D Companion</p>
-        <div class="loader-track"><div id="loader-progress"></div></div>
-        <p id="loader-note">Preparing assets...</p>
+        <span class="loader-orbit" aria-hidden="true"><span>M</span></span>
+        <p class="loader-label">Đang mở Mika space</p>
+        <div class="loader-track" role="progressbar" aria-label="Tiến độ tải" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12">
+          <div id="loader-progress"></div>
+        </div>
+        <p id="loader-note">Đang chuẩn bị không gian 3D…</p>
+        <button class="loader-retry" id="loader-retry" type="button" hidden>Thử lại</button>
       </div>
     </div>
 

@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { seedUiPreferences, waitForAppReady } from "./ui-test-helpers.mjs";
 
 const mockTts = process.argv.includes("--mock-tts");
 const marker = process.argv.slice(2).find((value) => value !== "--mock-tts")?.trim();
@@ -31,6 +32,8 @@ const heartbeat = globalThis.setInterval(() => {
   console.log(JSON.stringify({ progress: "waiting", ttsResponses: network.length, elapsedMs: Date.now() - startedAt }));
 }, 10_000);
 const startedAt = Date.now();
+
+await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
 
 await page.addInitScript(() => {
   const timers = new Map();
@@ -101,7 +104,7 @@ let result;
 try {
   console.log(JSON.stringify({ progress: "opening" }));
   await page.goto("http://127.0.0.1:3001", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+  await waitForAppReady(page);
   console.log(JSON.stringify({ progress: "ready" }));
   await page.locator("#chat-input").fill("Kể cho anh chuyện chú mèo Tí nhé");
   await page.locator("#chat-send").click();
@@ -123,7 +126,8 @@ try {
       && network.every((entry) => entry.status === 200)
       && gaps.every((gap) => gap !== null && gap <= 25),
     replyLength: reply.length,
-    stateAfterScheduling: await page.locator("#state-pill").textContent(),
+    stateAfterScheduling: await page.locator("#state-pill").getAttribute("data-state"),
+    stateLabelAfterScheduling: await page.locator("#state-pill").textContent(),
     network,
     consoleMessages,
     chunkCount: run?.chunks.length ?? 0,
@@ -136,7 +140,8 @@ try {
   result = {
     passed: false,
     error: error instanceof Error ? error.message : String(error),
-    finalState: await page.locator("#state-pill").textContent().catch(() => null),
+    finalState: await page.locator("#state-pill").getAttribute("data-state").catch(() => null),
+    finalStateLabel: await page.locator("#state-pill").textContent().catch(() => null),
     network,
     consoleMessages,
     performance: await page.evaluate(() => window.__BUDDY_PERF__?.runs.at(-1) ?? null).catch(() => null)

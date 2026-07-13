@@ -2,6 +2,40 @@
 
 Authoritative as of 2026-07-13 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked reports/artifacts for the current working tree.
 
+## 2026-07-13 companion experience and motion upgrade
+
+The frontend has been redesigned around a usable 3D companion experience rather than three overlapping utility panels.
+
+- A responsive app shell now provides a persistent 3D stage, compact app bar, camera toolbar, docked chat, and an on-demand Companion Studio drawer/sheet. Mobile and short-height layouts preserve a meaningful visible stage area instead of covering the character's face with chat and controls.
+- The first-run path now includes dismissible onboarding, prompt starters, a help dialog, network state, staged loading progress/retry, empty/loading/error states, and typed non-blocking toasts.
+- Companion Studio provides accessible tabs, animation search, descriptive character/background cards, animation categories, and the existing two local music performances.
+- Chat now has IME-safe keyboard submission, autosizing and character count, quick new chat, message copy, stop/replacement behavior, replay state, speech-input state, session search/rename/delete/export, and explicit long-term-memory view/edit/delete controls.
+- Experience controls include reduced motion, focus mode, fullscreen, camera zoom/reset, reset experience, and persistent device-local preferences for character, background, Studio state, onboarding, and reduced motion.
+- Keyboard and assistive-technology behavior was expanded with visible focus, skip navigation, ARIA tab/state semantics, live regions, focus restoration, and shortcuts: `/`, `C`, `R`, `F`, `?`, and `Esc`.
+- The character now follows the pointer with its gaze, recenters automatically, blinks naturally, responds to direct pointer/touch hits with wave/nod and a speech bubble, and uses bounded ambient moments while idle. Responsive camera framing and reduced-motion behavior are applied inside the render controller.
+- Chat state transitions now use dedicated `Listening.vrma` and `Talking.vrma` loops. Semantic one-shots are bounded and return to the regenerated `Relax.vrma` idle, preventing excessively long reaction locks.
+- Interaction ownership guards prevent an old gesture or animation fallback from overwriting a newer chat/model state. Pending performance audio can be cancelled before playback starts, stale model-bound clips cannot repopulate the next model's cache, and the help modal owns shortcuts while open.
+- Four new first-party VRMA files were added: `Wave.vrma`, `Nod.vrma`, `Listening.vrma`, and `Talking.vrma`. `Relax.vrma` was regenerated as a clean loop. All five are deterministic 30 fps GLB/VRMA outputs with `specVersion: "1.0"`, written byte-identically to the source and public asset trees.
+- `npm run generate:animations` regenerates the five core motions. `npm run verify:generated-animations` checks determinism; `npm run verify-assets` additionally checks the full model/animation/background/audio inventory, signatures, source/public parity, generated VRMA metadata, tracks, and loop seams.
+
+Working-tree verification for this upgrade:
+
+- `npm run verify-assets`: PASS.
+- `npm run lint`: PASS.
+- `npm run typecheck`: PASS.
+- `npm run test`: PASS — shared `2/2`, API `22/22`, web `40/40`.
+- `npm run test:python`: PASS — `10/10` (one upstream Starlette deprecation warning).
+- `npm run build`: PASS (the existing large-chunk warning remains).
+
+Fresh redesigned-shell browser verification:
+
+- Responsive: PASS `3/3` at `390 x 844`, `768 x 1024`, and `1440 x 900`; application console errors `0`. Artifact: `test-results/browser/responsive/report.json`.
+- Experience: PASS `8/8`, including onboarding persistence, modal/shortcut behavior, direct canvas-to-character interaction, reduced motion, keyboard stage actions, Studio state, and a visible performance stop path; console errors `0`. Artifact: `test-results/browser/experience/report.json`.
+- Animation: PASS `24/24`: five generated motions across four representative models plus four legacy smoke checks; issues, aborted assets, and console errors `0`. Artifact: `test-results/browser/animations/report.json`.
+- Connected headed Chrome at `745 x 656` booted the new shell to `IDLE` with one WebGL canvas, no document overflow, the closed Studio correctly inert, and zero console warnings/errors.
+
+The interaction harness was updated for the redesigned DOM but was not rerun as part of this focused UI/motion gate; its earlier chat/audio reliability artifacts remain listed below.
+
 ## 2026-07-13 first-audio latency fix
 
 - Long assistant replies are split into smaller timeout-safe speech chunks: first target 100 characters, later target 120 characters, and a hard per-chunk split limit of 140 characters before the bounded final merge.
@@ -26,7 +60,7 @@ Authoritative as of 2026-07-13 (Asia/Saigon). Older audit and QA documents are h
 
 ## Current architecture
 
-- `apps/web`: Vite/TypeScript/Three.js/VRM frontend, request-local performance runs, pipelined sentence audio queue, exact cached-PCM buffer scheduling, lip-sync and cancellable/replacement chat operations.
+- `apps/web`: Vite/TypeScript/Three.js/VRM frontend with a responsive stage/chat/Studio shell, accessible onboarding and controls, persistent local experience preferences, gaze/blink/touch interaction, deterministic core motion, request-local performance runs, pipelined sentence audio, exact cached-PCM buffer scheduling, lip-sync, and cancellable/replacement chat operations.
 - `apps/api`: Fastify Mistral/Supabase API, bounded and parallel memory retrieval, approved reusable response matching, detailed `Server-Timing`, and a TTS proxy backed by Supabase Storage audio reuse.
 - `apps/tts`: warmed VieNeu v3 Turbo ONNX engine. MISS uses the incremental decoder to build a complete PCM16 WAV before response; HIT returns validated 48 kHz mono float32 PCM. Live MISS playback remains disabled to avoid underflow.
 - `packages/shared`: registries/types. `supabase/migrations`: chat, memory, indexes, and durable extraction outbox schema.
@@ -105,11 +139,15 @@ Artifact: `test-results/browser/memory/memory-benchmark-final.json`.
 - Disabled mode: all memory wall/subquery/context metrics exactly 0 ms across five runs.
 - Functional E2E passed refresh, browser restart, new-session recall, contradiction, forget, non-resurrection, memory-disabled no-store, and final re-enable: `test-results/browser/memory/memory-e2e-final.json`.
 
-## Real Chrome verification
+## Historical real Chrome verification (before the UI redesign)
 
 Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas and chat, played real cached multi-chunk TTS, stopped playback, returned to `IDLE`, opened the memory UI, replayed audio, stopped again, and finished `IDLE`. There were no page errors, failed requests, or application console errors. Artifact: `test-results/browser/headed-chrome/final.json` and screenshots in the same directory.
 
+This artifact verifies the pre-redesign frontend and the underlying chat/audio path. It is not a fresh visual or interaction pass for the 2026-07-13 app shell.
+
 ## Interaction matrix
+
+The entries below summarize the earlier full-stack run. Scenarios whose DOM interaction changed in the new shell require a fresh browser rerun.
 
 | Scenario | Status | Evidence |
 | --- | --- | --- |
@@ -136,7 +174,7 @@ Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas
 | Final state `IDLE` | PASS | interaction/headed artifacts |
 | Production bundle secret names/values | PASS | final build scan |
 
-## Latest passing commands
+## Historical full-stack passing commands
 
 - `npm run check:env`
 - `npm run verify-assets`
@@ -163,4 +201,4 @@ Headed Google Chrome `150.0.7871.114` ran at 1440 × 960. It rendered the canvas
 - Formal browser fault injection for Supabase outage, missing VRMA `finished`, and a pre-suspended AudioContext remains partial.
 - Headless Chromium emits software-WebGL GPU/readback warnings; headed Chrome finished without application errors.
 - The production JS bundle remains ~868 kB before gzip and triggers Vite's size warning.
-- The checked-in VRMA assets do not declare `specVersion`; the loader assumes VRMA 1.0 and emits a non-blocking console warning when an animation is first loaded.
+- The five generated core VRMA assets declare `specVersion: "1.0"` and are verified deterministically. Some legacy third-party VRMA files still omit the field; the frontend patches their fetched GLB metadata in memory before parsing, without modifying the checked-in source asset.

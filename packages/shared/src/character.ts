@@ -1,9 +1,10 @@
-export type AnimationCategory = "idle" | "thinking" | "talking" | "reaction" | "gesture";
+export type AnimationCategory = "idle" | "listening" | "thinking" | "talking" | "reaction" | "gesture";
 
 export interface CharacterRegistryItem {
   id: string;
   label: string;
   url: string;
+  description?: string;
   targetHeight?: number;
   rotationY?: number;
   yOffset?: number;
@@ -18,12 +19,16 @@ export interface AnimationRegistryItem {
   fadeDuration: number;
   category: AnimationCategory;
   fallbackId: string;
+  description?: string;
+  chatEligible?: boolean;
+  requiresProp?: boolean;
 }
 
 export interface BackgroundRegistryItem {
   id: string;
   label: string;
   url: string;
+  description?: string;
 }
 
 export const defaultCharacterId = "mika";
@@ -31,61 +36,65 @@ export const defaultAnimationId = "relax";
 export const defaultBackgroundId = "study-room-sunlit";
 
 export const characterRegistry: CharacterRegistryItem[] = [
-  { id: "mika", label: "Mika", url: "/models/8590256991748008892.vrm" },
-  { id: "kato", label: "Kato", url: "/models/8329890252317737768.vrm" },
-  { id: "sam", label: "Sam", url: "/models/sample.vrm" },
-  { id: "vivi", label: "Vivi", url: "/models/vita.vrm" },
-  { id: "tita", label: "Tita", url: "/models/vivi.vrm" },
-  { id: "luna", label: "Luna", url: "/models/6493143135142452442.vrm" },
-  { id: "naruto", label: "Naruto", url: "/models/naruto.vrm" },
-  { id: "changli", label: "Changli", url: "/models/Changli.vrm" },
-  { id: "yinlin", label: "Yinlin", url: "/models/Yinlin.vrm" },
-  { id: "carlotta", label: "Carlotta", url: "/models/Carlotta.vrm" }
+  { id: "mika", label: "Mika", description: "Ấm áp & tinh tế", url: "/models/8590256991748008892.vrm" },
+  { id: "kato", label: "Kato", description: "Điềm tĩnh & gần gũi", url: "/models/8329890252317737768.vrm" },
+  { id: "sam", label: "Sam", description: "Tươi sáng & năng động", url: "/models/sample.vrm" },
+  { id: "vivi", label: "Vivi", description: "Dịu dàng & đáng yêu", url: "/models/vita.vrm" },
+  { id: "tita", label: "Tita", description: "Vui vẻ & tự nhiên", url: "/models/vivi.vrm" },
+  { id: "luna", label: "Luna", description: "Mơ mộng & sâu sắc", url: "/models/6493143135142452442.vrm" },
+  { id: "naruto", label: "Naruto", description: "Nhiệt huyết & lạc quan", url: "/models/naruto.vrm" },
+  { id: "changli", label: "Changli", description: "Thanh lịch & sắc sảo", url: "/models/Changli.vrm" },
+  { id: "yinlin", label: "Yinlin", description: "Bí ẩn & cuốn hút", url: "/models/Yinlin.vrm" },
+  { id: "carlotta", label: "Carlotta", description: "Tự tin & duyên dáng", url: "/models/Carlotta.vrm" }
 ];
 
 export const animationRegistry: AnimationRegistryItem[] = [
-  { id: "greeting", label: "Greeting", url: "/animations/Greeting.vrma", loop: false, fadeDuration: 0.18, category: "gesture", fallbackId: "relax" },
-  { id: "relax", label: "Relax", url: "/animations/Relax.vrma", loop: true, fadeDuration: 0.2, category: "idle", fallbackId: "relax" },
-  { id: "thinking", label: "Thinking", url: "/animations/Thinking.vrma", loop: true, fadeDuration: 0.18, category: "thinking", fallbackId: "relax" },
-  { id: "shake-head", label: "Shake Head", url: "/animations/ShakeHead.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
-  { id: "dance-25", label: "Dance 25", url: "/animations/Dance25.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
-  { id: "welcome-pose", label: "Welcome Pose", url: "/animations/WelcomePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "cute-pose", label: "Cute Pose", url: "/animations/CutePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "victory-pose", label: "Victory Pose", url: "/animations/VictoryPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "presentation-pose", label: "Presentation Pose", url: "/animations/PresentationPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "motion-pose", label: "Motion Pose", url: "/animations/MotionPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "dogeza", label: "Dogeza", url: "/animations/Dogeza.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "step-exercise", label: "Step Exercise", url: "/animations/StepExercise.vrma", loop: true, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
-  { id: "hello", label: "Hello", url: "/animations/Hello.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "smartphone", label: "Smartphone", url: "/animations/Smartphone.vrma", loop: true, fadeDuration: 0.16, category: "idle", fallbackId: "relax" },
-  { id: "drink-water", label: "Drink Water", url: "/animations/DrinkWater.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "encourage", label: "Encourage", url: "/animations/Encourage.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
-  { id: "startled", label: "Startled", url: "/animations/Startled.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
-  { id: "look-around", label: "Look Around", url: "/animations/LookAround.vrma", loop: false, fadeDuration: 0.18, category: "idle", fallbackId: "relax" },
-  { id: "clapping", label: "Clapping", url: "/animations/Clapping.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
-  { id: "goodbye", label: "Goodbye", url: "/animations/Goodbye.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "jump", label: "Jump", url: "/animations/Jump.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
-  { id: "angry", label: "Angry", url: "/animations/Angry.vrma", loop: false, fadeDuration: 0.14, category: "reaction", fallbackId: "relax" },
-  { id: "blush", label: "Blush", url: "/animations/Blush.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
-  { id: "sad", label: "Sad", url: "/animations/Sad.vrma", loop: false, fadeDuration: 0.18, category: "reaction", fallbackId: "relax" },
-  { id: "sleepy", label: "Sleepy", url: "/animations/Sleepy.vrma", loop: false, fadeDuration: 0.2, category: "reaction", fallbackId: "relax" },
-  { id: "surprised", label: "Surprised", url: "/animations/Surprised.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
-  { id: "peace", label: "Peace", url: "/animations/Peace.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "shoot", label: "Shoot", url: "/animations/Shoot.vrma", loop: false, fadeDuration: 0.12, category: "gesture", fallbackId: "relax" },
-  { id: "spin", label: "Spin", url: "/animations/Spin.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
-  { id: "pose", label: "Pose", url: "/animations/Pose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "squat", label: "Squat", url: "/animations/Squat.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
-  { id: "vrma-01", label: "VRMA 01", url: "/animations/vrma_01.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" }
+  { id: "wave", label: "Vẫy tay", url: "/animations/Wave.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax", description: "Một lời chào tự nhiên" },
+  { id: "nod", label: "Gật đầu", url: "/animations/Nod.vrma", loop: false, fadeDuration: 0.14, category: "reaction", fallbackId: "relax", description: "Đồng ý nhẹ nhàng" },
+  { id: "listening", label: "Lắng nghe", url: "/animations/Listening.vrma", loop: true, fadeDuration: 0.2, category: "listening", fallbackId: "relax", chatEligible: false, description: "Tập trung vào lời bạn nói" },
+  { id: "talking", label: "Trò chuyện", url: "/animations/Talking.vrma", loop: true, fadeDuration: 0.18, category: "talking", fallbackId: "relax", chatEligible: false, description: "Chuyển động khi đang nói" },
+  { id: "greeting", label: "Chào hỏi", url: "/animations/Greeting.vrma", loop: false, fadeDuration: 0.18, category: "gesture", fallbackId: "relax" },
+  { id: "relax", label: "Thư giãn", url: "/animations/Relax.vrma", loop: true, fadeDuration: 0.2, category: "idle", fallbackId: "relax", chatEligible: false },
+  { id: "thinking", label: "Suy nghĩ", url: "/animations/Thinking.vrma", loop: true, fadeDuration: 0.18, category: "thinking", fallbackId: "relax", chatEligible: false },
+  { id: "shake-head", label: "Lắc đầu", url: "/animations/ShakeHead.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax", description: "Phản hồi không đồng ý" },
+  { id: "dance-25", label: "Nhảy vui", url: "/animations/Dance25.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax", chatEligible: false, description: "Một màn biểu diễn dài" },
+  { id: "welcome-pose", label: "Chào mừng", url: "/animations/WelcomePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "cute-pose", label: "Dáng đáng yêu", url: "/animations/CutePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "victory-pose", label: "Chiến thắng", url: "/animations/VictoryPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "presentation-pose", label: "Giới thiệu", url: "/animations/PresentationPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "motion-pose", label: "Chuyển động", url: "/animations/MotionPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax", chatEligible: false },
+  { id: "dogeza", label: "Cúi chào sâu", url: "/animations/Dogeza.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax", chatEligible: false },
+  { id: "step-exercise", label: "Khởi động", url: "/animations/StepExercise.vrma", loop: true, fadeDuration: 0.16, category: "reaction", fallbackId: "relax", chatEligible: false },
+  { id: "hello", label: "Xin chào", url: "/animations/Hello.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "smartphone", label: "Dùng điện thoại", url: "/animations/Smartphone.vrma", loop: true, fadeDuration: 0.16, category: "idle", fallbackId: "relax", chatEligible: false, requiresProp: true },
+  { id: "drink-water", label: "Uống nước", url: "/animations/DrinkWater.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax", chatEligible: false, requiresProp: true },
+  { id: "encourage", label: "Cổ vũ", url: "/animations/Encourage.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
+  { id: "startled", label: "Giật mình", url: "/animations/Startled.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
+  { id: "look-around", label: "Nhìn quanh", url: "/animations/LookAround.vrma", loop: false, fadeDuration: 0.18, category: "idle", fallbackId: "relax", chatEligible: false },
+  { id: "clapping", label: "Vỗ tay", url: "/animations/Clapping.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
+  { id: "goodbye", label: "Tạm biệt", url: "/animations/Goodbye.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "jump", label: "Nhảy lên", url: "/animations/Jump.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
+  { id: "angry", label: "Tức giận", url: "/animations/Angry.vrma", loop: false, fadeDuration: 0.14, category: "reaction", fallbackId: "relax" },
+  { id: "blush", label: "Ngại ngùng", url: "/animations/Blush.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax" },
+  { id: "sad", label: "Buồn", url: "/animations/Sad.vrma", loop: false, fadeDuration: 0.18, category: "reaction", fallbackId: "relax" },
+  { id: "sleepy", label: "Buồn ngủ", url: "/animations/Sleepy.vrma", loop: false, fadeDuration: 0.2, category: "reaction", fallbackId: "relax" },
+  { id: "surprised", label: "Bất ngờ", url: "/animations/Surprised.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
+  { id: "peace", label: "Chữ V", url: "/animations/Peace.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "shoot", label: "Ngắm bắn", url: "/animations/Shoot.vrma", loop: false, fadeDuration: 0.12, category: "gesture", fallbackId: "relax", chatEligible: false, requiresProp: true },
+  { id: "spin", label: "Xoay vòng", url: "/animations/Spin.vrma", loop: false, fadeDuration: 0.12, category: "reaction", fallbackId: "relax" },
+  { id: "pose", label: "Tạo dáng", url: "/animations/Pose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
+  { id: "squat", label: "Ngồi xổm", url: "/animations/Squat.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax", chatEligible: false },
+  { id: "vrma-01", label: "Chuyển động tự do", url: "/animations/vrma_01.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax", chatEligible: false }
 ];
 
 export const backgroundRegistry: BackgroundRegistryItem[] = [
-  { id: "study-room-sunlit", label: "Study Room", url: "/backgrounds/study-room-sunlit.png" },
-  { id: "cozy-night", label: "Cozy Night", url: "/backgrounds/cozy-night.png" },
-  { id: "cozy-lounge", label: "Cozy Lounge", url: "/backgrounds/cozy-lounge.png" },
-  { id: "pastel-study", label: "Pastel Study", url: "/backgrounds/pastel-study.png" },
-  { id: "forest-path-bright", label: "Forest Path", url: "/backgrounds/forest-path-bright.png" },
-  { id: "lake-meadow-bright", label: "Lake Meadow", url: "/backgrounds/lake-meadow-bright.png" },
-  { id: "neon-tech", label: "Neon Tech", url: "/backgrounds/neon-tech.png" }
+  { id: "study-room-sunlit", label: "Phòng học nắng", url: "/backgrounds/study-room-sunlit.png", description: "Ấm áp, tập trung" },
+  { id: "cozy-night", label: "Đêm ấm cúng", url: "/backgrounds/cozy-night.png", description: "Yên tĩnh, thư giãn" },
+  { id: "cozy-lounge", label: "Phòng khách", url: "/backgrounds/cozy-lounge.png", description: "Gần gũi, tự nhiên" },
+  { id: "pastel-study", label: "Góc học pastel", url: "/backgrounds/pastel-study.png", description: "Nhẹ nhàng, sáng tạo" },
+  { id: "forest-path-bright", label: "Đường rừng", url: "/backgrounds/forest-path-bright.png", description: "Trong lành, khám phá" },
+  { id: "lake-meadow-bright", label: "Đồng cỏ ven hồ", url: "/backgrounds/lake-meadow-bright.png", description: "Thoáng đãng, bình yên" },
+  { id: "neon-tech", label: "Thành phố neon", url: "/backgrounds/neon-tech.png", description: "Hiện đại, cá tính" }
 ];
 
 export function getAnimationById(id: string | undefined | null): AnimationRegistryItem {

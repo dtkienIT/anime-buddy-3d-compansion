@@ -82,6 +82,17 @@ npm run test:python
 npm run build
 ```
 
+`verify-assets` validates the complete public model, VRMA, background, and local performance-audio inventory. It also runs the deterministic core-motion check.
+
+To intentionally regenerate the first-party companion motions:
+
+```powershell
+npm run generate:animations
+npm run verify:generated-animations
+```
+
+The generator owns `Relax.vrma`, `Listening.vrma`, `Talking.vrma`, `Nod.vrma`, and `Wave.vrma` in both `animations/` and `apps/web/public/animations/`. Do not edit or copy only one side. Generated files are 30 fps VRMA 1.0 GLBs; verification checks byte-for-byte reproducibility, source/public parity, tracks, and seamless endpoints for looped clips.
+
 With all three services running:
 
 ```powershell
@@ -90,6 +101,34 @@ node tests/browser/probe-memory-e2e.mjs memory-e2e-after-timing.json
 ```
 
 The memory probe writes sanitized JSON and screenshots under `test-results/browser/memory/`. It fails the process if core recall/forget/disabled-memory expectations are false.
+
+The formal five-run memory artifact now passes the retrieval budget: memory wall p95 is 497 ms against a 700 ms target, with no timeout or fallback in that sample. Remote Supabase latency should still be monitored.
+
+## Frontend experience QA
+
+With the web app running at `http://127.0.0.1:3001`:
+
+```powershell
+npm run test:browser:responsive
+npm run test:browser:experience
+npm run test:browser:animations
+npm run test:browser:interactions
+# Responsive followed by experience:
+npm run test:browser:ui
+```
+
+The probes seed `animeBuddy.uiPreferences.v2` so onboarding and the Studio drawer start in a deterministic state. They write screenshots and JSON under `test-results/browser/`. The current working tree passes responsive `3/3`, experience `8/8`, and animation `24/24`; the corresponding reports are under `responsive/report.json`, `experience/report.json`, and `animations/report.json` in that directory.
+
+Manual keyboard checks:
+
+- `/` focuses the chat composer.
+- `C` toggles Companion Studio.
+- `R` resets the camera.
+- `F` toggles focus mode.
+- `?` opens help.
+- `Esc` stops an active performance or closes the active dialog, Studio, data menu, or focus mode.
+
+On mobile, opening Companion Studio intentionally collapses chat to preserve the 3D stage. Reduced-motion, selected character/background, onboarding state, and Studio state persist locally. The long-term-memory toggle starts disabled until the API preference request completes; this prevents an unavailable backend from being shown as an enabled privacy setting.
 
 ## Windows Sandbox Notes
 

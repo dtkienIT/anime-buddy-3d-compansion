@@ -1,6 +1,12 @@
 import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  seedUiPreferences,
+  setVoiceEnabled,
+  waitForAppReady,
+  waitForCompanionState
+} from "./ui-test-helpers.mjs";
 
 const count = Math.max(1, Number(process.argv[2] ?? 5));
 const outputDir = path.resolve("test-results/browser/tts-benchmark");
@@ -14,6 +20,7 @@ const consoleMessages = [];
 const network = [];
 const failedRequests = [];
 const audioStartTimeout = Number(process.env.BUDDY_TTS_AUDIO_TIMEOUT_MS ?? 60_000);
+await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
 page.on("console", (message) => {
   if (["error", "warning"].includes(message.type())) consoleMessages.push({ type: message.type(), text: message.text().slice(0, 500) });
 });
@@ -38,7 +45,7 @@ async function send(index) {
   await page.locator("#chat-input").fill(`benchmark ${index}`);
   await page.locator("#chat-send").click();
   await page.waitForFunction((n) => (window.__BUDDY_PERF__?.runs.length ?? 0) > n && window.__BUDDY_PERF__?.runs.at(-1)?.marks.audioPlayingAt, before, { timeout: audioStartTimeout });
-  await page.waitForFunction(() => document.querySelector("#state-pill")?.textContent === "IDLE", null, { timeout: 90_000 });
+  await waitForCompanionState(page, "IDLE", 90_000);
   return await page.evaluate(() => window.__BUDDY_PERF__?.runs.at(-1));
 }
 
@@ -46,10 +53,8 @@ const missRuns = [];
 const hitRuns = [];
 try {
   await page.goto("http://127.0.0.1:3001", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
-  const voiceToggle = page.locator("#voice-toggle");
-  if ((await voiceToggle.getAttribute("aria-pressed")) !== "true") await voiceToggle.click();
-  await page.waitForFunction(() => document.querySelector("#voice-toggle")?.getAttribute("aria-pressed") === "true");
+  await waitForAppReady(page);
+  await setVoiceEnabled(page, true);
   const seed = Date.now() % 100000;
   for (let i = 0; i < count; i += 1) missRuns.push(await send(seed + i));
   for (let i = 0; i < count; i += 1) hitRuns.push(await send(seed + i));
@@ -63,7 +68,8 @@ try {
     failedRequests,
     debugRuns: await page.evaluate(() => window.__BUDDY_PERF__?.runs ?? []).catch(() => []),
     voicePressed: await page.locator("#voice-toggle").getAttribute("aria-pressed").catch(() => null),
-    finalState: await page.locator("#state-pill").textContent().catch(() => null)
+    finalState: await page.locator("#state-pill").getAttribute("data-state").catch(() => null),
+    finalStateLabel: await page.locator("#state-pill").textContent().catch(() => null)
   };
   await writeFile(path.join(outputDir, process.argv[3] ?? "final.json"), JSON.stringify(result, null, 2));
   console.log(JSON.stringify({ missStats: result.missStats, hitStats: result.hitStats, finalState: result.finalState }, null, 2));

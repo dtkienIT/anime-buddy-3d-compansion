@@ -6,6 +6,7 @@ export interface PlayAnimationOptions {
   loop?: boolean;
   autoIdle?: boolean;
   fadeDuration?: number;
+  maxDurationMs?: number;
 }
 
 export interface CharacterSelection {

@@ -14,6 +14,7 @@ export interface LocalPerformanceOptions {
 export class LocalPerformanceController {
   private readonly audio = document.createElement("audio");
   private active = false;
+  private starting = false;
   private available = false;
   private serial = 0;
   private stopTimer: ReturnType<typeof setTimeout> | null = null;
@@ -22,7 +23,7 @@ export class LocalPerformanceController {
     this.audio.preload = "auto";
     options.button.disabled = true;
     options.button.addEventListener("click", () => {
-      if (this.active) {
+      if (this.active || this.starting) {
         this.stop();
       } else {
         this.start();
@@ -39,7 +40,7 @@ export class LocalPerformanceController {
   }
 
   start(): void {
-    if (this.active) {
+    if (this.active || this.starting) {
       return;
     }
     if (!this.available) {
@@ -50,16 +51,18 @@ export class LocalPerformanceController {
   }
 
   stop(restoreIdle = true): void {
-    if (!this.active) {
+    const wasRunning = this.active || this.starting;
+    if (!wasRunning) {
       return;
     }
     this.serial += 1;
+    this.starting = false;
     this.active = false;
     this.clearStopTimer();
     this.audio.pause();
     this.updateUi();
     if (restoreIdle) {
-      void this.options.onStop();
+      void this.options.onStop().catch(() => this.options.onWarning("Không thể khôi phục tư thế sau trình diễn."));
     }
   }
 
@@ -81,6 +84,7 @@ export class LocalPerformanceController {
 
   private async play(): Promise<void> {
     const requestId = ++this.serial;
+    this.starting = true;
     this.options.button.disabled = true;
     const desiredEnd = this.options.startSeconds + this.options.durationSeconds;
     const startAt = Number.isFinite(this.audio.duration) && this.audio.duration >= desiredEnd
@@ -93,6 +97,7 @@ export class LocalPerformanceController {
       if (requestId !== this.serial) {
         return;
       }
+      this.starting = false;
       this.active = true;
       this.updateUi();
       this.stopTimer = setTimeout(() => this.finish(), this.options.durationSeconds * 1000);
@@ -101,14 +106,21 @@ export class LocalPerformanceController {
         this.finish();
       }
     } catch {
+      if (requestId !== this.serial) {
+        return;
+      }
+      this.starting = false;
       this.options.onWarning("Không thể phát file nhạc trình diễn.");
       this.active = false;
+      this.clearStopTimer();
+      this.audio.pause();
       this.updateUi();
+      await this.options.onStop().catch(() => undefined);
     }
   }
 
   private finish(): void {
-    if (this.active) {
+    if (this.active || this.starting) {
       this.stop(true);
     }
   }

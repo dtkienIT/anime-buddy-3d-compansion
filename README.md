@@ -1,8 +1,51 @@
 # 3D AI Companion
 
-Package-managed VRM/VRMA companion app with a Vite frontend, Fastify API, Supabase chat history, and a local FastAPI TTS service.
+A browser-based VRM companion with a responsive 3D stage, expressive VRMA motion, Mistral chat, Supabase-backed conversations and memory, and optional local VieNeu TTS.
 
-## Quick Start
+## Experience
+
+The current frontend is designed around the character instead of treating the Three.js canvas as a background:
+
+- Responsive stage, chat dock, and Companion Studio layouts for mobile, tablet, desktop, and short screens.
+- First-visit onboarding, contextual help, empty-state prompts, loading progress, network status, and non-blocking toasts.
+- Camera zoom/reset/fullscreen controls, focus mode, animation search, character/background cards, and two local music performances.
+- Direct character interaction: pointer/touch hit testing, gaze following, natural blinking, quick wave/nod responses, speech bubbles, and quiet ambient moments.
+- Accessible tabs and controls with keyboard focus states, ARIA state, screen-reader status updates, reduced-motion support, and IME-safe chat input.
+- Conversation search, rename, delete, export, replay, quick new chat, and long-term-memory view/edit/delete controls.
+- Local experience preferences preserve the selected character, background, studio state, onboarding state, and reduced-motion choice.
+
+Keyboard shortcuts:
+
+| Key | Action |
+| --- | --- |
+| `/` | Focus the message composer |
+| `C` | Toggle Companion Studio |
+| `R` | Reset the camera |
+| `F` | Toggle focus mode |
+| `?` | Open help |
+| `Esc` | Close the active overlay, drawer, menu, or focus mode |
+
+## Motion library
+
+The shared registry exposes 36 companion animations plus two music-synchronized performance assets. Five core motions are generated deterministically at 30 fps:
+
+- `Relax.vrma` — regenerated seamless idle loop.
+- `Listening.vrma` — attentive loop used while speech input is active.
+- `Talking.vrma` — conversational loop used during voice playback.
+- `Nod.vrma` — short acknowledgement.
+- `Wave.vrma` — short greeting.
+
+The generator writes identical assets to `animations/` and `apps/web/public/animations/`, declares `VRMC_vrm_animation.specVersion` `1.0`, and validates tracks and loop endpoints. Generate or verify them with:
+
+```powershell
+npm run generate:animations
+npm run verify:generated-animations
+npm run verify-assets
+```
+
+Older third-party VRMA files that omit `specVersion` are normalized in memory immediately before parsing; source files are not mutated at runtime.
+
+## Quick start
 
 Create `.env` from `.env.example`, then fill backend-only secrets:
 
@@ -13,11 +56,7 @@ uv sync --project apps/tts
 npm run dev
 ```
 
-Open:
-
-```text
-http://127.0.0.1:3001/
-```
+Open `http://127.0.0.1:3001/`.
 
 Services:
 
@@ -25,73 +64,48 @@ Services:
 - API: `http://127.0.0.1:3002`
 - TTS: `http://127.0.0.1:8000`
 
-## Commands
+Run services separately with `npm run dev:web`, `npm run dev:api`, and `npm run dev:tts`.
+
+## Verification
 
 ```powershell
-npm run dev
-npm run dev:web
-npm run dev:api
-npm run dev:tts
-npm run build
+npm run check:env
+npm run verify-assets
 npm run lint
 npm run typecheck
 npm run test
 npm run test:python
-npm run check
-npm run verify-assets
-npm run smoke-test
+npm run build
 ```
 
-## Audio QA
-
-The TTS path uses explicit PCM metadata for cache HIT playback and a WAV fallback for cache MISS quality. To regenerate audio integrity artifacts:
+UI browser probes, with the web app running:
 
 ```powershell
-uv --cache-dir .uv-cache run --project apps/tts python scripts/audio_quality_probe.py --out test-results/audio-quality/final
-node tests/browser/probe-audio-worklet.mjs
+npm run test:browser:responsive
+npm run test:browser:experience
+npm run test:browser:animations
+npm run test:browser:interactions
 ```
 
-See `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, `docs/browser-qa-report.md`, and `docs/response-cache-qa-report.md`.
+For this UI/motion working tree, the full static/unit/Python/build gate passes. Fresh browser results are also recorded: responsive `3/3`, experience `8/8`, and animation `24/24`, all with zero application console errors. See [Current Status](docs/CURRENT_STATUS.md) and [Browser QA](docs/browser-qa-report.md) for artifacts and remaining limits.
 
-`pnpm-workspace.yaml` is present for pnpm users, but this machine did not have pnpm installed during implementation, so npm workspaces are the verified package manager.
+## Current backend snapshot
 
-## Current QA Snapshot
+- Persistent-memory functional E2E and the formal five-run benchmark passed. Memory wall p95 was `497 ms`, within the `700 ms` retrieval budget; remote Supabase variance remains worth monitoring.
+- Cache HIT browser reply-to-audio p95 is `324 ms`. Cache MISS WAV synthesis remains CPU-bound and is intentionally outside the current UI upgrade.
+- Long replies start playback after the first completed speech chunk. This replaced the earlier three-chunk startup reserve; later chunks are still synthesized and scheduled in order.
+- Formal browser fault injection remains partial for a Supabase outage, a missing VRMA `finished` event, and an initially suspended `AudioContext`.
 
-Long-reply audio look-ahead verification on 2026-07-13 added timeout-safe speech chunks (target 100-120, hard split limit 140 characters) and a three-chunk initial WAV reserve. A browser fault-injection run using the reported Vietnamese cat story completed six delayed MISS-style TTS responses and scheduled all five chunk boundaries with `0 ms` gap. The local VieNeu CPU path remains the limiting factor: a real uncached long-chunk run can still reach the 120-second backend timeout under concurrent WebGL load, so the look-ahead queue removes frontend scheduling gaps when audio is ready but does not make slow model inference faster.
-
-Response/audio cache verification on 2026-07-12 confirmed that normalized and fuzzy input variants reuse the approved Supabase response, bypass Mistral (`mistral;dur=0`), and return stored WAV audio with `X-TTS-Cache: SUPABASE_HIT`.
-
-Takeover rerun on 2026-07-10 verified:
-
-- `/api/sessions` returns `400` for missing `anonymousId` and a bounded `503` fallback instead of hanging when Supabase reports `PGRST205`.
-- After applying `001_chat_schema.sql` and `002_persistent_memory.sql`, live browser memory E2E passed with Supabase-backed session creation, history restore, browser restart, new-chat recall, contradiction, forget, memory-disabled skip, and final memory re-enable.
-- `/api/chat` now emits request-local memory timing; disabled-memory responses include `memory-disabled;dur=0` and zero memory DB timings.
-- Browser real chat completed with Mistral `200`, TTS MISS WAV playback, and cache HIT replay.
-- Cache HIT replay used `f32le`, 48 kHz, mono PCM with `0` underflows, drops, and duplicated frames.
-- Audio quality probe correlation remained `1.0` for direct/Python/API streams and MISS cache comparison.
-
-Current blockers:
-
-- Real Mistral output is not token-streamed, so first visible text can miss the 1 s goal.
-- Warm cache MISS TTS remains CPU-bound (9.72 s p95 versus the 4 s goal), and a real multi-chunk MISS exceeds the 90 s browser budget.
-- Supabase outage, missing VRMA `finished`, and initially suspended AudioContext fault injection remain only partially covered.
-- `npm audit --audit-level=high` was blocked by the approval layer because it would disclose dependency metadata to the npm registry.
+Audio integrity commands and historical measurements remain in `docs/tts-audio-quality-report.md`, `docs/tts-latency-report.md`, and `docs/response-cache-qa-report.md`.
 
 ## Security
 
 - Mistral requests go through `apps/api`; the frontend never receives `MISTRAL_API_KEY`.
 - Supabase secret/service keys are backend-only and must not use a `VITE_` prefix.
-- Frontend variables are limited to `VITE_API_BASE_URL` and optional publishable Supabase values if direct frontend Supabase access is added later.
-- AI output is inserted with `textContent`, not rendered as HTML.
+- Frontend variables are limited to `VITE_API_BASE_URL` and optional publishable Supabase values if direct frontend access is added later.
+- AI output is inserted as text, not rendered as HTML.
+- Never print or commit `.env`.
 
-## Legacy Viewer
+## Legacy viewer
 
-The original standalone viewer files remain at the repository root:
-
-- `index.html`
-- `app.bundle.js`
-- `chat-client.js`
-- `server.mjs`
-- `start-mika.bat`
-
-Use `start-mika.bat` only for the old static viewer. Use `npm run dev` or `start-ai.bat` for the upgraded companion.
+The original standalone viewer remains at the repository root (`index.html`, `app.bundle.js`, `chat-client.js`, `server.mjs`, and `start-mika.bat`). Use `npm run dev` or `start-ai.bat` for the package-managed companion; `start-mika.bat` is only for the legacy viewer.

@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { seedUiPreferences, waitForAppReady, waitForCompanionState } from "./ui-test-helpers.mjs";
 
 const outputDir = path.resolve("test-results/browser/headed-chrome");
 await mkdir(outputDir, { recursive: true });
@@ -11,6 +12,7 @@ const page = await context.newPage();
 const consoleMessages = [];
 const failedRequests = [];
 const network = [];
+await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
 page.on("console", (message) => {
   if (["error", "warning"].includes(message.type())) consoleMessages.push({ type: message.type(), text: message.text().slice(0, 500) });
 });
@@ -27,14 +29,14 @@ await page.route("**/api/chat", (route) => route.fulfill({ status: 200, contentT
 let failure;
 try {
   await page.goto("http://127.0.0.1:3001", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+  await waitForAppReady(page);
   await page.screenshot({ path: path.join(outputDir, "boot.png"), fullPage: true });
   await page.locator("#chat-input").fill("headed chrome multi chunk");
   await page.locator("#chat-send").click();
   await page.waitForFunction(() => (window.__BUDDY_PERF__?.runs.at(-1)?.chunks.length ?? 0) >= 3 && window.__BUDDY_PERF__?.runs.at(-1)?.marks.audioPlayingAt, null, { timeout: 60_000 });
   await page.screenshot({ path: path.join(outputDir, "multi-chunk-playing.png"), fullPage: true });
   await page.locator("#stop-speaking").click();
-  await page.waitForFunction(() => document.querySelector("#state-pill")?.textContent === "IDLE", null, { timeout: 30_000 });
+  await waitForCompanionState(page, "IDLE", 30_000);
   await page.screenshot({ path: path.join(outputDir, "stopped-idle.png"), fullPage: true });
   await page.locator("#toggle-menu").click();
   await page.locator("#tab-memory-btn").click();
@@ -44,7 +46,7 @@ try {
   await page.waitForFunction(() => window.__BUDDY_PERF__?.runs.at(-1)?.marks.audioPlayingAt, null, { timeout: 30_000 });
   await page.screenshot({ path: path.join(outputDir, "replay-playing.png"), fullPage: true });
   await page.locator("#stop-speaking").click();
-  await page.waitForFunction(() => document.querySelector("#state-pill")?.textContent === "IDLE", null, { timeout: 30_000 });
+  await waitForCompanionState(page, "IDLE", 30_000);
   await page.screenshot({ path: path.join(outputDir, "final-idle.png"), fullPage: true });
 } catch (error) {
   failure = String(error);
@@ -54,7 +56,8 @@ try {
   const result = {
     browser: await browser.version(), channel: "chrome", headed: true,
     viewport: { width: 1440, height: 960 }, failure,
-    finalState: await page.locator("#state-pill").textContent().catch(() => null),
+    finalState: await page.locator("#state-pill").getAttribute("data-state").catch(() => null),
+    finalStateLabel: await page.locator("#state-pill").textContent().catch(() => null),
     canvas: await page.locator("#stage").evaluate((node) => ({ width: node.clientWidth, height: node.clientHeight })).catch(() => null),
     performance: await page.evaluate(() => window.__BUDDY_PERF__).catch(() => null),
     network, consoleMessages, failedRequests

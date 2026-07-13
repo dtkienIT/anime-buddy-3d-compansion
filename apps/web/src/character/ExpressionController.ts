@@ -13,17 +13,27 @@ const expressionMap: Record<CompanionExpression, string[]> = {
 
 const emotionalExpressions = ["happy", "relaxed", "sad", "angry", "surprised"];
 const mouthExpressions = ["aa", "A", "mouthAa", "oh", "ih"];
+const blinkExpressions = ["blink", "Blink"];
+const blinkLeftExpressions = ["blinkLeft", "Blink_L", "blink_l"];
+const blinkRightExpressions = ["blinkRight", "Blink_R", "blink_r"];
 
 export class ExpressionController {
   private vrm: VrmInstance | null = null;
   private currentExpression: string | null = null;
   private mouthExpression: string | null = null;
+  private blinkExpression: string | null = null;
+  private blinkLeftExpression: string | null = null;
+  private blinkRightExpression: string | null = null;
 
   setVrm(vrm: VrmInstance | null): void {
     this.vrm = vrm;
     this.currentExpression = null;
     this.mouthExpression = null;
+    this.blinkExpression = null;
+    this.blinkLeftExpression = null;
+    this.blinkRightExpression = null;
     this.resolveMouthExpression();
+    this.resolveBlinkExpressions();
   }
 
   setExpression(expression: CompanionExpression, intensity = 0.7): void {
@@ -60,9 +70,22 @@ export class ExpressionController {
     this.setMouthOpen(0);
   }
 
+  setBlink(value: number): void {
+    const manager = this.vrm?.expressionManager;
+    if (!manager) return;
+    const next = clamp(value, 0, 1);
+    if (this.blinkExpression) manager.setValue(this.blinkExpression, next);
+    else {
+      if (this.blinkLeftExpression) manager.setValue(this.blinkLeftExpression, next);
+      if (this.blinkRightExpression) manager.setValue(this.blinkRightExpression, next);
+    }
+    manager.update?.();
+  }
+
   resetAll(): void {
     this.resetEmotionalExpressions();
     this.resetMouth();
+    this.setBlink(0);
   }
 
   private resetEmotionalExpressions(): void {
@@ -82,6 +105,14 @@ export class ExpressionController {
 
   private resolveMouthExpression(): void {
     this.mouthExpression = mouthExpressions.find((name) => this.hasExpression(name)) ?? null;
+  }
+
+  private resolveBlinkExpressions(): void {
+    this.blinkExpression = blinkExpressions.find((name) => this.hasExpression(name)) ?? null;
+    if (!this.blinkExpression) {
+      this.blinkLeftExpression = blinkLeftExpressions.find((name) => this.hasExpression(name)) ?? null;
+      this.blinkRightExpression = blinkRightExpressions.find((name) => this.hasExpression(name)) ?? null;
+    }
   }
 
   private hasExpression(name: string): boolean {

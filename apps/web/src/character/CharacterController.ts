@@ -22,13 +22,20 @@ import type { PlayAnimationOptions, VrmInstance } from "./types.js";
 import type { CompanionExpression } from "@anime-buddy/shared";
 
 const targetHeight = 2.03;
-const cameraTarget = new THREE.Vector3(0, 1.04, 0);
+
+export interface CharacterInitSelection {
+  characterId?: string;
+  backgroundId?: string;
+  animationId?: string;
+}
 
 export interface CharacterControllerOptions {
   canvas: HTMLCanvasElement;
   onStatus: (message: string) => void;
   onBusy: (busy: boolean) => void;
   onProgress: (percent: number, note?: string) => void;
+  onAnimationChange?: (animationId: string) => void;
+  onInteract?: () => void;
 }
 
 export class CharacterController {
@@ -43,6 +50,10 @@ export class CharacterController {
   private readonly animations: AnimationController;
   private readonly lookAt = new LookAtController();
   private readonly lipSync = new LipSyncController(this.expressions);
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly pointerNdc = new THREE.Vector2();
+  private readonly interactionBounds = new THREE.Box3();
+  private readonly framingTarget = new THREE.Vector3(0, 1.04, 0);
   private currentVrm: VrmInstance | null = null;
   private modelRoot: THREE.Group | null = null;
   private currentCharacterId = defaultCharacterId;
@@ -52,6 +63,25 @@ export class CharacterController {
   private targetRenderFps = 30;
   private lastRenderAt = 0;
   private modelSerial = 0;
+  private pointerDown: { x: number; y: number; at: number } | null = null;
+  private responsiveLayout = "";
+  private reducedMotion = false;
+  private gazeEnabled = true;
+  private nextBlinkAt = 2.4;
+  private blinkStartedAt = -1;
+  private renderFrameId: number | null = null;
+  private disposed = false;
+  private readonly onResize = (): void => this.resize();
+  private readonly onPointerMove = (event: globalThis.PointerEvent): void => this.handlePointerMove(event);
+  private readonly onPointerLeave = (): void => this.lookAt.center();
+  private readonly onPointerDown = (event: globalThis.PointerEvent): void => {
+    if (event.button !== 0 || !event.isPrimary) {
+      this.pointerDown = null;
+      return;
+    }
+    this.pointerDown = { x: event.clientX, y: event.clientY, at: performance.now() };
+  };
+  private readonly onPointerUp = (event: globalThis.PointerEvent): void => this.handlePointerUp(event);
 
   constructor(private readonly options: CharacterControllerOptions) {
     THREE.Cache.enabled = true;
@@ -79,9 +109,10 @@ export class CharacterController {
 
     const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmremGenerator.dispose();
 
     this.camera.position.set(0, 1.13, 10);
-    this.camera.lookAt(cameraTarget);
+    this.camera.lookAt(this.framingTarget);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -93,10 +124,11 @@ export class CharacterController {
     this.controls.maxPolarAngle = Math.PI / 2;
     this.controls.minZoom = 0.82;
     this.controls.maxZoom = 1.55;
-    this.controls.target.copy(cameraTarget);
+    this.controls.target.copy(this.framingTarget);
     this.controls.update();
 
     this.addLightsAndFloor();
+    this.scene.add(this.lookAt.target);
 
     this.vrmLoader = new GLTFLoader(manager);
     this.vrmLoader.register((parser) => new VRMLoaderPlugin(parser));
@@ -104,16 +136,25 @@ export class CharacterController {
     this.animationLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
     this.animations = new AnimationController(this.animationLoader);
 
-    window.addEventListener("resize", () => this.resize());
+    window.addEventListener("resize", this.onResize);
+    this.options.canvas.addEventListener("pointermove", this.onPointerMove);
+    this.options.canvas.addEventListener("pointerleave", this.onPointerLeave);
+    this.options.canvas.addEventListener("pointerdown", this.onPointerDown);
+    this.options.canvas.addEventListener("pointerup", this.onPointerUp);
     this.resize();
   }
 
-  async init(): Promise<void> {
-    this.switchBackground(defaultBackgroundId);
-    this.options.onProgress(20, "Loading character...");
-    await this.switchModel(defaultCharacterId, true);
-    await this.playAnimation(defaultAnimationId, { loop: true });
-    this.options.onProgress(100, "Ready");
+  async init(selection: CharacterInitSelection = {}): Promise<void> {
+    const background = getBackgroundById(selection.backgroundId).id;
+    const character = getCharacterById(selection.characterId).id;
+    const animation = animationRegistry.some((item) => item.id === selection.animationId)
+      ? selection.animationId!
+      : defaultAnimationId;
+    this.switchBackground(background);
+    this.options.onProgress(20, "Đang tải nhân vật…");
+    await this.switchModel(character, true);
+    await this.playAnimation(animation, { loop: true });
+    this.options.onProgress(100, "Sẵn sàng");
     this.startRenderLoop();
   }
 
@@ -153,7 +194,7 @@ export class CharacterController {
 
     const requestId = ++this.modelSerial;
     this.options.onBusy(true);
-    this.options.onStatus(`Loading ${next.label}...`);
+    this.options.onStatus(`Đang chuẩn bị ${next.label}…`);
 
     try {
       const nextVrm = await this.loadVrm(next.url, next);
@@ -180,7 +221,7 @@ export class CharacterController {
       this.animations.setVrm(nextVrm);
       this.disposeMountedVrm(previousVrm, previousRoot);
       this.options.onStatus(next.label);
-      await this.playAnimation(this.currentAnimationId, { loop: true });
+      await this.playAnimation(initial ? this.currentAnimationId : defaultAnimationId, { loop: true });
     } finally {
       if (requestId === this.modelSerial) {
         this.options.onBusy(false);
@@ -189,8 +230,18 @@ export class CharacterController {
   }
 
   async playAnimation(animationId: string, options: PlayAnimationOptions = {}): Promise<void> {
-    await this.animations.play(animationId, options);
     this.currentAnimationId = animationId;
+    this.options.onAnimationChange?.(animationId);
+    const resolvedAnimationId = await this.animations.play(animationId, options);
+    if (resolvedAnimationId && resolvedAnimationId !== this.currentAnimationId) {
+      this.currentAnimationId = resolvedAnimationId;
+      this.options.onAnimationChange?.(resolvedAnimationId);
+    }
+    const animation = animationRegistry.find((item) => item.id === animationId);
+    const loop = options.loop ?? animation?.loop ?? false;
+    if (options.autoIdle && !loop && this.currentAnimationId === animationId) {
+      await this.playAnimation(defaultAnimationId, { loop: true });
+    }
   }
 
   async preloadAnimationAsset(url: string): Promise<void> {
@@ -205,6 +256,31 @@ export class CharacterController {
     const next = getBackgroundById(backgroundId);
     this.currentBackgroundId = next.id;
     document.documentElement.style.setProperty("--room-background", `url("${next.url}")`);
+  }
+
+  resetCamera(): void {
+    this.applyDefaultFraming(true);
+  }
+
+  zoomBy(delta: number): void {
+    this.camera.zoom = THREE.MathUtils.clamp(this.camera.zoom + delta, this.controls.minZoom, this.controls.maxZoom);
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
+  }
+
+  setReducedMotion(reduced: boolean): void {
+    this.reducedMotion = reduced;
+    if (reduced && this.modelRoot) this.modelRoot.position.y = 0;
+    this.lookAt.setEnabled(this.gazeEnabled && !reduced);
+    if (reduced) {
+      this.expressions.setBlink(0);
+      this.blinkStartedAt = -1;
+    }
+  }
+
+  setGazeEnabled(enabled: boolean): void {
+    this.gazeEnabled = enabled;
+    this.lookAt.setEnabled(enabled && !this.reducedMotion);
   }
 
   setExpression(expression: CompanionExpression, intensity?: number): void {
@@ -224,8 +300,21 @@ export class CharacterController {
   }
 
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    window.removeEventListener("resize", this.onResize);
+    this.options.canvas.removeEventListener("pointermove", this.onPointerMove);
+    this.options.canvas.removeEventListener("pointerleave", this.onPointerLeave);
+    this.options.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    this.options.canvas.removeEventListener("pointerup", this.onPointerUp);
+    if (this.renderFrameId !== null) window.cancelAnimationFrame(this.renderFrameId);
+    this.renderFrameId = null;
+    this.lipSync.stop();
     this.animations.dispose();
     this.disposeMountedVrm(this.currentVrm, this.modelRoot);
+    this.controls.dispose();
+    this.scene.environment?.dispose();
+    this.scene.environment = null;
     this.renderer.dispose();
   }
 
@@ -445,11 +534,12 @@ export class CharacterController {
 
     this.renderLoopStarted = true;
     this.clock.start();
-    requestAnimationFrame((timestamp) => this.animate(timestamp));
+    this.renderFrameId = requestAnimationFrame((timestamp) => this.animate(timestamp));
   }
 
   private animate(timestamp: number): void {
-    requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
+    if (this.disposed) return;
+    this.renderFrameId = requestAnimationFrame((nextTimestamp) => this.animate(nextTimestamp));
     if (timestamp - this.lastRenderAt < 1000 / this.targetRenderFps) {
       return;
     }
@@ -457,12 +547,13 @@ export class CharacterController {
     const delta = Math.min(this.clock.getDelta(), 1 / 30);
     this.animations.update(delta);
     this.currentVrm?.update(delta);
-    this.lookAt.update();
+    if (!this.reducedMotion) this.lookAt.update(delta);
     this.lipSync.update();
+    if (!this.reducedMotion) this.updateBlink(this.clock.elapsedTime);
 
     if (this.modelRoot) {
       const time = this.clock.elapsedTime;
-      this.modelRoot.position.y = Math.sin(time * 1.35) * 0.006;
+      this.modelRoot.position.y = this.reducedMotion ? 0 : Math.sin(time * 1.35) * 0.006;
     }
 
     this.controls.update();
@@ -473,11 +564,84 @@ export class CharacterController {
     this.targetRenderFps = Math.max(1, Math.min(30, Math.round(fps)));
   }
 
+  private handlePointerMove(event: globalThis.PointerEvent): void {
+    const rect = this.options.canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const normalizedX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const normalizedY = 1 - ((event.clientY - rect.top) / rect.height) * 2;
+    this.lookAt.followPointer(normalizedX, normalizedY);
+  }
+
+  private handlePointerUp(event: globalThis.PointerEvent): void {
+    const down = this.pointerDown;
+    this.pointerDown = null;
+    if (!down || !this.modelRoot || event.button !== 0) return;
+    const distance = Math.hypot(event.clientX - down.x, event.clientY - down.y);
+    if (distance > 8 || performance.now() - down.at > 600) return;
+
+    const rect = this.options.canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    this.pointerNdc.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      1 - ((event.clientY - rect.top) / rect.height) * 2
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    // Some third-party VRMs contain geometry groups whose material index is
+    // missing. Three.js mesh raycasting throws for those assets, so use the
+    // animated model's world-space bounds for a forgiving, material-agnostic
+    // touch target.
+    this.interactionBounds.setFromObject(this.modelRoot);
+    const hit = !this.interactionBounds.isEmpty()
+      && this.raycaster.ray.intersectsBox(this.interactionBounds);
+    if (hit) this.options.onInteract?.();
+  }
+
+  private updateBlink(time: number): void {
+    if (this.blinkStartedAt >= 0) {
+      const elapsed = time - this.blinkStartedAt;
+      const duration = 0.16;
+      if (elapsed >= duration) {
+        this.expressions.setBlink(0);
+        this.blinkStartedAt = -1;
+        this.nextBlinkAt = time + 2.4 + Math.random() * 3.2;
+      } else {
+        this.expressions.setBlink(Math.sin((elapsed / duration) * Math.PI));
+      }
+      return;
+    }
+
+    if (time >= this.nextBlinkAt) this.blinkStartedAt = time;
+  }
+
+  private applyDefaultFraming(resetZoom: boolean): void {
+    const layout = this.responsiveLayout || this.resolveResponsiveLayout();
+    if (layout === "mobile") this.framingTarget.set(0, 1.22, 0);
+    else if (layout === "compact") this.framingTarget.set(-0.3, 1.12, 0);
+    else this.framingTarget.set(0, 1.04, 0);
+
+    this.camera.position.set(this.framingTarget.x, this.framingTarget.y + 0.09, 10);
+    this.camera.lookAt(this.framingTarget);
+    this.controls.target.copy(this.framingTarget);
+    if (resetZoom) this.camera.zoom = 1;
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
+    this.controls.saveState();
+  }
+
+  private resolveResponsiveLayout(): "mobile" | "compact" | "desktop" {
+    if (window.innerWidth < 700) return "mobile";
+    if (window.innerWidth < 1100) return "compact";
+    return "desktop";
+  }
+
   private resize(): void {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const aspect = width / Math.max(height, 1);
-    const viewHeight = width < 680 ? 2.34 : 2.52;
+    const nextLayout = this.resolveResponsiveLayout();
+    const layoutChanged = nextLayout !== this.responsiveLayout;
+    this.responsiveLayout = nextLayout;
+    const viewHeight = nextLayout === "mobile" ? 2.25 : nextLayout === "compact" ? 2.42 : 2.52;
 
     this.camera.left = (-viewHeight * aspect) / 2;
     this.camera.right = (viewHeight * aspect) / 2;
@@ -486,5 +650,6 @@ export class CharacterController {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
     this.renderer.setSize(width, height);
+    if (layoutChanged) this.applyDefaultFraming(false);
   }
 }

@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { seedUiPreferences, waitForAppReady, waitForCompanionState } from "./ui-test-helpers.mjs";
 
 const outputDir = path.resolve("test-results/browser/audio-worklet");
 const replyText = process.argv[2] ?? `Chao ban ${Date.now()}.`;
@@ -15,6 +16,8 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 960 
 const page = await context.newPage();
 const consoleMessages = [];
 const network = [];
+
+await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
 
 page.on("console", (message) => {
   if (["error", "warning"].includes(message.type())) {
@@ -62,7 +65,7 @@ await page.route("**/api/chat", async (route) => {
 let result;
 try {
   await page.goto("http://127.0.0.1:3001", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+  await waitForAppReady(page);
   await page.locator("#chat-input").fill("1+3=?");
   await page.locator("#chat-send").click();
   await page.waitForSelector(".chat-message.is-assistant", { timeout: 60_000 });
@@ -72,17 +75,14 @@ try {
     { timeout: 45_000 }
   );
   await page.screenshot({ path: path.join(outputDir, "audio-playing.png"), fullPage: true });
-  await page.waitForFunction(
-    () => document.querySelector("#state-pill")?.textContent === "IDLE",
-    null,
-    { timeout: 90_000 }
-  );
+  await waitForCompanionState(page, "IDLE", 90_000);
 
   result = {
     browser: await browser.version(),
     replyText,
     appPerformance: await page.evaluate(() => window.__BUDDY_PERF__),
-    state: await page.locator("#state-pill").textContent(),
+    state: await page.locator("#state-pill").getAttribute("data-state"),
+    stateLabel: await page.locator("#state-pill").textContent(),
     chatStatus: await page.locator("#chat-status").textContent(),
     toasts: await page.locator(".toast").allTextContents().catch(() => []),
     network,
@@ -97,7 +97,8 @@ try {
     browser: browser.version(),
     replyText,
     appPerformance: await page.evaluate(() => window.__BUDDY_PERF__).catch(() => null),
-    state: await page.locator("#state-pill").textContent().catch(() => null),
+    state: await page.locator("#state-pill").getAttribute("data-state").catch(() => null),
+    stateLabel: await page.locator("#state-pill").textContent().catch(() => null),
     chatStatus: await page.locator("#chat-status").textContent().catch(() => null),
     toasts: await page.locator(".toast").allTextContents().catch(() => []),
     network,

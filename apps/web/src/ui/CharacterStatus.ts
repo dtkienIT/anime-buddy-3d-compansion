@@ -1,13 +1,13 @@
 import type { CompanionState } from "../chat/types.js";
 
 const stateLabels: Record<CompanionState, string> = {
-  BOOTING: "Đang khởi động...",
+  BOOTING: "Đang mở",
   IDLE: "Sẵn sàng",
   LISTENING: "Đang nghe",
-  THINKING: "Đang suy nghĩ...",
-  SPEAKING: "Đang nói...",
-  REACTING: "Đang phản ứng",
-  ERROR: "Không thể kết nối",
+  THINKING: "Đang nghĩ",
+  SPEAKING: "Đang nói",
+  REACTING: "Đang phản hồi",
+  ERROR: "Mất kết nối",
   DISPOSED: "Đã dừng"
 };
 
@@ -19,6 +19,7 @@ export class CharacterStatus {
 
   set(state: CompanionState, detail?: string): void {
     this.label.textContent = detail || stateLabels[state];
-    this.pill.textContent = state;
+    this.pill.textContent = stateLabels[state];
+    this.pill.dataset.state = state;
   }
 }

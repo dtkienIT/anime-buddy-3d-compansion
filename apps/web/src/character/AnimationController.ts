@@ -24,10 +24,10 @@ export class AnimationController {
     this.clipCache.clear();
   }
 
-  async play(animationId: string, options: PlayAnimationOptions = {}): Promise<void> {
+  async play(animationId: string, options: PlayAnimationOptions = {}): Promise<string | null> {
     const vrm = this.currentVrm;
     if (!vrm) {
-      return;
+      return null;
     }
 
     const requestId = ++this.serial;
@@ -38,13 +38,19 @@ export class AnimationController {
     try {
       const clip = await this.loadClip(animation.url, vrm);
       if (requestId !== this.serial || vrm !== this.currentVrm) {
-        return;
+        return null;
       }
-      await this.applyClip(clip, loop, fadeDuration);
+      await this.applyClip(clip, loop, fadeDuration, options.maxDurationMs);
+      if (requestId !== this.serial || vrm !== this.currentVrm) {
+        return null;
+      }
+      return animation.id;
     } catch (error) {
+      if (requestId !== this.serial || vrm !== this.currentVrm) {
+        return null;
+      }
       if (animation.id !== animation.fallbackId) {
-        await this.play(animation.fallbackId, { loop: true });
-        return;
+        return await this.play(animation.fallbackId, { loop: true });
       }
       throw error;
     }
@@ -71,7 +77,7 @@ export class AnimationController {
     if (requestId !== this.serial || vrm !== this.currentVrm) {
       return;
     }
-    await this.applyClip(clip, loop, fadeDuration);
+    await this.applyClip(clip, loop, fadeDuration, options.maxDurationMs);
   }
 
   stop(): void {
@@ -123,11 +129,16 @@ export class AnimationController {
     }
 
     const clip = createVRMAnimationClip(vrmAnimation, vrm);
-    this.clipCache.set(url, clip);
+    // Clips are retargeted to the VRM passed above. A model switch can finish
+    // while fetch/parse is pending, so a stale result must not repopulate the
+    // URL cache used by the new model.
+    if (vrm === this.currentVrm) {
+      this.clipCache.set(url, clip);
+    }
     return clip;
   }
 
-  private async applyClip(clip: THREE.AnimationClip, loop: boolean, fadeDuration: number): Promise<void> {
+  private async applyClip(clip: THREE.AnimationClip, loop: boolean, fadeDuration: number, maxDurationMs?: number): Promise<void> {
     const vrm = this.currentVrm;
     if (!vrm) {
       return;
@@ -158,7 +169,10 @@ export class AnimationController {
       const durationMs = Number.isFinite(clip.duration) && clip.duration > 0
         ? clip.duration * 1000
         : 1000;
-      const timeoutMs = Math.min(Math.max(durationMs + 500, 1000), 5 * 60 * 1000);
+      const naturalTimeoutMs = Math.min(Math.max(durationMs + 500, 1000), 5 * 60 * 1000);
+      const timeoutMs = typeof maxDurationMs === "number" && Number.isFinite(maxDurationMs)
+        ? Math.min(naturalTimeoutMs, Math.max(500, maxDurationMs))
+        : naturalTimeoutMs;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       let frameId: number | undefined;
       let settled = false;

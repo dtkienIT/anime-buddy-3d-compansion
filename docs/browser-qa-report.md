@@ -1,8 +1,35 @@
 # Browser QA Report
 
-## 2026-07-13 Long Vietnamese Reply Prefetch
+## 2026-07-13 Companion Experience Redesign
 
-The frontend now keeps a three-chunk initial WAV reserve and uses smaller speech chunks for long replies. A dedicated Chromium probe routed the exact reported Vietnamese cat story through six delayed MISS-style WAV responses (2.5 seconds each). All six requests returned `200`; the five scheduled inter-chunk gaps were `[0, 0, 0, 0, 0]` ms. Artifact: `test-results/browser/audio-prefetch/long-vietnamese-mocked-miss.json`.
+The browser harness has been updated for the redesigned frontend. New or expanded coverage includes:
+
+- `tests/browser/probe-responsive.mjs`: mobile (`390 x 844`), tablet (`768 x 1024`), and desktop (`1440 x 900`) viewport bounds, preserved stage area, Studio drawer/sheet open and close behavior, and scroll/overflow checks.
+- `tests/browser/probe-experience.mjs`: first-visit onboarding persistence, help dialog state and Escape close, `/`/`C`/`F` shortcuts, reduced-motion persistence, keyboard tab navigation, direct character interaction, and ARIA pressed/expanded state.
+- `tests/browser/probe-animations.mjs`: regenerated core motions (`Relax`, `Wave`, `Nod`, `Listening`, and `Talking`) across representative VRM models, plus selected legacy motions.
+- Existing chat, audio, memory, and baseline scripts now use shared helpers for the redesigned controls, localized status via `data-state`, welcome dismissal, Studio visibility, and voice state.
+
+The complete local gate passes: environment/template validation, 57-asset verification, five generated-VRMA parity/spec checks, lint, workspace typecheck, shared/API/web unit tests (`2 + 22 + 40`), Python tests (`10`), and production build. The existing Vite warning for the `three-vrm` chunk above 500 kB remains.
+
+Fresh browser results:
+
+| Probe | Result | Application console | Artifact |
+| --- | ---: | ---: | --- |
+| Responsive | `3/3` PASS | 0 errors | `test-results/browser/responsive/report.json` |
+| Experience | `8/8` PASS | 0 errors | `test-results/browser/experience/report.json` |
+| Animation sample | `24/24` PASS | 0 errors, 0 issues | `test-results/browser/animations/report.json` |
+
+The responsive run covered `390 x 844`, `768 x 1024`, and `1440 x 900`. Its five warnings were headless Chrome WebGL context/readback diagnostics during viewport changes and screenshots, not application errors. The experience run additionally verifies a real pointer tap on the canvas reaches the companion without a Three.js raycast error, starts a local performance, verifies the visible stop overlay/body state, stops it, and returns to `IDLE`. The animation sample covers all five generated motions on Mika, Sam, Naruto, and Carlotta plus one legacy smoke motion per model.
+
+The manual Chrome inspection that motivated the redesign used a `745 x 656` viewport. The previous top chat sheet and bottom control sheet obscured the character's face and lower body. The new responsive layout docks chat lower/right, keeps Companion Studio closed by default below desktop width, and preserves a directly usable 3D stage with camera and touch controls.
+
+A final connected-Chrome pass at the same `745 x 656` viewport verified one rendered canvas, `IDLE`, exact document/viewport bounds, correct closed-drawer `aria-hidden`/`inert` state, and zero Chrome console warnings or errors.
+
+## 2026-07-13 Long Vietnamese Reply Scheduling Correction
+
+The current frontend starts WAV playback as soon as the first speech chunk is ready. It no longer keeps the earlier three-chunk startup reserve. Synthesis for chunk 1 begins immediately after chunk 0 synthesis and overlaps chunk 0 playback; later chunks remain ordered and cancellable.
+
+The earlier deterministic Chromium probe routed the reported Vietnamese cat story through six delayed MISS-style WAV responses (2.5 seconds each). All six requests returned `200`, and the five scheduled inter-chunk gaps were `[0, 0, 0, 0, 0]` ms. Artifact: `test-results/browser/audio-prefetch/long-vietnamese-mocked-miss.json`. That artifact remains evidence for ordered look-ahead scheduling, not evidence that the removed three-chunk reserve is still active.
 
 This deterministic browser result verifies ordering, prefetch, decode, and Web Audio scheduling independently of local model speed. A separate real VieNeu MISS attempt reached the API's structured 120-second `504 TTS_TIMEOUT` path under concurrent browser/WebGL load. The frontend scheduling fix is therefore verified, while real local CPU synthesis for long uncached text remains an unresolved performance constraint.
 
@@ -12,7 +39,7 @@ This deterministic browser result verifies ordering, prefetch, decode, and Web A
 
 A fresh manual-style Chrome pass against the already-running local stack verified boot to `IDLE`, model/canvas rendering, character change (Mika to Kato and back), background change (Study Room to Cozy Night and back), a standalone Greeting animation, Bling-Bang-Bang-Born performance start/stop, voice off/on, real Mistral chat (`2 + 3 = 5 nè!`), chat collapse/expand, conversation manager loading, and the long-term-memory panel. The browser was returned to Mika, Study Room, voice enabled, and `IDLE`.
 
-No application error was logged. One non-blocking warning remains: checked-in VRMA files omit `specVersion`, so the loader assumes VRMA 1.0.
+No application error was logged in that historical run. At the time, legacy checked-in VRMA files emitted a non-blocking missing-`specVersion` warning. The current loader normalizes missing legacy metadata in memory before parsing. The five generated core motions include `specVersion: "1.0"` in their source files and are checked for source/public parity.
 
 ## 2026-07-12 Response Cache Addendum
 

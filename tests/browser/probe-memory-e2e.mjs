@@ -2,6 +2,12 @@ import { chromium } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  seedUiPreferences,
+  setVoiceEnabled,
+  waitForAppReady,
+  waitForCompanionState
+} from "./ui-test-helpers.mjs";
 
 const outputDir = path.resolve("test-results/browser/memory");
 const baseUrl = "http://127.0.0.1:3001";
@@ -137,27 +143,21 @@ async function openContext() {
     localStorage.setItem("animeBuddy.anonymousId", id);
   }, anonymousId);
   const page = await context.newPage();
+  await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
   attachPageObservers(page);
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+  await waitForAppReady(page);
   await page.waitForSelector("#chat-input", { timeout: 30_000 });
   await disableVoice(page);
   return { context, page };
 }
 
 async function disableVoice(page) {
-  const text = await page.locator("#voice-toggle").textContent();
-  if (text?.trim() !== "Off") {
-    await page.locator("#voice-toggle").click();
-  }
+  await setVoiceEnabled(page, false);
 }
 
 async function waitIdle(page, timeout = 120_000) {
-  await page.waitForFunction(
-    () => document.querySelector("#state-pill")?.textContent === "IDLE",
-    null,
-    { timeout }
-  );
+  await waitForCompanionState(page, "IDLE", timeout);
 }
 
 async function sendChat(page, message) {
@@ -194,6 +194,9 @@ async function setMemoryEnabled(page, enabled) {
   await setMenuOpen(page, true);
   await page.locator("#tab-memory-btn").click();
   const checkbox = page.locator("#toggle-memory-checkbox");
+  await page.waitForFunction(() => !document.querySelector("#toggle-memory-checkbox")?.disabled, null, {
+    timeout: 30_000
+  });
   const checked = await checkbox.isChecked();
   if (checked !== enabled) {
     await checkbox.click();
@@ -348,7 +351,7 @@ try {
 
   await runStep("refresh-history", async () => {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+    await waitForAppReady(page);
     await disableVoice(page);
     await page.waitForFunction(() => document.querySelectorAll("#chat-log .chat-message").length >= 4, null, { timeout: 60_000 });
   });
@@ -455,7 +458,8 @@ try {
   }
 } catch (error) {
   const diagnostics = page ? await page.evaluate(() => ({
-    state: document.querySelector("#state-pill")?.textContent ?? null,
+    state: document.querySelector("#state-pill")?.getAttribute("data-state") ?? null,
+    stateLabel: document.querySelector("#state-pill")?.textContent ?? null,
     chatStatus: document.querySelector("#chat-status")?.textContent ?? null,
     messages: Array.from(document.querySelectorAll("#chat-log .chat-message")).map((node) => ({
       className: node.className,

@@ -263,3 +263,51 @@ Date: 2026-07-12
 - Headed Chrome passed first generation, normalized repeat, voice playback completion, and final `IDLE`.
 - Direct verification passed fuzzy matching, Mistral bypass, and a 576044-byte stored WAV hit.
 - Regression checks passed: lint, workspace typecheck, API tests, full workspace tests, and production build. See `docs/response-cache-qa-report.md`.
+
+## 26. Companion Experience and Deterministic Motion Addendum
+
+Date: 2026-07-13
+
+The frontend was redesigned after inspecting the real app at a `745 x 656` Chrome viewport. The earlier top chat and bottom controls obscured the character and left too little usable 3D space.
+
+Implemented experience changes:
+
+- Rebuilt the app shell as a responsive 3D stage with app bar, stage tools, docked chat, and an on-demand Companion Studio drawer/sheet.
+- Added first-visit onboarding, contextual help, prompt starters, progress/retry loading, network status, empty/loading/error states, and typed toast feedback.
+- Added camera zoom/reset, fullscreen, focus mode, animation search, descriptive character/background cards, localized motion categories, and persistent local experience preferences.
+- Expanded chat with IME-safe input, autosize/count feedback, message copy, replay and stop/replacement state, speech-input state, quick new chat, and accessible session/memory/experience tabs.
+- Reworked session and long-term-memory controls for search, open, rename, delete, export, enable/disable, individual edit/delete, and clear-all flows. The memory checkbox remains disabled until its API preference request resolves.
+- Added skip navigation, visible keyboard focus, ARIA pressed/expanded/current/tab state, live regions, focus restoration, and reduced-motion handling.
+- Added pointer/touch character hit testing, gaze following and auto-centering, natural blinking, responsive framing, quick wave/nod reactions with dialogue bubbles, and bounded idle ambient moments.
+- Corrected chat state coordination so listening and speaking have dedicated loop motions, stale async/TTS callbacks do not overwrite a replacement request, session/history switches reset reply state, and one-shot reactions are time-bounded.
+
+Motion changes:
+
+- Added `Wave.vrma` (2.8 s one-shot), `Nod.vrma` (1.4 s one-shot), `Listening.vrma` (4.0 s loop), and `Talking.vrma` (2.4 s loop).
+- Regenerated `Relax.vrma` as a seamless 5.2 s idle loop.
+- Added `scripts/generate-companion-vrma.mjs`, a deterministic 30 fps GLB/VRMA generator for all five core motions.
+- Generated assets declare `VRMC_vrm_animation.specVersion: "1.0"`, use a 22-bone humanoid mapping, and are byte-identical in the source/public trees.
+- Added generated-asset validation for deterministic output, GLB structure, metadata, animation tracks, parity, and loop seams. Legacy third-party VRMAs that omit `specVersion` are normalized in memory before parsing rather than rewritten.
+
+QA changes:
+
+- Added `test:browser:responsive`, `test:browser:experience`, `test:browser:animations`, and `test:browser:ui` scripts.
+- Updated existing browser probes to use localized `data-state`, deterministic UI preferences, Studio visibility helpers, and current voice controls.
+- Added unit coverage for UI preference persistence/defaults, API session rename, and chat cancellation/session/reply state.
+- Added request/ownership guards for gesture, model, fallback, and performance races; pending performance playback is cancellable, stale retargeted clips cannot pollute a newly selected model, and modal shortcuts cannot corrupt background `inert` state.
+- New-session UI is cleared immediately after successful creation and remains usable if only the follow-up session-list refresh fails.
+
+Current working-tree verification:
+
+- `npm run verify-assets`: pass.
+- `npm run lint`: pass.
+- `npm run typecheck`: pass.
+- `npm run test`: pass — shared `2`, API `22`, web `40`.
+- `npm run test:python`: pass — `10` tests, one upstream deprecation warning.
+- `npm run build`: pass with the existing Vite large-chunk warning.
+- Responsive browser probe: `3/3` pass, application console errors `0`.
+- Experience browser probe: `8/8` pass, including direct canvas interaction and performance start/visible stop/return to `IDLE`; console errors `0`.
+- Animation browser probe: `24/24` pass, including 20 generated-motion/model combinations and four legacy smoke checks; issues/errors/aborted assets `0`.
+- Artifacts: `test-results/browser/responsive/report.json`, `test-results/browser/experience/report.json`, and `test-results/browser/animations/report.json`.
+
+TTS synthesis was intentionally not optimized in this addendum. The current long-reply path starts audio after the first completed chunk; references to an active three-chunk startup reserve are obsolete.

@@ -1,4 +1,5 @@
 import { chromium } from "@playwright/test";
+import { seedUiPreferences, waitForAppReady } from "./ui-test-helpers.mjs";
 
 const message = process.argv[2] ?? `Kiểm tra TTS cache miss ${Date.now()}. Hãy trả lời đúng một câu ngắn.`;
 const browser = await chromium.launch({
@@ -11,6 +12,8 @@ const page = await context.newPage();
 const startedAt = Date.now();
 const network = [];
 const consoleMessages = [];
+
+await seedUiPreferences(page, { controlsOpen: false, welcomeSeen: true });
 
 page.on("console", (entry) => {
   if (["warning", "error"].includes(entry.type())) {
@@ -38,7 +41,7 @@ page.on("response", (response) => {
 let result;
 try {
   await page.goto("http://127.0.0.1:3001", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.classList.contains("is-ready"), null, { timeout: 60_000 });
+  await waitForAppReady(page);
   await page.locator("#chat-input").fill(message);
   await page.locator("#chat-send").click();
 
@@ -47,7 +50,7 @@ try {
   const assistantText = await page.locator(".chat-message.is-assistant").last().textContent();
 
   await page.waitForFunction(
-    () => ["IDLE", "ERROR"].includes(document.querySelector("#state-pill")?.textContent ?? ""),
+    () => ["IDLE", "ERROR"].includes(document.querySelector("#state-pill")?.getAttribute("data-state") ?? ""),
     null,
     { timeout: 150_000 }
   );
@@ -55,7 +58,8 @@ try {
     message,
     textVisibleAtMs,
     assistantText,
-    finalState: await page.locator("#state-pill").textContent(),
+    finalState: await page.locator("#state-pill").getAttribute("data-state"),
+    finalStateLabel: await page.locator("#state-pill").textContent(),
     finalStatus: await page.locator("#chat-status").textContent(),
     network,
     consoleMessages,
@@ -65,7 +69,8 @@ try {
   result = {
     message,
     error: error instanceof Error ? error.message : String(error),
-    finalState: await page.locator("#state-pill").textContent().catch(() => null),
+    finalState: await page.locator("#state-pill").getAttribute("data-state").catch(() => null),
+    finalStateLabel: await page.locator("#state-pill").textContent().catch(() => null),
     assistantText: await page.locator(".chat-message.is-assistant").last().textContent().catch(() => null),
     network,
     consoleMessages
