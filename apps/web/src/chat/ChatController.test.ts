@@ -166,6 +166,17 @@ describe("ChatController context consistency", () => {
       maxDurationMs: 7000
     });
     expect(harness.character.playAnimation).not.toHaveBeenCalledWith("angry", { loop: true });
+    expect(harness.character.setExpression).toHaveBeenLastCalledWith("neutral", 0);
+  });
+
+  it("does not warn on every reply when voice is intentionally disabled", async () => {
+    const harness = createHarness({ voiceEnabled: false });
+    harness.controller.setReady();
+
+    await harness.controller.send("Text only, please");
+
+    expect(harness.events.onWarning).not.toHaveBeenCalledWith("Đã tắt giọng nói.");
+    expect(harness.tts.synthesize).not.toHaveBeenCalled();
   });
 });
 

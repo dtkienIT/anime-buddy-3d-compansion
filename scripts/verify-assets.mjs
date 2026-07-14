@@ -20,6 +20,8 @@ const assetGroups = {
   animations: [
     "Wave.vrma",
     "Nod.vrma",
+    "GentleGesture.vrma",
+    "CuriousTilt.vrma",
     "Listening.vrma",
     "Talking.vrma",
     "Greeting.vrma",
@@ -72,7 +74,16 @@ const assetGroups = {
   ].map((name) => `apps/web/public/audio/music/${name}`)
 };
 
-const generatedAnimations = ["Relax.vrma", "Wave.vrma", "Nod.vrma", "Listening.vrma", "Talking.vrma"];
+const generatedAnimations = [
+  "Relax.vrma",
+  "Listening.vrma",
+  "Thinking.vrma",
+  "Talking.vrma",
+  "GentleGesture.vrma",
+  "CuriousTilt.vrma",
+  "Nod.vrma",
+  "Wave.vrma"
+];
 const minimumBytes = {
   models: 16 * 1024,
   animations: 1024,

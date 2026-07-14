@@ -29,6 +29,7 @@ export interface ChatPanelHandlers {
   clear: () => void | Promise<void>;
   warn: (message: string) => void;
   listeningChange?: (active: boolean) => void;
+  collapsedChange?: (collapsed: boolean) => void;
 }
 
 export class ChatPanel {
@@ -238,9 +239,9 @@ export class ChatPanel {
     this.input.focus();
   }
 
-  setCollapsed(collapsed: boolean): void {
+  setCollapsed(collapsed: boolean, notify = true): void {
     if (this.collapsed === collapsed) return;
-    this.toggleCollapsed();
+    this.toggleCollapsed(notify);
   }
 
   get isCollapsed(): boolean {
@@ -376,7 +377,7 @@ export class ChatPanel {
     this.sendButton.disabled = !this.input.value.trim() || this.input.disabled;
   }
 
-  private toggleCollapsed(): void {
+  private toggleCollapsed(notify = true): void {
     this.collapsed = !this.collapsed;
     this.root.classList.toggle("is-collapsed", this.collapsed);
     this.collapseButton.setAttribute("aria-expanded", String(!this.collapsed));
@@ -385,6 +386,7 @@ export class ChatPanel {
     const icon = this.collapseButton.querySelector("span");
     if (icon) icon.textContent = this.collapsed ? "⌃" : "⌄";
     this.root.scrollTop = 0;
+    if (notify) this.handlers.collapsedChange?.(this.collapsed);
     if (!this.collapsed) this.input.focus();
   }
 

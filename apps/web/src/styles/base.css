@@ -727,11 +727,68 @@ button:disabled {
   color: var(--accent-deep);
 }
 
+.stage-tool[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
 .stage-tool-divider {
   width: 1px;
   height: 24px;
   margin: 0 2px;
   background: var(--line);
+}
+
+.interaction-menu {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  width: min(286px, calc(100vw - 24px));
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 17px;
+  padding: 7px;
+  background: rgba(255, 253, 250, 0.94);
+  box-shadow: var(--shadow-float);
+  backdrop-filter: blur(20px) saturate(1.12);
+}
+
+.interaction-menu button {
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.interaction-menu button:hover,
+.interaction-menu button:focus-visible {
+  border-color: rgba(103, 87, 217, 0.32);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.interaction-menu button > span:first-child {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 9px;
+  background: rgba(103, 87, 217, 0.1);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .stage-hint {
@@ -873,6 +930,33 @@ button:disabled {
   color: var(--ink-soft);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.welcome-card .welcome-privacy {
+  display: grid;
+  gap: 7px;
+  margin: -2px 0 13px;
+  border: 1px solid rgba(103, 87, 217, 0.13);
+  border-radius: 13px;
+  padding: 9px 10px;
+  background: rgba(103, 87, 217, 0.06);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.welcome-privacy button {
+  width: fit-content;
+  min-height: 32px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0 9px;
+  background: rgba(103, 87, 217, 0.1);
+  color: var(--accent-deep);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 850;
 }
 
 .welcome-close,

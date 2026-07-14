@@ -6,12 +6,14 @@ export interface UiPreferences {
   characterId?: string;
   backgroundId?: string;
   controlsOpen: boolean;
+  chatCollapsed: boolean;
   reducedMotion: boolean;
   welcomeSeen: boolean;
 }
 
 const defaultPreferences = (): UiPreferences => ({
   controlsOpen: window.innerWidth >= 1200,
+  chatCollapsed: false,
   reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   welcomeSeen: false
 });
@@ -52,6 +54,7 @@ export class UiPreferencesStore {
         characterId: typeof parsed.characterId === "string" ? parsed.characterId : undefined,
         backgroundId: typeof parsed.backgroundId === "string" ? parsed.backgroundId : undefined,
         controlsOpen: typeof parsed.controlsOpen === "boolean" ? parsed.controlsOpen : defaults.controlsOpen,
+        chatCollapsed: typeof parsed.chatCollapsed === "boolean" ? parsed.chatCollapsed : defaults.chatCollapsed,
         reducedMotion: typeof parsed.reducedMotion === "boolean" ? parsed.reducedMotion : defaults.reducedMotion,
         welcomeSeen: parsed.welcomeSeen === true
       };

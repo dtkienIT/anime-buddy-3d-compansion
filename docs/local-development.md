@@ -91,7 +91,7 @@ npm run generate:animations
 npm run verify:generated-animations
 ```
 
-The generator owns `Relax.vrma`, `Listening.vrma`, `Talking.vrma`, `Nod.vrma`, and `Wave.vrma` in both `animations/` and `apps/web/public/animations/`. Do not edit or copy only one side. Generated files are 30 fps VRMA 1.0 GLBs; verification checks byte-for-byte reproducibility, source/public parity, tracks, and seamless endpoints for looped clips.
+The generator owns `Relax.vrma`, `Listening.vrma`, `Thinking.vrma`, `Talking.vrma`, `GentleGesture.vrma`, `CuriousTilt.vrma`, `Nod.vrma`, and `Wave.vrma` in both `animations/` and `apps/web/public/animations/`. Do not edit or copy only one side. Generated files are 30 fps VRMA 1.0 GLBs; verification checks byte-for-byte reproducibility, source/public parity, tracks, and seamless endpoints for looped clips.
 
 With all three services running:
 
@@ -117,7 +117,7 @@ npm run test:browser:interactions
 npm run test:browser:ui
 ```
 
-The probes seed `animeBuddy.uiPreferences.v2` so onboarding and the Studio drawer start in a deterministic state. They write screenshots and JSON under `test-results/browser/`. The current working tree passes responsive `3/3`, experience `8/8`, and animation `24/24`; the corresponding reports are under `responsive/report.json`, `experience/report.json`, and `animations/report.json` in that directory.
+The probes seed `animeBuddy.uiPreferences.v2` so onboarding, chat-collapse state, and the Studio drawer start deterministically. They write screenshots and JSON under `test-results/browser/`. The current working tree passes responsive `9/9`, experience `9/9`, animation `36/36`, and interaction/audio scenarios `8/8`; reports are under the matching subdirectories. To watch the journey in the installed Google Chrome, run `node tests/browser/probe-experience.mjs --headed`.
 
 Manual keyboard checks:
 
@@ -128,7 +128,7 @@ Manual keyboard checks:
 - `?` opens help.
 - `Esc` stops an active performance or closes the active dialog, Studio, data menu, or focus mode.
 
-On mobile, opening Companion Studio intentionally collapses chat to preserve the 3D stage. Reduced-motion, selected character/background, onboarding state, and Studio state persist locally. The long-term-memory toggle starts disabled until the API preference request completes; this prevents an unavailable backend from being shown as an enabled privacy setting.
+On compact layouts, opening Companion Studio temporarily collapses chat to preserve the 3D stage and restores the user's prior chat state when Studio closes. Reduced-motion, selected character/background, chat collapse, onboarding state, and Studio state persist locally. The long-term-memory toggle starts disabled until the API preference request completes; onboarding links directly to this control instead of silently opting the user into an invisible behavior.
 
 ## Windows Sandbox Notes
 
@@ -161,4 +161,4 @@ RESPONSE_CACHE_SIMILARITY_THRESHOLD=0.90
 RESPONSE_CACHE_TOP_K=3
 ```
 
-After applying migration `004`, send a message once and then send an accent/punctuation variant. A cache hit exposes `response-cache` with `desc="HIT"` and `mistral;dur=0` in the `/api/chat` `Server-Timing` header. Repeating TTS with the same text, voice, and style returns `X-TTS-Cache: SUPABASE_HIT`.
+After applying migration `004`, `/api/chat` currently exposes `response-cache;dur=0;desc="BYPASS"`. Reusable assistant-text matching is intentionally disabled because replies can contain user-specific long-term memory; serving a fuzzy cached answer would risk stale or cross-user content. The independent TTS audio cache remains enabled: repeating synthesis with the same text, voice, and style can return `X-TTS-Cache: SUPABASE_HIT`.

@@ -5,6 +5,7 @@ export interface CharacterRegistryItem {
   label: string;
   url: string;
   description?: string;
+  persona?: string;
   targetHeight?: number;
   rotationY?: number;
   yOffset?: number;
@@ -36,21 +37,23 @@ export const defaultAnimationId = "relax";
 export const defaultBackgroundId = "study-room-sunlit";
 
 export const characterRegistry: CharacterRegistryItem[] = [
-  { id: "mika", label: "Mika", description: "Ấm áp & tinh tế", url: "/models/8590256991748008892.vrm" },
-  { id: "kato", label: "Kato", description: "Điềm tĩnh & gần gũi", url: "/models/8329890252317737768.vrm" },
-  { id: "sam", label: "Sam", description: "Tươi sáng & năng động", url: "/models/sample.vrm" },
-  { id: "vivi", label: "Vivi", description: "Dịu dàng & đáng yêu", url: "/models/vita.vrm" },
-  { id: "tita", label: "Tita", description: "Vui vẻ & tự nhiên", url: "/models/vivi.vrm" },
-  { id: "luna", label: "Luna", description: "Mơ mộng & sâu sắc", url: "/models/6493143135142452442.vrm" },
-  { id: "naruto", label: "Naruto", description: "Nhiệt huyết & lạc quan", url: "/models/naruto.vrm" },
-  { id: "changli", label: "Changli", description: "Thanh lịch & sắc sảo", url: "/models/Changli.vrm" },
-  { id: "yinlin", label: "Yinlin", description: "Bí ẩn & cuốn hút", url: "/models/Yinlin.vrm" },
-  { id: "carlotta", label: "Carlotta", description: "Tự tin & duyên dáng", url: "/models/Carlotta.vrm" }
+  { id: "mika", label: "Mika", description: "Ấm áp & tinh tế", persona: "Lắng nghe kỹ, phản hồi dịu dàng, tinh tế và tạo cảm giác an toàn.", url: "/models/8590256991748008892.vrm" },
+  { id: "kato", label: "Kato", description: "Điềm tĩnh & gần gũi", persona: "Bình tĩnh, thực tế, nói rõ ràng và giúp người dùng nhìn vấn đề nhẹ nhàng hơn.", url: "/models/8329890252317737768.vrm" },
+  { id: "sam", label: "Sam", description: "Tươi sáng & năng động", persona: "Nhiều năng lượng, chủ động khích lệ và dùng nhịp trò chuyện nhanh nhưng không ồn ào.", url: "/models/sample.vrm" },
+  { id: "vivi", label: "Vivi", description: "Dịu dàng & đáng yêu", persona: "Mềm mại, quan tâm đến cảm xúc và thể hiện sự đáng yêu một cách tự nhiên.", url: "/models/vita.vrm" },
+  { id: "tita", label: "Tita", description: "Vui vẻ & tự nhiên", persona: "Thoải mái, hài hước vừa đủ và trò chuyện như một người bạn thân thiện.", url: "/models/vivi.vrm" },
+  { id: "luna", label: "Luna", description: "Mơ mộng & sâu sắc", persona: "Giàu tưởng tượng, sâu sắc, thích những liên tưởng đẹp nhưng vẫn trả lời cụ thể.", url: "/models/6493143135142452442.vrm" },
+  { id: "naruto", label: "Naruto", description: "Nhiệt huyết & lạc quan", persona: "Quyết tâm, lạc quan, cổ vũ mạnh mẽ và luôn hướng cuộc trò chuyện về phía trước.", url: "/models/naruto.vrm" },
+  { id: "changli", label: "Changli", description: "Thanh lịch & sắc sảo", persona: "Điềm đạm, thanh lịch, phân tích sắc bén và chọn từ ngữ có chủ đích.", url: "/models/Changli.vrm" },
+  { id: "yinlin", label: "Yinlin", description: "Bí ẩn & cuốn hút", persona: "Tự tin, dí dỏm kín đáo và tạo chút tò mò mà không mơ hồ hoặc thao túng.", url: "/models/Yinlin.vrm" },
+  { id: "carlotta", label: "Carlotta", description: "Tự tin & duyên dáng", persona: "Duyên dáng, chắc chắn, khích lệ bằng sự tự tin và giữ thái độ tôn trọng.", url: "/models/Carlotta.vrm" }
 ];
 
 export const animationRegistry: AnimationRegistryItem[] = [
   { id: "wave", label: "Vẫy tay", url: "/animations/Wave.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax", description: "Một lời chào tự nhiên" },
   { id: "nod", label: "Gật đầu", url: "/animations/Nod.vrma", loop: false, fadeDuration: 0.14, category: "reaction", fallbackId: "relax", description: "Đồng ý nhẹ nhàng" },
+  { id: "gentle-gesture", label: "Cử chỉ nhẹ", url: "/animations/GentleGesture.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax", chatEligible: true, description: "Phản hồi tự nhiên cho cuộc trò chuyện" },
+  { id: "curious-tilt", label: "Nghiêng đầu tò mò", url: "/animations/CuriousTilt.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax", chatEligible: true, description: "Tò mò và muốn hiểu thêm" },
   { id: "listening", label: "Lắng nghe", url: "/animations/Listening.vrma", loop: true, fadeDuration: 0.2, category: "listening", fallbackId: "relax", chatEligible: false, description: "Tập trung vào lời bạn nói" },
   { id: "talking", label: "Trò chuyện", url: "/animations/Talking.vrma", loop: true, fadeDuration: 0.18, category: "talking", fallbackId: "relax", chatEligible: false, description: "Chuyển động khi đang nói" },
   { id: "greeting", label: "Chào hỏi", url: "/animations/Greeting.vrma", loop: false, fadeDuration: 0.18, category: "gesture", fallbackId: "relax" },

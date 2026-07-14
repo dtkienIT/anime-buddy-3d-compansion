@@ -1,9 +1,11 @@
 import { Readable } from "node:stream";
+import { animationRegistry, getCharacterById } from "@anime-buddy/shared";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import type { ApiEnv } from "./config/env.js";
 import { parseCompanionModelPayload } from "./services/mistralService.js";
 import { TtsTimeoutError } from "./services/ttsService.js";
+import { buildCharacterSystemPrompt } from "./prompts/characterSystemPrompt.js";
 
 const env: ApiEnv = {
   NODE_ENV: "test",
@@ -167,6 +169,18 @@ describe("api", () => {
 });
 
 describe("mistral response parser", () => {
+  it("uses the subtle chat-safe gesture for a neutral response without an animation", () => {
+    const parsed = parseCompanionModelPayload(JSON.stringify({
+      reply: "Mình sẽ giải thích ngắn gọn nhé.",
+      emotion: "neutral",
+      expression: "neutral",
+      intensity: 0.4,
+      voiceStyle: "friendly"
+    }), ["wave", "gentle-gesture", "curious-tilt"]);
+
+    expect(parsed.animation).toBe("gentle-gesture");
+  });
+
   it("falls back invalid animation to registry fallback", () => {
     const parsed = parseCompanionModelPayload(JSON.stringify({
       reply: "Xin chao",
@@ -181,5 +195,19 @@ describe("mistral response parser", () => {
 
   it("throws on invalid JSON", () => {
     expect(() => parseCompanionModelPayload("{nope", ["relax"])).toThrow();
+  });
+});
+
+describe("character persona prompt", () => {
+  it("keeps the selected companion's identity and tone distinct", () => {
+    const animations = animationRegistry.filter((animation) => animation.chatEligible !== false).slice(0, 4);
+    const mika = buildCharacterSystemPrompt(animations, getCharacterById("mika"));
+    const kato = buildCharacterSystemPrompt(animations, getCharacterById("kato"));
+
+    expect(mika).toContain("You are Mika");
+    expect(mika).toContain("Lắng nghe kỹ");
+    expect(kato).toContain("You are Kato");
+    expect(kato).toContain("Bình tĩnh, thực tế");
+    expect(kato).not.toBe(mika);
   });
 });

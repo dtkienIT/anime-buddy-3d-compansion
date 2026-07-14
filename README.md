@@ -8,11 +8,12 @@ The current frontend is designed around the character instead of treating the Th
 
 - Responsive stage, chat dock, and Companion Studio layouts for mobile, tablet, desktop, and short screens.
 - First-visit onboarding, contextual help, empty-state prompts, loading progress, network status, and non-blocking toasts.
-- Camera zoom/reset/fullscreen controls, focus mode, animation search, character/background cards, and two local music performances.
-- Direct character interaction: pointer/touch hit testing, gaze following, natural blinking, quick wave/nod responses, speech bubbles, and quiet ambient moments.
+- Camera zoom/reset/fullscreen controls, focus mode, animation search, character/background cards, a semantic quick-interaction palette, and two local music performances.
+- Direct character interaction: pointer/touch hit testing, gaze following, natural blinking, wave/nod/gentle/curious responses, speech bubbles, and quiet ambient moments.
 - Accessible tabs and controls with keyboard focus states, ARIA state, screen-reader status updates, reduced-motion support, and IME-safe chat input.
 - Conversation search, rename, delete, export, replay, quick new chat, and long-term-memory view/edit/delete controls.
-- Local experience preferences preserve the selected character, background, studio state, onboarding state, and reduced-motion choice.
+- Local experience preferences preserve the selected character, background, studio state, chat-collapse state, onboarding state, and reduced-motion choice.
+- Onboarding explains long-term memory before use and links directly to its controls; every character has its own bounded persona and dynamic UI identity.
 
 Keyboard shortcuts:
 
@@ -27,11 +28,14 @@ Keyboard shortcuts:
 
 ## Motion library
 
-The shared registry exposes 36 companion animations plus two music-synchronized performance assets. Five core motions are generated deterministically at 30 fps:
+The shared registry exposes 38 companion animations plus two music-synchronized performance assets. Eight core motions are generated deterministically at 30 fps:
 
 - `Relax.vrma` — regenerated seamless idle loop.
 - `Listening.vrma` — attentive loop used while speech input is active.
+- `Thinking.vrma` — regenerated seamless thinking loop.
 - `Talking.vrma` — conversational loop used during voice playback.
+- `GentleGesture.vrma` — calm conversational one-shot.
+- `CuriousTilt.vrma` — curiosity/attention one-shot.
 - `Nod.vrma` — short acknowledgement.
 - `Wave.vrma` — short greeting.
 
@@ -87,11 +91,13 @@ npm run test:browser:animations
 npm run test:browser:interactions
 ```
 
-For this UI/motion working tree, the full static/unit/Python/build gate passes. Fresh browser results are also recorded: responsive `3/3`, experience `8/8`, and animation `24/24`, all with zero application console errors. See [Current Status](docs/CURRENT_STATUS.md) and [Browser QA](docs/browser-qa-report.md) for artifacts and remaining limits.
+For this UI/motion working tree, the full static/unit/Python/build gate passes. Fresh browser results are also recorded: responsive `9/9`, experience `9/9`, animation `36/36`, and interaction/audio fault scenarios `8/8`, all with zero application console errors in the UI probes. The experience suite also passes in the installed, visible Google Chrome via `node tests/browser/probe-experience.mjs --headed`. See [Current Status](docs/CURRENT_STATUS.md) and [Browser QA](docs/browser-qa-report.md) for artifacts and remaining limits.
 
 ## Current backend snapshot
 
 - Persistent-memory functional E2E and the formal five-run benchmark passed. Memory wall p95 was `497 ms`, within the `700 ms` retrieval budget; remote Supabase variance remains worth monitoring.
+- Reusable assistant-text cache lookup is intentionally bypassed so a fuzzy match cannot leak or stale a memory-personalized answer. TTS audio caching remains enabled.
+- Offline message sync verifies that the supplied anonymous identity owns the target session before inserting.
 - Cache HIT browser reply-to-audio p95 is `324 ms`. Cache MISS WAV synthesis remains CPU-bound and is intentionally outside the current UI upgrade.
 - Long replies start playback after the first completed speech chunk. This replaced the earlier three-chunk startup reserve; later chunks are still synthesized and scheduled in order.
 - Formal browser fault injection remains partial for a Supabase outage, a missing VRMA `finished` event, and an initially suspended `AudioContext`.

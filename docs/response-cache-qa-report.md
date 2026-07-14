@@ -1,5 +1,7 @@
 # Response and Audio Cache QA Report
 
+> Historical text-cache evidence, superseded on 2026-07-14. Reusable assistant-text matching is now intentionally bypassed because chat replies can contain user/session-specific long-term memory; `/api/chat` reports `response-cache;dur=0;desc="BYPASS"`. The independently keyed TTS audio cache remains enabled, so the audio-cache measurements below are still relevant.
+
 Date: 2026-07-12 (Asia/Saigon)
 
 ## Scope

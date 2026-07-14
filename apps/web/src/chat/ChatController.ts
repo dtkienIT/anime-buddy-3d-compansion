@@ -249,8 +249,9 @@ export class ChatController {
     try {
       const pending = await this.outbox.getAll();
       if (pending.length === 0) return;
+      const anonymousId = this.store.getAnonymousId();
       for (const msg of pending) {
-        await this.api.saveOfflineMessage(msg.sessionId, {
+        await this.api.saveOfflineMessage(msg.sessionId, anonymousId, {
           role: msg.role,
           content: msg.content,
           emotion: msg.emotion,
@@ -368,8 +369,6 @@ export class ChatController {
 
       if (this.voiceSettings.enabled) {
         await this.speak(cleanReply, runId, operationId);
-      } else {
-        this.events.onWarning("Đã tắt giọng nói.");
       }
 
       if (operationId !== this.operationSequence) return;
@@ -581,6 +580,7 @@ export class ChatController {
     }
     this.safeTransition("IDLE");
     this.character.setRenderRate(30);
+    this.character.setExpression("neutral", 0);
     this.events.onStatus(this.voiceSettings.enabled ? "Sẵn sàng." : "Đã tắt giọng.", "IDLE");
     await this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
   }
@@ -594,6 +594,7 @@ export class ChatController {
     const operationId = ++this.operationSequence;
     this.cancelActive();
     this.safeTransition("IDLE");
+    this.character.setExpression("neutral", 0);
     void this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
     return operationId;
   }

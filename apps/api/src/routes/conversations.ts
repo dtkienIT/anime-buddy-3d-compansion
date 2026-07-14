@@ -22,24 +22,36 @@ export function registerConversationRoutes(app: FastifyInstance, supabase: Supab
     return { deleted };
   });
 
-  app.post("/api/conversations/:sessionId/messages", async (request) => {
+  app.post("/api/conversations/:sessionId/messages", async (request, reply) => {
     const params = conversationParamsSchema.parse(request.params);
     const body = z.object({
+      anonymousId: z.string().min(8).max(120),
       role: z.enum(["user", "assistant", "system"]),
-      content: z.string(),
+      content: z.string().trim().min(1).max(1200),
       emotion: z.string().optional(),
       animation: z.string().optional(),
       expression: z.string().optional()
     }).parse(request.body);
 
-    await supabase.saveMessage({
+    if (!supabase.isConfigured()) {
+      reply.status(503);
+      return { error: "Conversation persistence unavailable" };
+    }
+
+    const saved = await supabase.saveOwnedMessage({
       sessionId: params.sessionId,
+      anonymousId: body.anonymousId,
       role: body.role,
       content: body.content,
       emotion: body.emotion,
       animation: body.animation,
       expression: body.expression
     });
+
+    if (!saved) {
+      reply.status(404);
+      return { error: "Conversation not found" };
+    }
 
     return { success: true };
   });

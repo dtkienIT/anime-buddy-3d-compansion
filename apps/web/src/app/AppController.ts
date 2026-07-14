@@ -40,6 +40,16 @@ const aipaiDanceHall = {
 
 type ControlOption = CharacterRegistryItem | AnimationRegistryItem | BackgroundRegistryItem;
 type ControlType = "model" | "animation" | "background";
+type DirectInteractionId = "wave" | "nod" | "gentle-gesture" | "curious-tilt";
+
+const directInteractions: Record<DirectInteractionId, { bubble: string; status: string }> = {
+  wave: { bubble: "Chào bạn! Mình đang lắng nghe đây.", status: "Đang chào bạn" },
+  nod: { bubble: "Mình hiểu rồi, cứ kể tiếp nhé.", status: "Đang phản hồi" },
+  "gentle-gesture": { bubble: "Mình ở đây — bạn cứ chia sẻ tự nhiên nhé.", status: "Đang trò chuyện" },
+  "curious-tilt": { bubble: "Ồ, điều đó nghe thú vị đấy. Kể thêm cho mình nhé?", status: "Đang tò mò" }
+};
+
+const directInteractionCycle = Object.keys(directInteractions) as DirectInteractionId[];
 
 const categoryOrder: AnimationCategory[] = ["idle", "listening", "thinking", "talking", "gesture", "reaction"];
 const categoryLabels: Record<AnimationCategory, string> = {
@@ -75,6 +85,8 @@ export class AppController {
   private currentState: CompanionState = "BOOTING";
   private menuOpen = false;
   private focusMode = false;
+  private interactionMenuOpen = false;
+  private chatCollapsedBeforeStudio: boolean | null = null;
   private interactionBusy = false;
   private interactionGeneration = 0;
   private interactionCount = 0;
@@ -84,6 +96,18 @@ export class AppController {
   private readonly helpInertedElements: HTMLElement[] = [];
   private ambientTimer: number | null = null;
   private disposed = false;
+  private readonly onLayoutResize = (): void => {
+    const studioOpen = this.controls.classList.contains("is-open");
+    if (studioOpen && window.innerWidth < 1100 && this.chatCollapsedBeforeStudio === null) {
+      this.chatCollapsedBeforeStudio = this.chatPanel.isCollapsed;
+      this.chatPanel.setCollapsed(true, false);
+    } else if (studioOpen && window.innerWidth >= 1100 && this.chatCollapsedBeforeStudio !== null) {
+      const restoreCollapsed = this.chatCollapsedBeforeStudio;
+      this.chatCollapsedBeforeStudio = null;
+      this.chatPanel.setCollapsed(restoreCollapsed, false);
+    }
+    this.syncStageComposition();
+  };
 
   constructor() {
     const canvas = required<HTMLCanvasElement>("#stage");
@@ -141,7 +165,11 @@ export class AppController {
         replay: () => this.chat.replayLastReply(),
         clear: () => this.clearConversation(),
         warn: (message) => this.notify(message, "warning"),
-        listeningChange: (active) => void this.chat.setListening(active)
+        listeningChange: (active) => void this.chat.setListening(active),
+        collapsedChange: (collapsed) => {
+          this.preferences.update({ chatCollapsed: collapsed });
+          this.syncStageComposition();
+        }
       }
     );
 
@@ -221,6 +249,7 @@ export class AppController {
   async init(): Promise<void> {
     const preference = this.preferences.current;
     this.renderControlButtons();
+    this.chatPanel.setCollapsed(preference.chatCollapsed, false);
     this.setControlsOpen(preference.controlsOpen, false);
     this.setStatus("BOOTING", "Đang chuẩn bị không gian 3D…");
 
@@ -243,7 +272,7 @@ export class AppController {
 
     if (!preference.welcomeSeen) {
       this.setControlsOpen(false);
-      if (window.innerWidth < 700) this.chatPanel.setCollapsed(true);
+      if (window.innerWidth < 760) this.chatPanel.setCollapsed(true, false);
       required<HTMLElement>("#welcome-card").hidden = false;
     }
 
@@ -255,6 +284,7 @@ export class AppController {
     });
 
     this.startAmbientMoments();
+    this.syncStageComposition();
   }
 
   dispose(): void {
@@ -262,6 +292,7 @@ export class AppController {
     this.disposed = true;
     if (this.ambientTimer) window.clearTimeout(this.ambientTimer);
     if (this.bubbleTimer) clearTimeout(this.bubbleTimer);
+    window.removeEventListener("resize", this.onLayoutResize);
     this.stopPerformances(false);
     this.character.dispose();
   }
@@ -407,6 +438,21 @@ export class AppController {
     const name = this.currentCharacterLabel();
     this.chatPanel.setCharacterName(name);
     document.title = `${name} · 3D AI Companion`;
+    setText("#brand-name", `${name} space`);
+    const brandMark = document.querySelector<HTMLElement>(".brand-mark");
+    if (brandMark) brandMark.textContent = name.trim().charAt(0).toUpperCase() || "M";
+    setText("#chat-empty-title", `${name} đang ở đây`);
+    setText("#performance-heading", `Sân khấu riêng của ${name}`);
+    setText("#memory-toggle-label", `Cho phép ${name} ghi nhớ`);
+    setText("#memory-privacy-note", `Bạn luôn có thể xem, sửa hoặc xóa từng điều ${name} ghi nhớ.`);
+    setText("#welcome-title", `Đây là không gian của bạn và ${name}`);
+    setText("#welcome-copy", `Kéo để đổi góc nhìn, chạm ${name} để nhận phản hồi hoặc bắt đầu một cuộc trò chuyện thật tự nhiên.`);
+    setText("#help-touch-copy", `Chạm trực tiếp vào ${name} khi bạn muốn tương tác nhanh.`);
+    setText("#stage-hint", `Kéo để xoay · cuộn để zoom · chạm vào ${name} để tương tác`);
+    const input = required<HTMLTextAreaElement>("#chat-input");
+    input.placeholder = `Nhắn điều gì đó cho ${name}…`;
+    const wave = required<HTMLButtonElement>("#stage-wave");
+    wave.title = `Chào ${name}`;
   }
 
   private currentCharacterLabel(): string {
@@ -603,7 +649,8 @@ export class AppController {
     try {
       await this.chat.setMemoryEnabled(enabled);
       status.textContent = enabled ? "Đang bật — bạn có toàn quyền kiểm soát" : "Đang tắt trên tài khoản này";
-      this.notify(enabled ? "Mika có thể ghi nhớ từ bây giờ." : "Mika đã dừng ghi nhớ.", "success");
+      const name = this.currentCharacterLabel();
+      this.notify(enabled ? `${name} có thể ghi nhớ từ bây giờ.` : `${name} đã dừng ghi nhớ.`, "success");
     } catch {
       toggle.checked = !enabled;
       status.textContent = "Không thể cập nhật lúc này";
@@ -742,7 +789,7 @@ export class AppController {
   }
 
   private async editMemory(memory: MemoryRecord): Promise<void> {
-    const content = window.prompt("Chỉnh sửa điều Mika ghi nhớ:", memory.content);
+    const content = window.prompt(`Chỉnh sửa điều ${this.currentCharacterLabel()} ghi nhớ:`, memory.content);
     if (!content?.trim()) return;
     try {
       await this.chat.updateMemory(memory.id, content.trim().slice(0, 600));
@@ -754,7 +801,7 @@ export class AppController {
   }
 
   private async removeMemory(memory: MemoryRecord): Promise<void> {
-    if (!window.confirm("Xóa điều này khỏi trí nhớ của Mika?")) return;
+    if (!window.confirm(`Xóa điều này khỏi trí nhớ của ${this.currentCharacterLabel()}?`)) return;
     try {
       await this.chat.deleteMemory(memory.id);
       await this.refreshMemoriesList();
@@ -782,7 +829,7 @@ export class AppController {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `mika-space-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.download = `${this.character.getCurrentCharacterId()}-space-${new Date().toISOString().slice(0, 10)}.json`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       this.notify("Đã chuẩn bị tệp dữ liệu của bạn.", "success");
@@ -828,6 +875,43 @@ export class AppController {
     required<HTMLButtonElement>("#camera-zoom-in").addEventListener("click", () => this.character.zoomBy(0.12));
     required<HTMLButtonElement>("#camera-zoom-out").addEventListener("click", () => this.character.zoomBy(-0.12));
     required<HTMLButtonElement>("#stage-wave").addEventListener("click", () => void this.handleCharacterInteraction("wave"));
+    required<HTMLButtonElement>("#interaction-menu-toggle").addEventListener("click", () => {
+      this.setInteractionMenuOpen(!this.interactionMenuOpen);
+    });
+    document.querySelectorAll<HTMLButtonElement>("#interaction-menu [data-interaction-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const interactionId = button.dataset.interactionId as DirectInteractionId | undefined;
+        this.setInteractionMenuOpen(false);
+        if (interactionId && interactionId in directInteractions) void this.handleCharacterInteraction(interactionId);
+      });
+    });
+    required<HTMLElement>("#interaction-menu").addEventListener("keydown", (event) => {
+      const items = [...document.querySelectorAll<HTMLButtonElement>("#interaction-menu [role='menuitem']")];
+      const currentIndex = Math.max(0, items.indexOf(document.activeElement as HTMLButtonElement));
+      let nextIndex: number | null = null;
+      if (event.key === "ArrowDown" || event.key === "ArrowRight") nextIndex = (currentIndex + 1) % items.length;
+      else if (event.key === "ArrowUp" || event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + items.length) % items.length;
+      else if (event.key === "Home") nextIndex = 0;
+      else if (event.key === "End") nextIndex = items.length - 1;
+      else if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.setInteractionMenuOpen(false, true);
+        return;
+      }
+      if (nextIndex !== null) {
+        event.preventDefault();
+        items[nextIndex]?.focus();
+      }
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (!this.interactionMenuOpen) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const menu = required<HTMLElement>("#interaction-menu");
+      const toggle = required<HTMLButtonElement>("#interaction-menu-toggle");
+      if (!menu.contains(target) && !toggle.contains(target)) this.setInteractionMenuOpen(false);
+    });
     required<HTMLButtonElement>("#fullscreen-toggle").addEventListener("click", () => void this.toggleFullscreen());
     required<HTMLButtonElement>("#stop-performance-live").addEventListener("click", () => this.stopPerformances(true));
     document.addEventListener("fullscreenchange", () => this.updateFullscreenButton());
@@ -841,6 +925,12 @@ export class AppController {
     required<HTMLButtonElement>("#welcome-explore").addEventListener("click", () => {
       this.dismissWelcome();
       void this.handleCharacterInteraction("wave");
+    });
+    required<HTMLButtonElement>("#welcome-privacy-settings").addEventListener("click", () => {
+      this.dismissWelcome();
+      this.chatPanel.setCollapsed(false);
+      this.setMenuOpen(true);
+      required<HTMLButtonElement>("#tab-memory-btn").click();
     });
 
     const reducedMotion = required<HTMLInputElement>("#reduced-motion-checkbox");
@@ -857,10 +947,22 @@ export class AppController {
       this.syncNetworkStatus();
       this.notify("Bạn đang ngoại tuyến. Tin nhắn sẽ được giữ trên thiết bị.", "warning");
     });
+    window.addEventListener("resize", this.onLayoutResize);
     window.addEventListener("keydown", (event) => this.handleShortcut(event));
   }
 
   private setControlsOpen(open: boolean, persist = true): void {
+    const shouldTemporarilyCollapseChat = window.innerWidth < 1100;
+    if (open && shouldTemporarilyCollapseChat) {
+      if (this.chatCollapsedBeforeStudio === null) this.chatCollapsedBeforeStudio = this.chatPanel.isCollapsed;
+      this.setMenuOpen(false);
+      this.chatPanel.setCollapsed(true, false);
+    } else if (!open && this.chatCollapsedBeforeStudio !== null) {
+      const restoreCollapsed = this.chatCollapsedBeforeStudio;
+      this.chatCollapsedBeforeStudio = null;
+      this.chatPanel.setCollapsed(restoreCollapsed, false);
+    }
+
     this.controls.classList.toggle("is-open", open);
     this.controls.setAttribute("aria-hidden", String(!open));
     this.controls.inert = !open || this.focusMode || document.body.classList.contains("is-performing");
@@ -868,10 +970,8 @@ export class AppController {
     toggle.setAttribute("aria-expanded", String(open));
     toggle.classList.toggle("is-active", open);
     if (persist) this.preferences.update({ controlsOpen: open });
-    if (open && window.innerWidth < 700) {
-      this.setMenuOpen(false);
-      this.chatPanel.setCollapsed(true);
-    }
+    this.setInteractionMenuOpen(false);
+    this.syncStageComposition();
   }
 
   private setFocusMode(active: boolean): void {
@@ -884,6 +984,7 @@ export class AppController {
     toggle.setAttribute("aria-pressed", String(active));
     toggle.title = active ? "Thoát chế độ tập trung (F)" : "Chế độ tập trung (F)";
     if (active) {
+      this.setInteractionMenuOpen(false);
       this.setControlsOpen(false, false);
       this.setMenuOpen(false);
       this.dismissWelcome(false);
@@ -905,9 +1006,10 @@ export class AppController {
     required<HTMLInputElement>("#reduced-motion-checkbox").checked = reset.reducedMotion;
     this.setFocusMode(false);
     this.setMenuOpen(false);
-    this.chatPanel.setCollapsed(false);
+    this.chatPanel.setCollapsed(reset.chatCollapsed, false);
     this.setControlsOpen(reset.controlsOpen, false);
     this.character.resetCamera();
+    this.syncStageComposition();
     this.notify("Đã đặt lại góc nhìn và giao diện.", "success");
   }
 
@@ -986,6 +1088,30 @@ export class AppController {
     if (icon) icon.textContent = active ? "⤢" : "⛶";
   }
 
+  private setInteractionMenuOpen(open: boolean, restoreFocus = false): void {
+    if (open && (this.focusMode || document.body.classList.contains("is-performing"))) return;
+    this.interactionMenuOpen = open;
+    const menu = required<HTMLElement>("#interaction-menu");
+    const toggle = required<HTMLButtonElement>("#interaction-menu-toggle");
+    menu.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.classList.toggle("is-active", open);
+    if (open) {
+      requestAnimationFrame(() => menu.querySelector<HTMLButtonElement>("button")?.focus());
+    } else if (restoreFocus) {
+      toggle.focus();
+    }
+  }
+
+  private syncStageComposition(): void {
+    let composition: "center" | "left" | "right" = "center";
+    if (window.innerWidth >= 760 && window.innerWidth < 1100) {
+      if (this.controls.classList.contains("is-open")) composition = "right";
+      else if (!this.chatPanel.isCollapsed) composition = "left";
+    }
+    this.character.setStageComposition(composition);
+  }
+
   private syncNetworkStatus(): void {
     const status = required<HTMLElement>("#network-status");
     status.dataset.online = String(navigator.onLine);
@@ -1000,6 +1126,7 @@ export class AppController {
     if (event.key === "Escape") {
       if (document.body.classList.contains("is-performing")) this.stopPerformances(true);
       else if (!help.hidden) this.closeHelp();
+      else if (this.interactionMenuOpen) this.setInteractionMenuOpen(false, true);
       else if (this.controls.classList.contains("is-open")) this.setControlsOpen(false);
       else if (this.menuOpen) this.setMenuOpen(false);
       else if (this.focusMode) this.setFocusMode(false);
@@ -1026,15 +1153,19 @@ export class AppController {
     }
   }
 
-  private async handleCharacterInteraction(forcedAnimation?: "wave" | "nod"): Promise<void> {
+  private async handleCharacterInteraction(forcedAnimation?: DirectInteractionId): Promise<void> {
     const now = performance.now();
     if (this.currentState !== "IDLE" || this.interactionBusy || now - this.lastInteractionAt < 900 || document.body.classList.contains("is-performing")) return;
     this.lastInteractionAt = now;
+    this.setInteractionMenuOpen(false);
     const generation = this.beginDirectInteraction();
-    const animationId = forcedAnimation ?? (this.interactionCount++ % 2 === 0 ? "wave" : "nod");
-    const message = animationId === "wave" ? `Chào bạn! ${this.currentCharacterLabel()} đang lắng nghe đây.` : "Mình hiểu rồi, cứ kể tiếp nhé.";
-    this.showBubble(message);
-    this.setStatus("REACTING", animationId === "wave" ? "Đang chào bạn" : "Đang phản hồi");
+    const animationId = forcedAnimation ?? directInteractionCycle[this.interactionCount++ % directInteractionCycle.length];
+    const interaction = directInteractions[animationId];
+    const bubble = animationId === "wave"
+      ? `Chào bạn! ${this.currentCharacterLabel()} đang lắng nghe đây.`
+      : interaction.bubble;
+    this.showBubble(bubble);
+    this.setStatus("REACTING", interaction.status);
     await this.character.playAnimation(animationId, { loop: false, maxDurationMs: 4_000 }).catch(() => undefined);
     if (!this.ownsDirectInteraction(generation)) return;
     await this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
@@ -1119,6 +1250,7 @@ export class AppController {
   }
 
   private setPerformanceUiLocked(locked: boolean): void {
+    if (locked) this.setInteractionMenuOpen(false);
     this.controls.inert = locked || !this.controls.classList.contains("is-open") || this.focusMode;
     required<HTMLElement>("#chat-panel").inert = locked || this.focusMode;
     required<HTMLElement>(".stage-toolbar").inert = locked;
@@ -1153,6 +1285,11 @@ function toggleButtons(selector: string, activeId: string, dataKey: string): voi
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+}
+
+function setText(selector: string, value: string): void {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (element) element.textContent = value;
 }
 
 function renderListState(list: HTMLElement, message: string, isError = false): void {

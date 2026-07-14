@@ -10,7 +10,7 @@
 - Browser probes: `tests/browser`.
 - Reports: `docs`.
 
-Current working branch is `main` (verified 2026-07-13). Historical takeover work referenced `feat/persistent-memory-and-fast-tts-miss`; earlier audio work referenced `fix/tts-stream-audio-quality`.
+Current working branch is `main` (verified 2026-07-14). Historical takeover work referenced `feat/persistent-memory-and-fast-tts-miss`; earlier audio work referenced `fix/tts-stream-audio-quality`.
 
 ## Ports and run commands
 
@@ -29,23 +29,26 @@ npm run dev:tts
 ## Current frontend experience
 
 - `apps/web/index.html` and the CSS under `apps/web/src/styles/` define the responsive app shell: 3D stage, app bar, stage tools, Companion Studio drawer/sheet, chat dock, onboarding, help dialog, loader, and toast region.
-- `AppController` coordinates character/background/animation selection, control and menu tabs, focus/fullscreen/camera tools, session and memory CRUD, onboarding, reduced motion, shortcuts, network state, ambient moments, and quick character interaction.
-- `UiPreferencesStore` persists selected character/background, Studio open state, reduced motion, and onboarding state under `animeBuddy.uiPreferences.v2`.
+- `AppController` coordinates character/background/animation selection, control and menu tabs, focus/fullscreen/camera tools, session and memory CRUD, onboarding/privacy disclosure, reduced motion, shortcuts, network state, ambient moments, dynamic character identity, and the semantic quick-interaction menu.
+- `UiPreferencesStore` persists selected character/background, Studio open state, chat-collapse state, reduced motion, and onboarding state under `animeBuddy.uiPreferences.v2`.
 - `ChatPanel` supports IME-safe Enter handling, autosizing/counting, prompt starters, speech-to-text state, accessible message roles, copy actions, typing state, replay, stop/cancel, and quick new chat.
-- `CharacterController` supports responsive framing, pointer/touch hit testing, pointer-follow gaze, auto-centering, natural blinking, camera reset/zoom, and reduced-motion behavior.
+- `CharacterController` supports responsive left/center/right stage composition, pointer/touch hit testing, pointer-follow gaze, auto-centering, natural blinking, camera reset/zoom, and reduced-motion behavior.
 - On narrow screens the Studio opens as a sheet and collapses chat to preserve the visible 3D interaction area. Do not reintroduce permanently stacked overlays over the character.
 
 Keyboard shortcuts are `/` composer focus, `C` Studio, `R` camera reset, `F` focus mode, `?` help, and `Esc` close/back.
 
 ## VRMA workflow
 
-The shared registry currently exposes 36 companion animations. Two additional VRMA files are used by local music performances.
+The shared registry currently exposes 38 companion animations. Two additional VRMA files are used by local music performances.
 
 Core first-party motions are deterministic 30 fps assets:
 
 - `Relax.vrma` (5.2 s loop, regenerated)
 - `Listening.vrma` (4.0 s loop)
+- `Thinking.vrma` (4.8 s loop, regenerated)
 - `Talking.vrma` (2.4 s loop)
+- `GentleGesture.vrma` (2.4 s one-shot)
+- `CuriousTilt.vrma` (2.6 s one-shot)
 - `Nod.vrma` (1.4 s one-shot)
 - `Wave.vrma` (2.8 s one-shot)
 
@@ -82,9 +85,9 @@ npm run test:browser:animations
 npm run test:browser:interactions
 ```
 
-`probe-responsive` covers mobile/tablet/desktop geometry and drawer behavior. `probe-experience` covers onboarding persistence, help/escape, shortcuts, reduced motion, tab keyboard navigation, character interaction, and ARIA state. `probe-animations` checks core companion motions across representative models.
+`probe-responsive` covers nine mobile/landscape/tablet/desktop geometries, minimum mobile type/target sizes, panel containment, and drawer/chat behavior. `probe-experience` covers onboarding privacy controls, help/escape, shortcuts, reduced motion, tab keyboard navigation, direct and menu-based character interaction, performance stop, and ARIA state. Add `--headed` when invoking its Node script to use the installed visible Chrome. `probe-animations` checks core companion motions across representative models.
 
-Current UI working-tree verification: `check:env`, `verify-assets`, `lint`, `typecheck`, workspace tests, Python tests, and production build pass. Fresh browser artifacts pass responsive `3/3`, experience `8/8`, and animation `24/24` with zero application console errors; see `test-results/browser/{responsive,experience,animations}/report.json`.
+Current UI working-tree verification: `check:env`, `verify-assets`, `lint`, `typecheck`, workspace tests, Python tests, and production build pass. Fresh browser artifacts pass responsive `9/9`, experience `9/9`, animation `36/36`, and interactions `8/8`; the UI probes have zero application console errors. See `test-results/browser/{responsive,experience,animations,interactions}/`.
 
 Audio integrity:
 
@@ -114,6 +117,9 @@ node tests/browser/collect-baseline.mjs "1+3=?" "final-real-chat.json" replay
 - Queued TTS playback clears the stopped flag before direct buffer/stream scheduling.
 - Browser baseline failures write `last-failure.json` and `last-failure.png`.
 - `/api/chat` memory `Server-Timing` is request-local; disabled-memory responses include `memory-disabled;dur=0` with zero memory DB timing.
+- `/api/chat` intentionally reports `response-cache ... desc="BYPASS"`: reusable text replies are not served because personalized memory makes fuzzy cross-session reuse unsafe. The TTS audio cache remains active.
+- Offline message writes require `anonymousId` and verify session ownership before inserting; missing/wrong owners return controlled errors.
+- All ten characters have distinct bounded personas, while the prompt forbids invented biography or memory.
 - Persistent-memory E2E passed after migrations, including recall, contradiction, forget/non-resurrection, disabled-memory no-store, and re-enable.
 - The formal five-run memory benchmark passes the 700 ms budget: memory wall p95 497 ms, with no timeout or fallback in that sample.
 - Cache HIT three-chunk audio continuity passed with zero scheduled gap, underflow, drop, or duplicate in the recorded artifact.

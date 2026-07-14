@@ -23,6 +23,8 @@ import type { CompanionExpression } from "@anime-buddy/shared";
 
 const targetHeight = 2.03;
 
+export type StageComposition = "center" | "left" | "right";
+
 export interface CharacterInitSelection {
   characterId?: string;
   backgroundId?: string;
@@ -65,6 +67,7 @@ export class CharacterController {
   private modelSerial = 0;
   private pointerDown: { x: number; y: number; at: number } | null = null;
   private responsiveLayout = "";
+  private stageComposition: StageComposition = "center";
   private reducedMotion = false;
   private gazeEnabled = true;
   private nextBlinkAt = 2.4;
@@ -260,6 +263,12 @@ export class CharacterController {
 
   resetCamera(): void {
     this.applyDefaultFraming(true);
+  }
+
+  setStageComposition(composition: StageComposition): void {
+    if (this.stageComposition === composition) return;
+    this.stageComposition = composition;
+    this.applyDefaultFraming(false);
   }
 
   zoomBy(delta: number): void {
@@ -615,9 +624,16 @@ export class CharacterController {
 
   private applyDefaultFraming(resetZoom: boolean): void {
     const layout = this.responsiveLayout || this.resolveResponsiveLayout();
-    if (layout === "mobile") this.framingTarget.set(0, 1.22, 0);
-    else if (layout === "compact") this.framingTarget.set(-0.3, 1.12, 0);
-    else this.framingTarget.set(0, 1.04, 0);
+    if (layout === "mobile") {
+      this.framingTarget.set(0, 1.22, 0);
+    } else if (layout === "compact") {
+      // The orthographic camera looks towards the target: a positive target X
+      // places the model on the left (clear of the right chat), and vice versa.
+      const targetX = this.stageComposition === "left" ? 0.34 : this.stageComposition === "right" ? -0.34 : 0;
+      this.framingTarget.set(targetX, 1.12, 0);
+    } else {
+      this.framingTarget.set(0, 1.04, 0);
+    }
 
     this.camera.position.set(this.framingTarget.x, this.framingTarget.y + 0.09, 10);
     this.camera.lookAt(this.framingTarget);
@@ -629,7 +645,7 @@ export class CharacterController {
   }
 
   private resolveResponsiveLayout(): "mobile" | "compact" | "desktop" {
-    if (window.innerWidth < 700) return "mobile";
+    if (window.innerWidth < 760) return "mobile";
     if (window.innerWidth < 1100) return "compact";
     return "desktop";
   }

@@ -13,7 +13,11 @@ import {
 const outputDir = path.resolve("test-results/browser/experience");
 await mkdir(outputDir, { recursive: true });
 
-const browser = await chromium.launch({ headless: true });
+const headed = process.argv.includes("--headed");
+const browser = await chromium.launch({
+  headless: !headed,
+  ...(headed ? { channel: "chrome", slowMo: 220 } : {})
+});
 const context = await browser.newContext({ viewport: { width: 1280, height: 820 } });
 const page = await context.newPage();
 const consoleErrors = [];
@@ -34,6 +38,9 @@ try {
   await check("onboarding is dismissible and remembered", async () => {
     const welcome = page.locator("#welcome-card");
     if (await welcome.isHidden()) throw new Error("first-visit onboarding was not shown");
+    if (await page.locator("#welcome-privacy-settings").isHidden()) {
+      throw new Error("onboarding did not expose the long-term-memory controls");
+    }
     await page.locator("#welcome-explore").click();
     await welcome.waitFor({ state: "hidden" });
     const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), uiPreferencesKey);
@@ -93,6 +100,28 @@ try {
     await page.waitForFunction(() => (
       document.querySelector("#state-pill")?.getAttribute("data-state") === "IDLE"
     ), null, { timeout: 10_000 });
+  });
+
+  await check("quick interaction menu offers semantic companion reactions", async () => {
+    const toggle = page.locator("#interaction-menu-toggle");
+    await toggle.click();
+    if (await toggle.getAttribute("aria-expanded") !== "true") {
+      throw new Error("interaction menu did not expose its expanded state");
+    }
+    const items = page.locator("#interaction-menu [data-interaction-id]");
+    if (await items.count() < 4) throw new Error("interaction menu is missing semantic reactions");
+    await page.waitForFunction(() => document.activeElement?.getAttribute("data-interaction-id") === "wave");
+    await page.keyboard.press("ArrowDown");
+    if (await page.evaluate(() => document.activeElement?.getAttribute("data-interaction-id")) !== "nod") {
+      throw new Error("interaction menu did not support arrow-key navigation");
+    }
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await page.locator("#state-pill[data-state='REACTING']").waitFor({ timeout: 5_000 });
+    await page.locator("#state-pill[data-state='IDLE']").waitFor({ timeout: 10_000 });
+    if (await toggle.getAttribute("aria-expanded") !== "false") {
+      throw new Error("interaction menu stayed open after choosing a reaction");
+    }
   });
 
   await check("experience setting applies and persists reduced motion", async () => {

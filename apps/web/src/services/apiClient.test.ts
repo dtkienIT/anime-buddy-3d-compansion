@@ -37,3 +37,31 @@ describe("ApiClient.clearConversation", () => {
     )).resolves.toBeUndefined();
   });
 });
+
+describe("ApiClient.saveOfflineMessage", () => {
+  it("forwards the anonymous owner with a queued message", async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    })) as typeof fetch;
+
+    await new ApiClient("http://api.test").saveOfflineMessage(
+      "00000000-0000-4000-8000-000000000001",
+      "anonymous-owner",
+      { role: "user", content: "Queued message" }
+    );
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://api.test/api/conversations/00000000-0000-4000-8000-000000000001/messages",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anonymousId: "anonymous-owner",
+          role: "user",
+          content: "Queued message"
+        })
+      })
+    );
+  });
+});

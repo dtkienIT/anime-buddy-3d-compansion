@@ -6,6 +6,38 @@
   .chat-panel {
     width: 440px;
   }
+
+  .stage-toolbar {
+    left: calc((100vw - 458px) / 2);
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1499px) {
+  .stage-toolbar {
+    left: calc((100vw - 438px) / 2);
+  }
+}
+
+@media (min-width: 760px) and (max-width: 1099px) {
+  .stage-toolbar .stage-tool-wide {
+    width: 44px;
+    min-width: 44px;
+    padding-inline: 0;
+  }
+
+  .stage-toolbar .stage-tool-wide span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
+body.is-focus-mode .stage-toolbar {
+  left: 50%;
 }
 
 @media (max-width: 1099px) {
@@ -52,7 +84,7 @@
   }
 }
 
-@media (max-width: 699px) {
+@media (max-width: 759px) {
   :root {
     --radius-panel: 21px;
     --app-bar-height: 54px;
@@ -93,8 +125,8 @@
   }
 
   .app-action {
-    width: 36px;
-    min-height: 36px;
+    width: 44px;
+    min-height: 44px;
     padding: 0;
     font-size: 14px;
   }
@@ -126,7 +158,8 @@
   }
 
   .control-tab {
-    min-height: 47px;
+    min-height: 48px;
+    font-size: 11px;
   }
 
   .button-grid {
@@ -167,7 +200,7 @@
   }
 
   .voice-button {
-    min-width: 42px;
+    min-width: 44px;
   }
 
   .voice-button .button-label {
@@ -175,19 +208,37 @@
   }
 
   .icon-button {
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
     padding: 0;
   }
 
   .voice-toolbar {
+    display: flex;
     padding: 7px 10px;
   }
 
+  .voice-toolbar .tool-button {
+    flex: 1;
+  }
+
+  .voice-toolbar .tool-button:disabled {
+    display: none;
+  }
+
+  .voice-toolbar:not(:has(#stop-speaking:not(:disabled), #replay-reply:not(:disabled))) {
+    height: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-bottom: 0;
+    padding-block: 0;
+    visibility: hidden;
+  }
+
   .tool-button {
-    min-height: 38px;
-    font-size: 10px;
+    min-height: 44px;
+    font-size: 12px;
   }
 
   .chat-log {
@@ -200,7 +251,7 @@
 
   .chat-message {
     padding: 9px 10px;
-    font-size: 11px;
+    font-size: 14px;
   }
 
   .chat-empty {
@@ -215,13 +266,13 @@
   }
 
   .chat-empty h1 {
-    font-size: 15px;
+    font-size: 18px;
   }
 
   .chat-empty p {
     max-width: none;
     margin: 4px 0 10px;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .prompt-grid {
@@ -239,8 +290,9 @@
 
   .prompt-grid button {
     min-width: max-content;
-    min-height: 36px;
+    min-height: 44px;
     padding-inline: 11px;
+    font-size: 12px;
   }
 
   .chat-form {
@@ -250,6 +302,7 @@
 
   .composer-meta {
     padding-bottom: 5px;
+    font-size: 10px;
   }
 
   .composer-hint {
@@ -258,16 +311,32 @@
 
   .record-button,
   .chat-send {
-    height: 46px;
+    height: 48px;
   }
 
   .record-button {
-    width: 46px;
+    width: 48px;
   }
 
   .chat-send {
     min-width: 58px;
     padding: 0 10px;
+  }
+
+  .chat-input {
+    font-size: 16px;
+  }
+
+  .panel-close,
+  .welcome-close,
+  .help-close,
+  .btn-mini,
+  .menu-tab-btn,
+  .welcome-primary,
+  .welcome-secondary,
+  .performance-live button {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .menu-pane-intro span {
@@ -289,8 +358,8 @@
   }
 
   .stage-tool {
-    min-width: 38px;
-    height: 38px;
+    min-width: 44px;
+    height: 44px;
     padding: 0 8px;
   }
 
@@ -386,7 +455,7 @@
   }
 
   .stage-tool-wide {
-    min-width: 38px;
+    min-width: 44px;
   }
 
   .stage-tool-divider {
@@ -394,9 +463,36 @@
   }
 }
 
+@media (max-width: 340px) {
+  .brand-lockup > div {
+    display: none;
+  }
+}
+
 @media (max-height: 650px) and (max-width: 1099px) {
   .chat-panel:not(.is-collapsed) {
-    height: min(55svh, 350px);
+    height: min(70svh, 350px);
+  }
+
+  .voice-toolbar {
+    display: flex;
+  }
+
+  .voice-toolbar .tool-button {
+    flex: 1;
+  }
+
+  .voice-toolbar .tool-button:disabled {
+    display: none;
+  }
+
+  .voice-toolbar:not(:has(#stop-speaking:not(:disabled), #replay-reply:not(:disabled))) {
+    height: 0;
+    min-height: 0;
+    overflow: hidden;
+    border-bottom: 0;
+    padding-block: 0;
+    visibility: hidden;
   }
 
   .stage-toolbar {
@@ -408,13 +504,13 @@
   }
 }
 
-@media (max-height: 650px) and (max-width: 699px) {
+@media (max-height: 650px) and (max-width: 759px) {
   .chat-panel:not(.is-collapsed) {
-    height: min(46svh, 300px);
+    height: clamp(225px, 54svh, 295px);
   }
 
   .stage-toolbar {
-    bottom: calc(min(46svh, 300px) + max(14px, env(safe-area-inset-bottom)));
+    bottom: calc(clamp(225px, 54svh, 295px) + max(14px, env(safe-area-inset-bottom)));
   }
 
   .chat-empty p {

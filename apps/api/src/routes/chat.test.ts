@@ -223,10 +223,17 @@ describe("chat route memory Server-Timing", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns an approved cache hit without calling the AI", async () => {
-    const aiComplete = vi.fn();
+  it("bypasses cached text replies and still calls memory-aware AI", async () => {
+    const aiComplete = vi.fn(async ({ memoryContext }) => ({
+      reply: memoryContext ? "AI response with current memory" : "AI response without memory",
+      emotion: "neutral" as const,
+      animation: "relax",
+      expression: "neutral" as const,
+      intensity: 0.2,
+      voiceStyle: "friendly" as const
+    }));
     const cachedResponse = {
-      reply: "Xin chao, rat vui duoc gap ban!",
+      reply: "Stale cached response",
       emotion: "happy" as const,
       animation: "greeting",
       expression: "happy" as const,
@@ -242,10 +249,11 @@ describe("chat route memory Server-Timing", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject(cachedResponse);
-    expect(aiComplete).not.toHaveBeenCalled();
-    expect(response.headers["server-timing"]).toContain('response-cache;');
-    expect(response.headers["server-timing"]).toContain('desc="HIT"');
+    expect(response.json()).toMatchObject({ reply: "AI response with current memory" });
+    expect(response.json()).not.toMatchObject(cachedResponse);
+    expect(aiComplete).toHaveBeenCalledTimes(1);
+    expect(aiComplete.mock.calls[0]?.[0]?.memoryContext).toContain("User name is Nam.");
+    expect(response.headers["server-timing"]).toContain('response-cache;dur=0;desc="BYPASS"');
     await app.close();
   });
 

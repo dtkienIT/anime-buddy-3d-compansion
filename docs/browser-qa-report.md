@@ -1,5 +1,30 @@
 # Browser QA Report
 
+## 2026-07-14 Full Product and Responsive Rerun
+
+The running Vite app at `http://127.0.0.1:3001` was inspected across phone portrait, phone landscape, the former 700–753 px breakpoint gap, tablet, laptop, and desktop sizes. The responsive harness now checks panel/form containment, non-zero chat space, minimum mobile composer/touch sizing, Studio/chat transitions, stage preservation, and overlap/overflow in nine viewports.
+
+| Probe | Result | Application errors | Artifact |
+| --- | --- | ---: | --- |
+| Responsive | `9/9` PASS | 0 | `test-results/browser/responsive/report.json` |
+| Experience | `9/9` PASS | 0 | `test-results/browser/experience/report.json` |
+| Animation sample | `36/36` PASS | 0 issues / aborted assets | `test-results/browser/animations/report.json` |
+| Interaction/audio faults | `8/8` PASS | 0 failed scenarios | `test-results/browser/interactions/final.json` |
+
+Responsive coverage: `320 x 568`, `390 x 844`, `667 x 375`, `700 x 900`, `754 x 900`, `768 x 1024`, `844 x 390`, `1024 x 768`, and `1440 x 900`. The previously clipped short-landscape composer/log and dead intermediate breakpoint are covered by assertions rather than screenshots alone.
+
+Experience coverage now includes the onboarding link to memory controls and the semantic interaction menu (Wave, Nod, Gentle Gesture, Curious Tilt), in addition to help/Escape, shortcuts, direct canvas interaction, reduced-motion persistence, performance stop, keyboard stage actions, and Studio state. The same nine checks passed in the installed visible Google Chrome via:
+
+```powershell
+node tests/browser/probe-experience.mjs --headed
+```
+
+The animation probe covers all eight deterministic motions on Mika, Sam, Naruto, and Carlotta plus one legacy smoke motion per model. The interaction rerun covers ordered multi-chunk playback, stopping first/later synthesis, rapid replacement, voice state changes, and unavailable, malformed, and deliberately slow TTS responses.
+
+Static/runtime gates also pass: environment check, 59-file asset inventory, eight generated-VRMA checks, lint, typecheck, workspace tests `76/76`, Python tests `10/10`, and production build. The Vite warning for the approximately 754 kB `three-vrm` chunk remains.
+
+The dated sections below are retained as historical evidence; their older `3/3`, `8/8`, `24/24`, five-motion, and text-response-cache results are superseded by this section where they conflict.
+
 ## 2026-07-13 Companion Experience Redesign
 
 The browser harness has been updated for the redesigned frontend. New or expanded coverage includes:

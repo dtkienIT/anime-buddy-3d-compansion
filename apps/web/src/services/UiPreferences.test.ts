@@ -20,11 +20,13 @@ describe("UiPreferencesStore", () => {
 
   it("persists companion and experience preferences", () => {
     const store = new UiPreferencesStore();
-    store.update({ characterId: "luna", backgroundId: "cozy-night", reducedMotion: true });
+    expect(store.current.chatCollapsed).toBe(false);
+    store.update({ characterId: "luna", backgroundId: "cozy-night", chatCollapsed: true, reducedMotion: true });
 
     expect(new UiPreferencesStore().current).toMatchObject({
       characterId: "luna",
       backgroundId: "cozy-night",
+      chatCollapsed: true,
       reducedMotion: true
     });
   });

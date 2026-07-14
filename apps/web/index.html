@@ -19,7 +19,7 @@
       <div class="brand-lockup">
         <span class="brand-mark" aria-hidden="true">M</span>
         <div>
-          <p class="brand-name">Mika space</p>
+          <p class="brand-name" id="brand-name">Mika space</p>
           <p class="brand-caption">your everyday companion</p>
         </div>
       </div>
@@ -69,9 +69,26 @@
       <button class="stage-tool stage-tool-wide" id="stage-wave" type="button" title="Chào Mika">
         <span aria-hidden="true">◌</span><span>Chào bạn</span>
       </button>
+      <button
+        class="stage-tool stage-tool-wide"
+        id="interaction-menu-toggle"
+        type="button"
+        aria-controls="interaction-menu"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        title="Chọn cách tương tác"
+      >
+        <span aria-hidden="true">♡</span><span>Tương tác</span>
+      </button>
       <button class="stage-tool" id="fullscreen-toggle" type="button" aria-label="Toàn màn hình" title="Toàn màn hình">
         <span aria-hidden="true">⛶</span>
       </button>
+      <div class="interaction-menu" id="interaction-menu" role="menu" aria-label="Tương tác nhanh với nhân vật" hidden>
+        <button type="button" role="menuitem" data-interaction-id="wave"><span aria-hidden="true">◌</span><span>Vẫy tay</span></button>
+        <button type="button" role="menuitem" data-interaction-id="nod"><span aria-hidden="true">✓</span><span>Đồng ý</span></button>
+        <button type="button" role="menuitem" data-interaction-id="gentle-gesture"><span aria-hidden="true">↝</span><span>Kể tiếp</span></button>
+        <button type="button" role="menuitem" data-interaction-id="curious-tilt"><span aria-hidden="true">?</span><span>Tò mò</span></button>
+      </div>
     </nav>
 
     <p class="stage-hint" id="stage-hint">Kéo để xoay · cuộn để zoom · chạm vào Mika để tương tác</p>
@@ -127,7 +144,7 @@
 
       <section class="control-section performance-section" id="control-performance" role="tabpanel" aria-labelledby="control-tab-performance" hidden>
         <div class="section-heading">
-          <div><span class="eyebrow">LIVE MOMENTS</span><p class="control-title">Sân khấu riêng của Mika</p></div>
+          <div><span class="eyebrow">LIVE MOMENTS</span><p class="control-title" id="performance-heading">Sân khấu riêng của Mika</p></div>
         </div>
         <article class="performance-card">
           <span class="performance-art" aria-hidden="true">B</span>
@@ -210,11 +227,11 @@
             <label class="toggle-container">
               <input id="toggle-memory-checkbox" type="checkbox" disabled />
               <span class="toggle-track" aria-hidden="true"></span>
-              <span class="toggle-label">Cho phép Mika ghi nhớ</span>
+              <span class="toggle-label" id="memory-toggle-label">Cho phép Mika ghi nhớ</span>
             </label>
             <button class="tool-button is-danger" id="clear-memories-btn" type="button">Xóa tất cả</button>
           </div>
-          <p class="privacy-note">Bạn luôn có thể xem, sửa hoặc xóa từng điều Mika ghi nhớ.</p>
+          <p class="privacy-note" id="memory-privacy-note">Bạn luôn có thể xem, sửa hoặc xóa từng điều Mika ghi nhớ.</p>
           <div class="scroll-list" id="memories-list" aria-live="polite"></div>
         </div>
 
@@ -233,7 +250,7 @@
       <div class="chat-content" id="chat-content">
         <section class="chat-empty" id="chat-empty-state">
           <span class="chat-empty-spark" aria-hidden="true">✦</span>
-          <h1>Mika đang ở đây</h1>
+          <h1 id="chat-empty-title">Mika đang ở đây</h1>
           <p>Bắt đầu bằng một câu hỏi, một câu chuyện hoặc chỉ đơn giản là lời chào.</p>
           <div class="prompt-grid" aria-label="Gợi ý bắt đầu">
             <button type="button" data-prompt="Giới thiệu một chút về bạn đi">Bạn là ai?</button>
@@ -273,8 +290,12 @@
     <section class="welcome-card" id="welcome-card" aria-label="Hướng dẫn bắt đầu" hidden>
       <button class="welcome-close" id="welcome-dismiss" type="button" aria-label="Đóng hướng dẫn">×</button>
       <span class="eyebrow">CHÀO MỪNG BẠN</span>
-      <h2>Đây là không gian của bạn và Mika</h2>
-      <p>Kéo để đổi góc nhìn, chạm Mika để nhận phản hồi hoặc bắt đầu một cuộc trò chuyện thật tự nhiên.</p>
+      <h2 id="welcome-title">Đây là không gian của bạn và Mika</h2>
+      <p id="welcome-copy">Kéo để đổi góc nhìn, chạm Mika để nhận phản hồi hoặc bắt đầu một cuộc trò chuyện thật tự nhiên.</p>
+      <div class="welcome-privacy">
+        <span>Trí nhớ dài hạn có thể lưu sở thích để cuộc trò chuyện liền mạch hơn. Bạn luôn kiểm soát được dữ liệu này.</span>
+        <button id="welcome-privacy-settings" type="button">Kiểm soát trí nhớ</button>
+      </div>
       <div class="welcome-actions">
         <button class="welcome-primary" id="welcome-start" type="button">Trò chuyện ngay</button>
         <button class="welcome-secondary" id="welcome-explore" type="button">Tự khám phá</button>
@@ -290,7 +311,7 @@
           <div><span aria-hidden="true">↔</span><strong>Kéo nhân vật</strong><p>Xoay góc nhìn bằng chuột hoặc một ngón tay.</p></div>
           <div><span aria-hidden="true">⌁</span><strong>Zoom gần hơn</strong><p>Cuộn chuột hoặc chụm hai ngón tay.</p></div>
           <div><span aria-hidden="true">◉</span><strong>Nói tự nhiên</strong><p>Chạm micro để Mika chuyển lời nói thành tin nhắn.</p></div>
-          <div><span aria-hidden="true">✦</span><strong>Chạm để phản hồi</strong><p>Chạm trực tiếp vào Mika khi bạn muốn tương tác nhanh.</p></div>
+          <div><span aria-hidden="true">✦</span><strong>Chạm để phản hồi</strong><p id="help-touch-copy">Chạm trực tiếp vào Mika khi bạn muốn tương tác nhanh.</p></div>
         </div>
         <div class="shortcut-list" aria-label="Phím tắt">
           <span><kbd>/</kbd> Chat</span><span><kbd>C</kbd> Tùy chỉnh</span><span><kbd>R</kbd> Căn giữa</span><span><kbd>F</kbd> Tập trung</span><span><kbd>Esc</kbd> Đóng</span>

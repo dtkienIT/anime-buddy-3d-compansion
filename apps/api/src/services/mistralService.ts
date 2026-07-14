@@ -1,6 +1,7 @@
 import { Mistral } from "@mistralai/mistralai";
 import {
   animationRegistry,
+  getCharacterById,
   type ChatMessage,
   type CompanionChatResponse,
   type CompanionEmotion,
@@ -14,6 +15,7 @@ import { parsePossiblyFencedJson } from "../utils/safeJson.js";
 
 export interface CompleteCompanionInput {
   message: string;
+  characterId: string;
   history: ChatMessage[];
   availableAnimationIds: string[];
   sessionId: string;
@@ -25,7 +27,7 @@ export interface CompanionAiService {
 }
 
 const emotionAnimationFallback: Record<CompanionEmotion, string> = {
-  neutral: "relax",
+  neutral: "gentle-gesture",
   happy: "clapping",
   sad: "sad",
   angry: "angry",
@@ -56,7 +58,8 @@ export class MistralService implements CompanionAiService {
   async complete(input: CompleteCompanionInput): Promise<Omit<CompanionChatResponse, "sessionId" | "warnings">> {
     const safeAnimations = animationRegistry.filter((animation) => input.availableAnimationIds.includes(animation.id));
     const allowedAnimations = safeAnimations.length > 0 ? safeAnimations : animationRegistry;
-    let systemPrompt = buildCharacterSystemPrompt(allowedAnimations);
+    const character = getCharacterById(input.characterId);
+    let systemPrompt = buildCharacterSystemPrompt(allowedAnimations, character);
     if (input.memoryContext) {
       systemPrompt += "\n" + input.memoryContext;
     }

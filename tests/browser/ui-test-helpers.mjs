@@ -19,6 +19,7 @@ export async function seedUiPreferences(page, overrides = {}) {
     key: uiPreferencesKey,
     preferences: {
       controlsOpen: false,
+      chatCollapsed: false,
       reducedMotion: false,
       welcomeSeen: true,
       ...overrides

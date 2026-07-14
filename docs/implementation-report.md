@@ -311,3 +311,38 @@ Current working-tree verification:
 - Artifacts: `test-results/browser/responsive/report.json`, `test-results/browser/experience/report.json`, and `test-results/browser/animations/report.json`.
 
 TTS synthesis was intentionally not optimized in this addendum. The current long-reply path starts audio after the first completed chunk; references to an active three-chunk startup reserve are obsolete.
+
+## 27. Product Depth, Responsive Coverage, and Privacy Addendum
+
+Date: 2026-07-14
+
+Implemented experience changes:
+
+- Closed responsive gaps at short landscape and 700–753 px widths; enforced contained chat geometry, 16 px compact input, and at least 44 px primary compact touch targets.
+- Persisted manual chat collapse. Studio temporarily collapses chat on constrained layouts and restores the prior preference when closed.
+- Added left/center/right stage composition so the camera keeps the character visible around chat and Studio panels.
+- Added a keyboard-accessible semantic interaction menu and expanded direct taps from wave/nod to wave, nod, gentle gesture, and curious tilt.
+- Added onboarding disclosure and a direct route to long-term-memory controls.
+- Made companion identity dynamic throughout the app and added a distinct bounded persona for each of the ten registered characters.
+- Reset expression state to neutral after reactions and context changes; removed repeated voice-disabled warning noise.
+
+Implemented motion changes:
+
+- Regenerated `Thinking.vrma` as a deterministic seamless loop.
+- Added deterministic `GentleGesture.vrma` and `CuriousTilt.vrma` one-shots in both source/public trees.
+- Expanded the first-party generator and verification set from five to eight assets. The registry now exposes 38 companion motions plus two local performance assets.
+- Mapped neutral conversation to Gentle Gesture and curiosity to Curious Tilt instead of allowing the neutral fallback to select Wave.
+
+Implemented privacy and ownership changes:
+
+- Disabled fuzzy/global assistant-text cache reads for chat. Memory-aware replies always execute the current request path; the server timing marker is `response-cache ... desc="BYPASS"`. TTS audio caching is unchanged.
+- Required anonymous ownership verification for offline conversation inserts and added controlled missing/wrong-owner/unconfigured-backend behavior.
+- Added regression tests proving text cache cannot bypass memory-aware AI, offline inserts are owner-scoped, character personas differ, and reactions reset to neutral.
+
+Final verification:
+
+- Environment, asset, lint, typecheck, production build: PASS.
+- Assets: 59 total, 40 animation assets, 8 deterministic generated VRMAs.
+- Unit tests: shared `4/4`, API `30/30`, web `42/42`; Python `10/10`.
+- Responsive browser: `9/9`; experience browser: `9/9`; animation browser: `36/36`; interaction/audio fault scenarios: `8/8`.
+- Installed visible Google Chrome experience run: `9/9`, with zero application console errors.

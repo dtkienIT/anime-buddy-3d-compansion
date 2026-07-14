@@ -1,6 +1,48 @@
 # Current Status
 
-Authoritative as of 2026-07-13 (Asia/Saigon). Older audit and QA documents are historical snapshots; use this file and the linked reports/artifacts for the current working tree.
+Authoritative as of 2026-07-14 (Asia/Saigon). Older dated sections, audits, and QA documents are historical snapshots; use the newest section here and the linked reports/artifacts for the current working tree.
+
+## 2026-07-14 product, responsive, motion, and privacy upgrade
+
+This pass exercised the running product as a first-time user on touch, short-landscape, tablet, laptop, and desktop layouts, then closed the gaps found in the real rendered UI.
+
+Experience and responsive changes:
+
+- The compact breakpoint now covers widths below 760 px, including the previously uncovered 700–753 px range. Short landscape layouts keep the chat log and composer inside their panel instead of collapsing the log to zero height or placing the form under the WebGL canvas.
+- Compact chat uses a 16 px composer and at least 44 px primary touch targets. The voice toolbar no longer reserves empty height when voice controls are unavailable.
+- Chat collapse is a persisted user preference. Opening Companion Studio on a compact/intermediate screen temporarily collapses chat, then restores the user's previous state when Studio closes.
+- The camera composition can center the character or bias it left/right around the open chat and Studio surfaces, preserving a useful 3D interaction area instead of allowing panels to cover the subject.
+- A keyboard-accessible quick-interaction menu adds explicit Wave, Nod, Gentle Gesture, and Curious Tilt actions. Direct character taps cycle through the same semantic family, with bounded speech-bubble feedback and safe return to idle.
+- First-run onboarding now discloses long-term memory and links to its controls. Character-dependent brand text, prompts, memory copy, welcome/help text, export name, and performance heading update when the selected companion changes.
+- All ten characters now have distinct bounded personas. The system prompt uses the selected registry entry while explicitly forbidding invented biography or invented memories.
+- Expression and one-shot state reset to neutral on idle/context changes, so an old reaction cannot visually leak into the next conversation or character.
+
+Motion changes:
+
+- The companion registry now contains 38 motions plus two music-performance assets.
+- `Thinking.vrma` was regenerated as a seamless 4.8-second loop. New first-party `GentleGesture.vrma` (2.4-second one-shot) and `CuriousTilt.vrma` (2.6-second one-shot) fill the missing calm-conversation and curiosity intents.
+- The deterministic generator now owns eight 30 fps VRMA 1.0 assets: Relax, Listening, Thinking, Talking, Gentle Gesture, Curious Tilt, Nod, and Wave. It skips byte-identical writes to avoid unnecessary dev-server file locks while preserving source/public parity.
+- The neutral chat fallback is Gentle Gesture rather than accidentally selecting Wave; thinking, curiosity, listening, speaking, acknowledgement, and greeting now have explicit semantic paths.
+
+Privacy and ownership changes:
+
+- Reusable assistant-text cache lookup is intentionally bypassed. Memory-personalized or session-specific text can no longer be returned from a global fuzzy match; `/api/chat` reports `response-cache;dur=0;desc="BYPASS"`. The independent TTS audio cache remains enabled.
+- Offline conversation sync now requires `anonymousId` and verifies ownership of the target session before insertion. Missing identity, wrong owner, and unconfigured backend paths return controlled `400`, `404`, and `503` responses.
+- Repeated voice-disabled replies no longer produce a warning toast every time.
+
+Fresh verification on this working tree:
+
+- `npm run check:env`, `npm run verify-assets`, `npm run lint`, `npm run typecheck`, and `npm run build`: PASS. The existing Vite large-chunk warning remains.
+- Asset verification: PASS for 59 files: 10 models, 40 animation assets, 7 backgrounds, and 2 local audio files. All 8 generated VRMAs pass deterministic byte/spec/parity/track/loop checks.
+- Workspace unit tests: PASS `76/76` — shared `4/4`, API `30/30`, web `42/42`.
+- Python TTS tests: PASS `10/10`; only the upstream Starlette deprecation and pytest cache-path warnings remain.
+- Responsive browser probe: PASS `9/9` at `320 x 568`, `390 x 844`, `667 x 375`, `700 x 900`, `754 x 900`, `768 x 1024`, `844 x 390`, `1024 x 768`, and `1440 x 900`; application console errors `0`.
+- Experience probe: PASS `9/9`, including onboarding memory controls, help/Escape, shortcuts, direct tap, semantic interaction menu, reduced motion, performance stop, keyboard stage tools, and Studio state; application console errors `0`.
+- Installed visible Google Chrome reran the complete experience probe with `--headed`: PASS `9/9`, application console errors `0`.
+- Animation browser probe: PASS `36/36` — eight deterministic motions across four representative models plus four legacy smoke motions; issues and aborted asset requests `0`.
+- Interaction/audio fault probe: PASS `8/8` — deterministic multi-chunk playback, stop at first/later synthesis, rapid replacement, voice toggle, and unavailable/malformed/slow TTS paths.
+
+Artifacts are under `test-results/browser/{responsive,experience,animations,interactions}/`. The generated artifacts remain git-ignored.
 
 ## 2026-07-13 companion experience and motion upgrade
 
@@ -34,7 +76,7 @@ Fresh redesigned-shell browser verification:
 - Animation: PASS `24/24`: five generated motions across four representative models plus four legacy smoke checks; issues, aborted assets, and console errors `0`. Artifact: `test-results/browser/animations/report.json`.
 - Connected headed Chrome at `745 x 656` booted the new shell to `IDLE` with one WebGL canvas, no document overflow, the closed Studio correctly inert, and zero console warnings/errors.
 
-The interaction harness was updated for the redesigned DOM but was not rerun as part of this focused UI/motion gate; its earlier chat/audio reliability artifacts remain listed below.
+The interaction harness was not rerun during the dated 2026-07-13 gate; it was subsequently rerun and passed in the 2026-07-14 verification above.
 
 ## 2026-07-13 first-audio latency fix
 
@@ -195,10 +237,10 @@ The entries below summarize the earlier full-stack run. Scenarios whose DOM inte
 ## Known limitations and blockers
 
 - The historical CPU browser warm cache MISS p95 is 9.72 s. Direct CUDA p95 is 8.59 s for the later five-run probe, but CUDA browser runs currently time out under 3D/WebGL contention; GPU mode is not marked as a browser performance pass. Live MISS streaming remains disabled because prior deterministic measurements showed severe underflow.
-- A response-cache hit still waits for session/preference persistence and took about 1.27 s in the latest remote Supabase run; the frontend's 300 ms fallback status can temporarily say `Đang truy xuất ký ức...` even though memory and Mistral are bypassed.
+- Reusable assistant-text cache reads are now intentionally bypassed for memory/privacy correctness. Historical text-cache latency and fuzzy-hit results remain useful only as an implementation record; audio-cache hits are still supported.
 - Real Mistral chat is response-based, not token-streamed, so real first-visible text follows full Mistral completion and missed the 1 s goal.
 - Migration `003_memory_extraction_outbox.sql` must be applied to the configured remote Supabase project before extraction becomes restart-durable there. Until then, code detects the missing table and uses bounded in-process retry without delaying chat.
 - Formal browser fault injection for Supabase outage, missing VRMA `finished`, and a pre-suspended AudioContext remains partial.
 - Headless Chromium emits software-WebGL GPU/readback warnings; headed Chrome finished without application errors.
-- The production JS bundle remains ~868 kB before gzip and triggers Vite's size warning.
-- The five generated core VRMA assets declare `specVersion: "1.0"` and are verified deterministically. Some legacy third-party VRMA files still omit the field; the frontend patches their fetched GLB metadata in memory before parsing, without modifying the checked-in source asset.
+- The production `three-vrm` chunk is about 754 kB before gzip and still triggers Vite's size warning.
+- The eight generated core VRMA assets declare `specVersion: "1.0"` and are verified deterministically. Some legacy third-party VRMA files still omit the field; the frontend patches their fetched GLB metadata in memory before parsing, without modifying the checked-in source asset.

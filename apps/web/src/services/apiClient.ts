@@ -226,17 +226,17 @@ export class ApiClient {
     }).parse(await response.json());
   }
 
-  async saveOfflineMessage(sessionId: string, message: {
+  async saveOfflineMessage(sessionId: string, anonymousId: string, message: {
     role: "user" | "assistant" | "system";
     content: string;
     emotion?: string;
     animation?: string;
     expression?: string;
   }): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/conversations/${sessionId}/messages`, {
+    const response = await fetch(`${this.baseUrl}/api/conversations/${encodeURIComponent(sessionId)}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(message)
+      body: JSON.stringify({ anonymousId, ...message })
     });
     if (!response.ok) {
       throw new Error(`Failed to save offline message: ${response.status}`);

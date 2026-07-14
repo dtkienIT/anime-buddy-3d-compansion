@@ -12,7 +12,16 @@ import {
 const exhaustive = process.argv.includes("--all");
 const outputDir = path.resolve("test-results/browser/animations");
 const modelIds = ["mika", "sam", "naruto", "carlotta"];
-const generatedAnimationIds = ["relax", "wave", "nod", "listening", "talking"];
+const generatedAnimationIds = [
+  "relax",
+  "listening",
+  "thinking",
+  "talking",
+  "gentle-gesture",
+  "curious-tilt",
+  "nod",
+  "wave"
+];
 const legacyAnimationByModel = {
   mika: "greeting",
   sam: "hello",

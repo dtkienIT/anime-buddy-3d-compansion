@@ -158,6 +158,44 @@ export class SupabaseService {
     return true;
   }
 
+  async saveOwnedMessage(input: {
+    sessionId: string;
+    anonymousId: string;
+    role: "user" | "assistant" | "system";
+    content: string;
+    emotion?: string;
+    animation?: string;
+    expression?: string;
+  }): Promise<boolean> {
+    if (!this.client) {
+      return false;
+    }
+
+    const { data: session, error } = await this.client
+      .from("chat_sessions")
+      .select("id")
+      .eq("id", input.sessionId)
+      .eq("anonymous_id", input.anonymousId)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+    if (!session?.id) {
+      return false;
+    }
+
+    await this.saveMessage({
+      sessionId: input.sessionId,
+      role: input.role,
+      content: input.content,
+      emotion: input.emotion,
+      animation: input.animation,
+      expression: input.expression
+    });
+    return true;
+  }
+
   async saveMessage(input: {
     sessionId: string;
     role: "user" | "assistant" | "system";
@@ -170,7 +208,7 @@ export class SupabaseService {
       return;
     }
 
-    await this.client.from("chat_messages").insert({
+    const { error: messageError } = await this.client.from("chat_messages").insert({
       session_id: input.sessionId,
       role: input.role,
       content: input.content,
@@ -178,10 +216,16 @@ export class SupabaseService {
       animation: input.animation ?? null,
       expression: input.expression ?? null
     });
+    if (messageError) {
+      throw messageError;
+    }
 
-    await this.client
+    const { error: sessionError } = await this.client
       .from("chat_sessions")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", input.sessionId);
+    if (sessionError) {
+      throw sessionError;
+    }
   }
 }

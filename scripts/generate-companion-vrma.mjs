@@ -61,11 +61,32 @@ const animations = [
     pose: listeningPose
   },
   {
+    fileName: "Thinking.vrma",
+    id: "thinking",
+    duration: 4.8,
+    loop: true,
+    pose: thinkingPose
+  },
+  {
     fileName: "Talking.vrma",
     id: "talking",
     duration: 2.4,
     loop: true,
     pose: talkingPose
+  },
+  {
+    fileName: "GentleGesture.vrma",
+    id: "gentle-gesture",
+    duration: 2.4,
+    loop: false,
+    pose: gentleGesturePose
+  },
+  {
+    fileName: "CuriousTilt.vrma",
+    id: "curious-tilt",
+    duration: 2.6,
+    loop: false,
+    pose: curiousTiltPose
   },
   {
     fileName: "Nod.vrma",
@@ -100,7 +121,10 @@ for (const definition of animations) {
       }
     } else {
       fs.mkdirSync(outputDirectory, { recursive: true });
-      fs.writeFileSync(outputPath, generated);
+      const existing = fs.existsSync(outputPath) ? fs.readFileSync(outputPath) : null;
+      if (!existing?.equals(generated)) {
+        fs.writeFileSync(outputPath, generated);
+      }
     }
   }
 
@@ -354,6 +378,31 @@ function listeningPose(progress) {
   });
 }
 
+function thinkingPose(progress) {
+  const phase = progress * Math.PI * 2;
+  const breath = 0.5 - 0.5 * Math.cos(phase);
+  const consider = Math.sin(phase);
+  const microNod = Math.sin(phase * 2);
+  return makePose({
+    hips: [0, 1 + 0.004 * breath, 0],
+    eulers: {
+      hips: [degrees(0.4 * breath), degrees(0.45 * consider), degrees(0.3 * consider)],
+      spine: [degrees(1.2 + 0.45 * breath), degrees(0.6 * consider), degrees(0.5 * consider)],
+      chest: [degrees(1.4 + 0.5 * breath), degrees(1.1 * consider), degrees(-0.7 * consider)],
+      upperChest: [degrees(1.7 + 0.5 * breath), degrees(1.4 * consider), degrees(-0.9 * consider)],
+      neck: [degrees(1.6 + 0.6 * microNod), degrees(-1.8 * consider), degrees(1.2 + 0.5 * consider)],
+      head: [degrees(3.5 + 1.3 * microNod), degrees(4.5 * consider), degrees(-2.8 - 0.9 * consider)],
+      leftShoulder: [0, 0, degrees(-4 - 0.8 * breath)],
+      leftUpperArm: [degrees(-2.5), degrees(0.5 * consider), degrees(-74 - 1.2 * breath)],
+      leftLowerArm: [degrees(1.2 * consider), 0, degrees(-12 - 2 * breath)],
+      rightShoulder: [degrees(-1.2), 0, degrees(2 - 0.8 * breath)],
+      rightUpperArm: [degrees(-5 - 1.2 * breath), degrees(-3), degrees(62 - 1.5 * consider)],
+      rightLowerArm: [degrees(3 + 1.2 * consider), degrees(-6), degrees(-12 - 3 * breath)],
+      rightHand: [degrees(1.5 * microNod), degrees(-4 + 1.5 * consider), degrees(4 + 1.5 * consider)]
+    }
+  });
+}
+
 function talkingPose(progress) {
   const phase = progress * Math.PI * 2;
   const gesture = Math.sin(phase);
@@ -373,6 +422,56 @@ function talkingPose(progress) {
       rightUpperArm: [degrees(-5 * lift), 0, degrees(75 - 12 * lift - 3 * gesture)],
       rightLowerArm: [degrees(-3 * gesture), degrees(4 * lift), degrees(10 - 30 * lift)],
       rightHand: [degrees(-2 * gesture), degrees(-4 * gesture), degrees(7 * gesture)]
+    }
+  });
+}
+
+function gentleGesturePose(progress) {
+  const liftIn = smoothStep(0, 0.24, progress);
+  const liftOut = 1 - smoothStep(0.7, 1, progress);
+  const lift = Math.min(liftIn, liftOut);
+  const present = Math.sin(progress * Math.PI * 2) * lift;
+  const nodProgress = smoothStep(0.32, 0.66, progress);
+  const nod = Math.sin(nodProgress * Math.PI) * lift;
+  return makePose({
+    hips: [0, 1 + 0.003 * lift, 0],
+    eulers: {
+      hips: [0, degrees(-0.8 * lift), degrees(-0.45 * lift)],
+      spine: [degrees(0.8 * lift), degrees(-0.8 * lift), degrees(-0.6 * lift)],
+      chest: [degrees(1.1 * lift), degrees(-1.4 * lift), degrees(-0.9 * lift)],
+      upperChest: [degrees(1.4 * lift), degrees(-2 * lift), degrees(-1.2 * lift)],
+      neck: [degrees(-0.8 * lift + 1.2 * nod), degrees(1.1 * lift), degrees(0.8 * lift)],
+      head: [degrees(-1.2 * lift + 3.6 * nod), degrees(2.2 * lift), degrees(1.4 * lift)],
+      leftShoulder: [0, 0, degrees(-4 - 1.2 * lift)],
+      leftUpperArm: [degrees(-2 - 0.8 * lift), 0, degrees(-75 + 2 * lift)],
+      leftLowerArm: [degrees(-1.2 * present), 0, degrees(-10 - 2 * lift)],
+      rightShoulder: [degrees(-2.5 * lift), 0, degrees(4 - 5 * lift)],
+      rightUpperArm: [degrees(-2 - 10 * lift), degrees(4 * lift), degrees(75 - 32 * lift)],
+      rightLowerArm: [degrees(2.5 * present), degrees(-7 * lift), degrees(10 - 52 * lift)],
+      rightHand: [degrees(2 * lift), degrees(-12 * lift), degrees(8 * lift + 3 * present)]
+    }
+  });
+}
+
+function curiousTiltPose(progress) {
+  const tiltIn = smoothStep(0, 0.2, progress);
+  const tiltOut = 1 - smoothStep(0.74, 1, progress);
+  const tilt = Math.min(tiltIn, tiltOut);
+  const questionProgress = smoothStep(0.34, 0.66, progress);
+  const question = Math.sin(questionProgress * Math.PI) * tilt;
+  return makePose({
+    hips: [0, 1 + 0.002 * tilt, 0],
+    eulers: {
+      hips: [0, degrees(0.45 * tilt), degrees(0.35 * tilt)],
+      spine: [degrees(0.7 * tilt), degrees(0.6 * tilt), degrees(0.8 * tilt)],
+      chest: [degrees(1.1 * tilt), degrees(0.9 * tilt), degrees(1.2 * tilt)],
+      upperChest: [degrees(1.5 * tilt), degrees(1.2 * tilt), degrees(1.8 * tilt)],
+      neck: [degrees(-0.8 * tilt + 0.8 * question), degrees(-2 * tilt), degrees(2.8 * tilt)],
+      head: [degrees(-1.8 * tilt + 2.8 * question), degrees(6 * tilt), degrees(-9 * tilt)],
+      leftShoulder: [degrees(-0.8 * tilt), 0, degrees(-4 - 1.5 * tilt)],
+      leftUpperArm: [degrees(-2 - 0.8 * tilt), 0, degrees(-75 - 1.2 * tilt)],
+      rightShoulder: [degrees(0.8 * tilt), 0, degrees(4 + 1.5 * tilt)],
+      rightUpperArm: [degrees(-2 + 0.8 * tilt), 0, degrees(75 + 1.2 * tilt)]
     }
   });
 }
