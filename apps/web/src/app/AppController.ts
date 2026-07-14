@@ -8,6 +8,7 @@ import {
 } from "@anime-buddy/shared";
 import { AudioPlayer } from "../audio/AudioPlayer.js";
 import { AudioQueue } from "../audio/AudioQueue.js";
+import { InteractionVoice } from "../audio/InteractionVoice.js";
 import { TtsClient } from "../audio/TtsClient.js";
 import { defaultVoiceSettings, type VoiceSettings } from "../audio/VoiceSettings.js";
 import { CharacterController } from "../character/CharacterController.js";
@@ -77,6 +78,7 @@ export class AppController {
   private readonly status: CharacterStatus;
   private readonly toasts: ToastManager;
   private readonly voiceControls: VoiceControls;
+  private readonly interactionVoice: InteractionVoice;
   private readonly performance: LocalPerformanceController;
   private readonly aipaiPerformance: LocalPerformanceController;
   private readonly preferences = new UiPreferencesStore();
@@ -145,6 +147,13 @@ export class AppController {
     const tts = new TtsClient();
     const audioPlayer = new AudioPlayer();
     const audioQueue = new AudioQueue();
+    this.interactionVoice = new InteractionVoice(
+      tts,
+      audioQueue,
+      audioPlayer,
+      this.character,
+      (message) => this.notify(message, "warning")
+    );
 
     this.chatPanel = new ChatPanel(
       required("#chat-panel"),
@@ -236,6 +245,7 @@ export class AppController {
 
     this.voiceControls.addEventListener("change", (event) => {
       const settings = (event as CustomEvent<VoiceSettings>).detail;
+      if (!settings.enabled) this.interactionVoice.cancel();
       this.chat.setVoiceSettings(settings);
     });
 
@@ -292,6 +302,7 @@ export class AppController {
     this.disposed = true;
     if (this.ambientTimer) window.clearTimeout(this.ambientTimer);
     if (this.bubbleTimer) clearTimeout(this.bubbleTimer);
+    this.interactionVoice.cancel();
     window.removeEventListener("resize", this.onLayoutResize);
     this.stopPerformances(false);
     this.character.dispose();
@@ -1165,6 +1176,7 @@ export class AppController {
       ? `Chào bạn! ${this.currentCharacterLabel()} đang lắng nghe đây.`
       : interaction.bubble;
     this.showBubble(bubble);
+    void this.interactionVoice.speak(bubble, this.voiceControls.value);
     this.setStatus("REACTING", interaction.status);
     await this.character.playAnimation(animationId, { loop: false, maxDurationMs: 4_000 }).catch(() => undefined);
     if (!this.ownsDirectInteraction(generation)) return;
@@ -1270,6 +1282,7 @@ export class AppController {
   private invalidateDirectInteraction(): void {
     this.interactionGeneration += 1;
     this.interactionBusy = false;
+    this.interactionVoice.cancel();
     const bubble = document.querySelector<HTMLElement>("#stage-dialogue");
     if (bubble) bubble.hidden = true;
   }
