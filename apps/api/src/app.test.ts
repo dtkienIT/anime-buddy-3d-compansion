@@ -210,4 +210,19 @@ describe("character persona prompt", () => {
     expect(kato).toContain("Bình tĩnh, thực tế");
     expect(kato).not.toBe(mika);
   });
+
+  it("pins the two supported local performance replies without markdown", () => {
+    const animations = animationRegistry.filter((animation) => animation.chatEligible !== false).slice(0, 4);
+    const prompt = buildCharacterSystemPrompt(animations, getCharacterById("mika"));
+
+    expect(prompt).toContain(
+      'reply field must be exactly this plain-text sentence: "Dạ, hiện tại em chỉ có thể nhảy bài Aipai Dance Hall, anh hãy thưởng thức nhé"'
+    );
+    expect(prompt).toContain(
+      'reply field must be exactly this plain-text sentence: "Dạ, em sẽ hát tặng anh bài Chạm Vào Bình Minh, anh hãy lắng nghe nhé."'
+    );
+    expect(prompt).toContain("Never claim that another dance, song, or performance is available.");
+    expect(prompt).toContain("Do not add Markdown emphasis");
+    expect(prompt).not.toContain("**Aipai Dance Hall");
+  });
 });

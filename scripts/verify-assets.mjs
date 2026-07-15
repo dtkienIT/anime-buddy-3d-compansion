@@ -24,6 +24,7 @@ const assetGroups = {
     "CuriousTilt.vrma",
     "Listening.vrma",
     "Talking.vrma",
+    "Singing.vrma",
     "Greeting.vrma",
     "Relax.vrma",
     "Thinking.vrma",
@@ -70,7 +71,8 @@ const assetGroups = {
   ].map((name) => `apps/web/public/backgrounds/${name}`),
   audio: [
     "Bling-Bang-Bang-Born.mp3",
-    "Aipai-Dance-Hall.mp3"
+    "Aipai-Dance-Hall.mp3",
+    "Cham-Vao-Binh-Minh.mp3"
   ].map((name) => `apps/web/public/audio/music/${name}`)
 };
 
@@ -79,6 +81,7 @@ const generatedAnimations = [
   "Listening.vrma",
   "Thinking.vrma",
   "Talking.vrma",
+  "Singing.vrma",
   "GentleGesture.vrma",
   "CuriousTilt.vrma",
   "Nod.vrma",
@@ -90,6 +93,16 @@ const minimumBytes = {
   backgrounds: 1024,
   audio: 1024
 };
+const canonicalAssets = new Map([
+  [
+    "apps/web/public/audio/music/Cham-Vao-Binh-Minh.mp3",
+    "5e7dccbe6ff1659b62e936636986a3a54e83c4d22837d1796b2f19d80ba0de57"
+  ],
+  [
+    "apps/web/public/audio/music/Cham-Vao-Binh-Minh.lyrics.txt",
+    "413c0999553551fad68137c610c0330ac44eee00836dfa9a2da45bf84ebb0359"
+  ]
+]);
 const failures = [];
 const checks = [];
 
@@ -114,6 +127,18 @@ for (const [group, relativePaths] of Object.entries(assetGroups)) {
     }
 
     checks.push({ group, relativePath, bytes: buffer.byteLength });
+  }
+}
+
+for (const [relativePath, expectedHash] of canonicalAssets) {
+  const absolutePath = path.join(root, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    failures.push(`${relativePath}: missing canonical asset`);
+    continue;
+  }
+  const actualHash = sha256(fs.readFileSync(absolutePath));
+  if (actualHash !== expectedHash) {
+    failures.push(`${relativePath}: canonical SHA-256 mismatch`);
   }
 }
 

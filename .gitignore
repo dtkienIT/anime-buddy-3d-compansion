@@ -15,4 +15,5 @@ test-results/
 .agent-backups/
 *.wav
 *.mp3
+!apps/web/public/audio/music/Cham-Vao-Binh-Minh.mp3
 debug.log

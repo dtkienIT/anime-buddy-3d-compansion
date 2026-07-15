@@ -375,11 +375,6 @@ body.is-focus-mode .stage-toolbar {
     bottom: calc(max(8px, env(safe-area-inset-bottom)) + 72px);
   }
 
-  .companion-bubble {
-    top: 23%;
-    font-size: 11px;
-  }
-
   .stage-busy {
     top: calc(max(8px, env(safe-area-inset-top)) + var(--app-bar-height) + 10px);
   }

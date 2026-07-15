@@ -637,6 +637,10 @@ button:disabled {
   background: linear-gradient(145deg, rgba(248, 246, 255, 0.94), rgba(236, 231, 252, 0.78));
 }
 
+.performance-card.is-sunrise {
+  background: linear-gradient(145deg, rgba(255, 248, 236, 0.95), rgba(255, 226, 220, 0.78));
+}
+
 .performance-art {
   display: grid;
   place-items: center;
@@ -651,6 +655,10 @@ button:disabled {
 
 .is-violet .performance-art {
   background: linear-gradient(145deg, #8c7bea, #5948c8);
+}
+
+.is-sunrise .performance-art {
+  background: linear-gradient(145deg, #ff9a70, #d64b72);
 }
 
 .performance-copy {
@@ -807,27 +815,6 @@ button:disabled {
   letter-spacing: 0.02em;
   pointer-events: none;
   transition: opacity 240ms ease;
-}
-
-.companion-bubble {
-  position: fixed;
-  top: 24%;
-  left: 50%;
-  z-index: 11;
-  width: min(280px, calc(100vw - 40px));
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 18px 18px 18px 6px;
-  padding: 12px 14px;
-  background: rgba(255, 253, 250, 0.9);
-  color: var(--ink-soft);
-  box-shadow: var(--shadow-float);
-  backdrop-filter: blur(18px);
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 1.4;
-  text-align: center;
-  animation: bubble-in 220ms ease both;
 }
 
 .stage-busy {
@@ -1218,10 +1205,6 @@ body.is-performing .stage-hint {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-@keyframes bubble-in {
-  from { opacity: 0; transform: translate(-50%, -42%) scale(0.96); }
 }
 
 @keyframes welcome-in {

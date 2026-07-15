@@ -40,6 +40,14 @@ export interface CharacterControllerOptions {
   onInteract?: () => void;
 }
 
+interface MicrophoneRig {
+  root: THREE.Group;
+  hand: THREE.Object3D;
+  head: THREE.Object3D;
+  glow: THREE.MeshStandardMaterial;
+  ring: THREE.Mesh;
+}
+
 export class CharacterController {
   readonly expressions = new ExpressionController();
   private readonly renderer: THREE.WebGLRenderer;
@@ -56,8 +64,13 @@ export class CharacterController {
   private readonly pointerNdc = new THREE.Vector2();
   private readonly interactionBounds = new THREE.Box3();
   private readonly framingTarget = new THREE.Vector3(0, 1.04, 0);
+  private readonly microphoneHandPosition = new THREE.Vector3();
+  private readonly microphoneMouthPosition = new THREE.Vector3();
+  private readonly microphoneDirection = new THREE.Vector3();
+  private readonly microphoneUp = new THREE.Vector3(0, 1, 0);
   private currentVrm: VrmInstance | null = null;
   private modelRoot: THREE.Group | null = null;
+  private microphone: MicrophoneRig | null = null;
   private currentCharacterId = defaultCharacterId;
   private currentAnimationId = defaultAnimationId;
   private currentBackgroundId = defaultBackgroundId;
@@ -196,6 +209,7 @@ export class CharacterController {
     }
 
     const requestId = ++this.modelSerial;
+    this.hideMicrophone();
     this.options.onBusy(true);
     this.options.onStatus(`Đang chuẩn bị ${next.label}…`);
 
@@ -308,6 +322,74 @@ export class CharacterController {
     this.lipSync.stop();
   }
 
+  showMicrophone(): boolean {
+    this.hideMicrophone();
+    const humanoid = this.currentVrm?.humanoid;
+    const hand = humanoid?.getNormalizedBoneNode?.("rightHand")
+      ?? humanoid?.getRawBoneNode?.("rightHand");
+    const head = humanoid?.getNormalizedBoneNode?.("head")
+      ?? humanoid?.getRawBoneNode?.("head");
+    if (!hand || !head) return false;
+
+    const root = new THREE.Group();
+    root.name = "CompanionMicrophone";
+    root.renderOrder = 3;
+
+    const handleMaterial = new THREE.MeshStandardMaterial({
+      color: 0x31384d,
+      emissive: 0x111529,
+      emissiveIntensity: 0.35,
+      metalness: 0.72,
+      roughness: 0.28
+    });
+    const grilleMaterial = new THREE.MeshStandardMaterial({
+      color: 0x343b4d,
+      emissive: 0x101522,
+      emissiveIntensity: 0.22,
+      metalness: 0.84,
+      roughness: 0.34
+    });
+    const glow = new THREE.MeshStandardMaterial({
+      color: 0xff7896,
+      emissive: 0xff4f78,
+      emissiveIntensity: 0.8,
+      metalness: 0.3,
+      roughness: 0.24
+    });
+
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.019, 0.16, 20), handleMaterial);
+    handle.position.y = 0.08;
+    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.034, 24, 16), grilleMaterial);
+    grille.position.y = 0.178;
+    grille.scale.y = 0.84;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.029, 0.005, 10, 28), glow);
+    ring.position.y = 0.148;
+    ring.rotation.x = Math.PI / 2;
+    root.add(handle, grille, ring);
+    root.traverse((node: any) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.frustumCulled = false;
+        node.renderOrder = 3;
+      }
+    });
+    this.scene.add(root);
+    this.microphone = { root, hand, head, glow, ring };
+    this.updateMicrophone(this.clock.elapsedTime);
+    return true;
+  }
+
+  hideMicrophone(): void {
+    const microphone = this.microphone;
+    if (!microphone) return;
+    this.microphone = null;
+    this.scene.remove(microphone.root);
+    microphone.root.traverse((node: any) => {
+      node.geometry?.dispose?.();
+      this.disposeMaterial(node.material);
+    });
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -319,6 +401,7 @@ export class CharacterController {
     if (this.renderFrameId !== null) window.cancelAnimationFrame(this.renderFrameId);
     this.renderFrameId = null;
     this.lipSync.stop();
+    this.hideMicrophone();
     this.animations.dispose();
     this.disposeMountedVrm(this.currentVrm, this.modelRoot);
     this.controls.dispose();
@@ -564,6 +647,7 @@ export class CharacterController {
       const time = this.clock.elapsedTime;
       this.modelRoot.position.y = this.reducedMotion ? 0 : Math.sin(time * 1.35) * 0.006;
     }
+    this.updateMicrophone(this.clock.elapsedTime);
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
@@ -620,6 +704,30 @@ export class CharacterController {
     }
 
     if (time >= this.nextBlinkAt) this.blinkStartedAt = time;
+  }
+
+  private updateMicrophone(time: number): void {
+    const microphone = this.microphone;
+    if (!microphone) return;
+
+    const handPosition = this.microphoneHandPosition;
+    const mouthPosition = this.microphoneMouthPosition;
+    microphone.hand.getWorldPosition(handPosition);
+    microphone.head.getWorldPosition(mouthPosition);
+    // VRM head bones sit near the base of the skull. Lift toward the mouth and
+    // pull the prop slightly toward the camera so clothing cannot occlude it.
+    mouthPosition.y -= 0.005;
+    mouthPosition.z += 0.12;
+    const direction = this.microphoneDirection.subVectors(mouthPosition, handPosition);
+    if (direction.lengthSq() < 1e-6) direction.set(0, 1, 0);
+    direction.normalize();
+
+    microphone.root.position.copy(mouthPosition).addScaledVector(direction, -0.178);
+    microphone.root.quaternion.setFromUnitVectors(this.microphoneUp, direction);
+    const pulse = this.reducedMotion ? 0.5 : 0.5 + 0.5 * Math.sin(time * 7.5);
+    const ringScale = 1 + pulse * 0.1;
+    microphone.ring.scale.setScalar(ringScale);
+    microphone.glow.emissiveIntensity = 0.55 + pulse * 0.9;
   }
 
   private applyDefaultFraming(resetZoom: boolean): void {

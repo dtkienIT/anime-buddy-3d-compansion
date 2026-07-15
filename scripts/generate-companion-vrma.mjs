@@ -75,6 +75,13 @@ const animations = [
     pose: talkingPose
   },
   {
+    fileName: "Singing.vrma",
+    id: "singing",
+    duration: 6,
+    loop: true,
+    pose: singingPose
+  },
+  {
     fileName: "GentleGesture.vrma",
     id: "gentle-gesture",
     duration: 2.4,
@@ -422,6 +429,35 @@ function talkingPose(progress) {
       rightUpperArm: [degrees(-5 * lift), 0, degrees(75 - 12 * lift - 3 * gesture)],
       rightLowerArm: [degrees(-3 * gesture), degrees(4 * lift), degrees(10 - 30 * lift)],
       rightHand: [degrees(-2 * gesture), degrees(-4 * gesture), degrees(7 * gesture)]
+    }
+  });
+}
+
+function singingPose(progress) {
+  const phase = progress * Math.PI * 2;
+  const sway = Math.sin(phase);
+  const breath = 0.5 - 0.5 * Math.cos(phase * 2);
+  const musicalNod = Math.sin(phase * 4);
+  const gesture = 0.5 - 0.5 * Math.cos(phase * 2);
+  const gestureSide = Math.sin(phase * 2);
+  const microphonePulse = Math.sin(phase * 2);
+  return makePose({
+    hips: [0, 1 + 0.004 * breath, 0],
+    eulers: {
+      hips: [degrees(0.4 * breath), degrees(1.2 * sway), degrees(0.8 * sway)],
+      spine: [degrees(1.1 + 0.6 * breath), degrees(0.8 * sway), degrees(0.9 * sway)],
+      chest: [degrees(-0.6 + 0.8 * breath), degrees(1.4 * sway), degrees(-1.1 * sway)],
+      upperChest: [degrees(-1 + 1.1 * breath), degrees(1.8 * sway), degrees(-1.3 * sway)],
+      neck: [degrees(-1.5 + 0.7 * musicalNod), degrees(-1.7 * sway), degrees(0.8 * sway)],
+      head: [degrees(-2.5 + 1.5 * musicalNod), degrees(-2.6 * sway), degrees(1.2 * sway)],
+      leftShoulder: [degrees(-1.5 * gesture), 0, degrees(-4 - 2 * gesture)],
+      leftUpperArm: [degrees(-2 - 5 * gesture), degrees(3 * gestureSide), degrees(-75 + 30 * gesture)],
+      leftLowerArm: [degrees(4 * gestureSide), degrees(-7 * gesture), degrees(-10 - 34 * gesture)],
+      leftHand: [degrees(2 * gestureSide), degrees(5 * gesture), degrees(-6 * gestureSide)],
+      rightShoulder: [degrees(-2), 0, degrees(0)],
+      rightUpperArm: [degrees(-11 + 0.8 * microphonePulse), degrees(7), degrees(8 + 1.2 * sway)],
+      rightLowerArm: [degrees(6 + 0.8 * microphonePulse), degrees(-10), degrees(-154 - 1.2 * sway)],
+      rightHand: [degrees(5 + 0.8 * microphonePulse), degrees(-8), degrees(8 - 1.2 * microphonePulse)]
     }
   });
 }

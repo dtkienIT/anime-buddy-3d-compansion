@@ -8,6 +8,10 @@ export interface LocalPerformanceOptions {
   onPrepare: () => Promise<void>;
   onStart: () => Promise<void>;
   onStop: () => Promise<void>;
+  onComplete?: () => Promise<void>;
+  onCleanup?: () => void;
+  onAudioStart?: (analyser: AnalyserNode) => void;
+  onAudioStop?: () => void;
   onWarning: (message: string) => void;
 }
 
@@ -16,54 +20,89 @@ export class LocalPerformanceController {
   private active = false;
   private starting = false;
   private available = false;
+  private disposed = false;
   private serial = 0;
   private stopTimer: ReturnType<typeof setTimeout> | null = null;
+  private audioContext: AudioContext | null = null;
+  private audioSource: ReturnType<AudioContext["createMediaElementSource"]> | null = null;
+  private analyser: AnalyserNode | null = null;
+  private playbackStartedAt = 0;
+  private readonly onButtonClick = (): void => {
+    if (this.active || this.starting) {
+      this.stop();
+    } else {
+      this.start();
+    }
+  };
+  private readonly onAudioEnded = (): void => {
+    const elapsedSeconds = (performance.now() - this.playbackStartedAt) / 1000;
+    if (elapsedSeconds >= this.options.durationSeconds - 0.25) this.finish();
+  };
 
   constructor(private readonly options: LocalPerformanceOptions) {
     this.audio.preload = "auto";
     options.button.disabled = true;
-    options.button.addEventListener("click", () => {
-      if (this.active || this.starting) {
-        this.stop();
-      } else {
-        this.start();
-      }
-    });
-    this.audio.addEventListener("ended", () => this.finish());
+    options.button.addEventListener("click", this.onButtonClick);
+    this.audio.addEventListener("ended", this.onAudioEnded);
   }
 
   async initialize(): Promise<void> {
     await this.options.onPrepare();
+    if (this.disposed) return;
     this.available = await this.loadAudio();
+    if (this.disposed) return;
     this.options.button.disabled = false;
     this.updateUi();
   }
 
-  start(): void {
-    if (this.active || this.starting) {
-      return;
+  start(): boolean {
+    if (this.disposed || this.active || this.starting) {
+      return false;
     }
     if (!this.available) {
       this.options.onWarning(`Thiếu file nhạc: ${this.options.audioUrl}`);
-      return;
+      return false;
     }
     void this.play();
+    return true;
   }
 
   stop(restoreIdle = true): void {
     const wasRunning = this.active || this.starting;
+    this.serial += 1;
     if (!wasRunning) {
       return;
     }
-    this.serial += 1;
     this.starting = false;
     this.active = false;
     this.clearStopTimer();
     this.audio.pause();
+    this.options.onAudioStop?.();
+    this.options.onCleanup?.();
     this.updateUi();
-    if (restoreIdle) {
-      void this.options.onStop().catch(() => this.options.onWarning("Không thể khôi phục tư thế sau trình diễn."));
+    if (restoreIdle) void this.restore(false, this.serial);
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.stop(false);
+    this.disposed = true;
+    this.serial += 1;
+    this.options.button.removeEventListener("click", this.onButtonClick);
+    this.audio.removeEventListener("ended", this.onAudioEnded);
+    this.audioSource?.disconnect();
+    this.analyser?.disconnect();
+    this.audioSource = null;
+    this.analyser = null;
+    const audioContext = this.audioContext;
+    this.audioContext = null;
+    if (audioContext && audioContext.state !== "closed") {
+      void audioContext.close().catch(() => undefined);
     }
+    this.audio.removeAttribute("src");
+    this.audio.load();
+    this.available = false;
+    this.options.button.disabled = true;
   }
 
   private async loadAudio(): Promise<boolean> {
@@ -73,10 +112,11 @@ export class LocalPerformanceController {
       if (!response.ok || (!contentType.startsWith("audio/") && !contentType.includes("mpeg"))) {
         return false;
       }
+      if (this.disposed) return false;
       this.audio.src = this.options.audioUrl;
       this.audio.load();
       await waitForMedia(this.audio);
-      return true;
+      return !this.disposed;
     } catch {
       return false;
     }
@@ -97,14 +137,13 @@ export class LocalPerformanceController {
       if (requestId !== this.serial) {
         return;
       }
+      this.playbackStartedAt = performance.now();
       this.starting = false;
       this.active = true;
       this.updateUi();
+      void this.startAudioAnalysis(requestId);
       this.stopTimer = setTimeout(() => this.finish(), this.options.durationSeconds * 1000);
       await this.options.onStart();
-      if (requestId === this.serial) {
-        this.finish();
-      }
     } catch {
       if (requestId !== this.serial) {
         return;
@@ -114,6 +153,8 @@ export class LocalPerformanceController {
       this.active = false;
       this.clearStopTimer();
       this.audio.pause();
+      this.options.onAudioStop?.();
+      this.options.onCleanup?.();
       this.updateUi();
       await this.options.onStop().catch(() => undefined);
     }
@@ -121,7 +162,26 @@ export class LocalPerformanceController {
 
   private finish(): void {
     if (this.active || this.starting) {
-      this.stop(true);
+      this.serial += 1;
+      this.starting = false;
+      this.active = false;
+      this.clearStopTimer();
+      this.audio.pause();
+      this.options.onAudioStop?.();
+      this.options.onCleanup?.();
+      this.updateUi();
+      void this.restore(true, this.serial);
+    }
+  }
+
+  private async restore(completed: boolean, completionSerial: number): Promise<void> {
+    try {
+      await this.options.onStop();
+      if (completed && completionSerial === this.serial) await this.options.onComplete?.();
+    } catch {
+      this.options.onWarning(completed
+        ? "Không thể hoàn tất lời chào sau trình diễn."
+        : "Không thể khôi phục tư thế sau trình diễn.");
     }
   }
 
@@ -145,6 +205,58 @@ export class LocalPerformanceController {
       this.stopTimer = null;
     }
   }
+
+  private async startAudioAnalysis(requestId: number): Promise<void> {
+    try {
+      const analyser = await this.prepareAudioAnalysis(requestId);
+      if (analyser && requestId === this.serial && this.active) {
+        this.options.onAudioStart?.(analyser);
+      }
+    } catch {
+      // Lip sync is an enhancement. The media element must keep playing when
+      // AudioContext is unavailable, suspended, or blocked by autoplay policy.
+    }
+  }
+
+  private async prepareAudioAnalysis(requestId: number): Promise<AnalyserNode | null> {
+    if (!this.options.onAudioStart) return null;
+    this.audioContext ??= new AudioContext();
+    if (this.audioContext.state === "suspended") {
+      await resumeWithTimeout(this.audioContext, 500);
+    }
+    if (
+      this.disposed
+      || requestId !== this.serial
+      || !this.active
+      || this.audioContext.state !== "running"
+    ) {
+      return null;
+    }
+    this.audioSource ??= this.audioContext.createMediaElementSource(this.audio);
+    if (!this.analyser) {
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 1024;
+      this.audioSource.connect(this.analyser);
+      this.analyser.connect(this.audioContext.destination);
+    }
+    return this.analyser;
+  }
+}
+
+function resumeWithTimeout(audioContext: AudioContext, timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, timeoutMs);
+    void audioContext.resume().then(
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      () => {
+        clearTimeout(timer);
+        resolve();
+      }
+    );
+  });
 }
 
 function waitForMedia(audio: HTMLAudioElement): Promise<void> {

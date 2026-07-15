@@ -15,7 +15,7 @@ import { CharacterController } from "../character/CharacterController.js";
 import { ChatController } from "../chat/ChatController.js";
 import type { CompanionState } from "../chat/types.js";
 import { LocalPerformanceController } from "../performance/LocalPerformanceController.js";
-import { isAipaiPerformanceRequest } from "../performance/performanceIntent.js";
+import { classifyPerformanceIntent } from "../performance/performanceIntent.js";
 import { ApiClient, type MemoryRecord, type SessionSummary } from "../services/apiClient.js";
 import { UiPreferencesStore } from "../services/UiPreferences.js";
 import { CharacterStatus } from "../ui/CharacterStatus.js";
@@ -37,6 +37,21 @@ const aipaiDanceHall = {
   audioUrl: "/audio/music/Aipai-Dance-Hall.mp3",
   startSeconds: 0,
   durationSeconds: 32.7
+} as const;
+
+const companionSong = {
+  label: "Chạm Vào Bình Minh",
+  animationUrl: "/animations/Singing.vrma",
+  audioUrl: "/audio/music/Cham-Vao-Binh-Minh.mp3",
+  startSeconds: 0,
+  durationSeconds: 180
+} as const;
+
+const performanceSpeech = {
+  danceIntro: "Dạ, hiện tại em chỉ có thể nhảy bài Aipai Dance Hall, anh hãy thưởng thức nhé",
+  danceOutro: "Em nhảy xong rồi, anh thấy thế nào ạ",
+  singIntro: "Dạ, em sẽ hát tặng anh bài Chạm Vào Bình Minh, anh hãy lắng nghe nhé.",
+  singOutro: "Em hát xong rồi, anh thấy thế nào ạ"
 } as const;
 
 type ControlOption = CharacterRegistryItem | AnimationRegistryItem | BackgroundRegistryItem;
@@ -81,6 +96,7 @@ export class AppController {
   private readonly interactionVoice: InteractionVoice;
   private readonly performance: LocalPerformanceController;
   private readonly aipaiPerformance: LocalPerformanceController;
+  private readonly singingPerformance: LocalPerformanceController;
   private readonly preferences = new UiPreferencesStore();
   private readonly controls = required<HTMLElement>("#controls");
   private readonly chatMenu = required<HTMLElement>("#chat-menu");
@@ -93,7 +109,6 @@ export class AppController {
   private interactionGeneration = 0;
   private interactionCount = 0;
   private lastInteractionAt = 0;
-  private bubbleTimer: ReturnType<typeof setTimeout> | null = null;
   private helpReturnFocus: HTMLElement | null = null;
   private readonly helpInertedElements: HTMLElement[] = [];
   private ambientTimer: number | null = null;
@@ -211,6 +226,7 @@ export class AppController {
       onPrepare: () => this.character.preloadAnimationAsset(blingBangBangBorn.animationUrl),
       onStart: async () => {
         this.aipaiPerformance.stop(false);
+        this.singingPerformance.stop(false);
         this.invalidateDirectInteraction();
         document.body.classList.add("is-performing");
         this.showPerformanceLive(blingBangBangBorn.label);
@@ -232,6 +248,7 @@ export class AppController {
       onPrepare: () => this.character.preloadAnimationAsset(aipaiDanceHall.animationUrl),
       onStart: async () => {
         this.performance.stop(false);
+        this.singingPerformance.stop(false);
         this.invalidateDirectInteraction();
         document.body.classList.add("is-performing");
         this.showPerformanceLive(aipaiDanceHall.label);
@@ -240,6 +257,49 @@ export class AppController {
         await this.character.playAnimationAsset(aipaiDanceHall.animationUrl, { loop: false, fadeDuration: 0.08 });
       },
       onStop: () => this.restoreAfterPerformance(),
+      onComplete: async () => {
+        await this.chat.announceLocally(performanceSpeech.danceOutro);
+      },
+      onWarning: (message) => this.notify(message, "warning")
+    });
+
+    this.singingPerformance = new LocalPerformanceController({
+      label: companionSong.label,
+      button: required("#singing-performance"),
+      status: required("#singing-performance-status"),
+      audioUrl: companionSong.audioUrl,
+      startSeconds: companionSong.startSeconds,
+      durationSeconds: companionSong.durationSeconds,
+      onPrepare: () => this.character.preloadAnimationAsset(companionSong.animationUrl),
+      onStart: async () => {
+        this.performance.stop(false);
+        this.aipaiPerformance.stop(false);
+        this.invalidateDirectInteraction();
+        document.body.classList.add("is-performing", "has-performance-microphone");
+        this.showPerformanceLive(companionSong.label);
+        if (this.currentState !== "IDLE") await this.chat.stopSpeaking();
+        if (!this.character.showMicrophone()) {
+          this.notify("Nhân vật này chưa thể cầm micro đúng vị trí.", "warning");
+        }
+        this.setStatus("REACTING", `Đang hát ${companionSong.label}`);
+        await this.character.playAnimationAsset(companionSong.animationUrl, { loop: true, fadeDuration: 0.12 });
+      },
+      onAudioStart: (analyser) => {
+        this.character.attachLipSyncAnalyser(analyser);
+        this.character.startLipSync();
+      },
+      onAudioStop: () => {
+        this.character.stopLipSync();
+        this.character.attachLipSyncAnalyser(null);
+      },
+      onCleanup: () => {
+        this.character.hideMicrophone();
+        document.body.classList.remove("has-performance-microphone");
+      },
+      onStop: () => this.restoreAfterPerformance(),
+      onComplete: async () => {
+        await this.chat.announceLocally(performanceSpeech.singOutro);
+      },
       onWarning: (message) => this.notify(message, "warning")
     });
 
@@ -292,6 +352,9 @@ export class AppController {
     void this.aipaiPerformance.initialize().catch(() => {
       this.notify("Không chuẩn bị được Aipai Dance Hall.", "warning");
     });
+    void this.singingPerformance.initialize().catch(() => {
+      this.notify(`Không chuẩn bị được ${companionSong.label}.`, "warning");
+    });
 
     this.startAmbientMoments();
     this.syncStageComposition();
@@ -301,10 +364,12 @@ export class AppController {
     if (this.disposed) return;
     this.disposed = true;
     if (this.ambientTimer) window.clearTimeout(this.ambientTimer);
-    if (this.bubbleTimer) clearTimeout(this.bubbleTimer);
     this.interactionVoice.cancel();
     window.removeEventListener("resize", this.onLayoutResize);
     this.stopPerformances(false);
+    this.performance.dispose();
+    this.aipaiPerformance.dispose();
+    this.singingPerformance.dispose();
     this.character.dispose();
   }
 
@@ -391,7 +456,8 @@ export class AppController {
       this.updateCharacterIdentity();
       this.updateActiveButtons();
       this.setStatus("IDLE", `${this.currentCharacterLabel()} đã sẵn sàng`);
-      this.showBubble(`Xin chào, mình là ${this.currentCharacterLabel()} ✦`);
+      const greeting = `Xin chào, mình là ${this.currentCharacterLabel()} ✦`;
+      void this.interactionVoice.speak(greeting, this.voiceControls.value);
     } catch {
       this.notify("Không thể mở nhân vật này. Nhân vật trước đó vẫn được giữ nguyên.", "error");
       this.setStatus("IDLE", "Sẵn sàng");
@@ -481,13 +547,18 @@ export class AppController {
 
   private async handleChatMessage(message: string): Promise<void> {
     this.setMenuOpen(false);
-    if (!isAipaiPerformanceRequest(message)) {
+    const intent = classifyPerformanceIntent(message);
+    if (!intent) {
       await this.chat.send(message);
       return;
     }
 
-    const ready = await this.chat.respondLocally(message, "Dạ, để mình biểu diễn cho bạn nhé!");
-    if (ready) this.aipaiPerformance.start();
+    const intro = intent === "dance" ? performanceSpeech.danceIntro : performanceSpeech.singIntro;
+    const performance = intent === "dance" ? this.aipaiPerformance : this.singingPerformance;
+    const ready = await this.chat.respondLocally(message, intro);
+    if (ready && !performance.start()) {
+      await this.chat.stopSpeaking();
+    }
   }
 
   private initControlTabs(): void {
@@ -1175,7 +1246,6 @@ export class AppController {
     const bubble = animationId === "wave"
       ? `Chào bạn! ${this.currentCharacterLabel()} đang lắng nghe đây.`
       : interaction.bubble;
-    this.showBubble(bubble);
     void this.interactionVoice.speak(bubble, this.voiceControls.value);
     this.setStatus("REACTING", interaction.status);
     await this.character.playAnimation(animationId, { loop: false, maxDurationMs: 4_000 }).catch(() => undefined);
@@ -1184,17 +1254,6 @@ export class AppController {
     if (!this.ownsDirectInteraction(generation)) return;
     this.setStatus("IDLE", "Sẵn sàng");
     this.interactionBusy = false;
-  }
-
-  private showBubble(message: string): void {
-    const bubble = required<HTMLElement>("#stage-dialogue");
-    if (this.bubbleTimer) clearTimeout(this.bubbleTimer);
-    bubble.textContent = message;
-    bubble.hidden = false;
-    this.bubbleTimer = setTimeout(() => {
-      bubble.hidden = true;
-      this.bubbleTimer = null;
-    }, 3_600);
   }
 
   private startAmbientMoments(): void {
@@ -1236,8 +1295,11 @@ export class AppController {
   private stopPerformances(restoreIdle: boolean): void {
     this.performance.stop(restoreIdle);
     this.aipaiPerformance.stop(restoreIdle);
+    this.singingPerformance.stop(restoreIdle);
     if (!restoreIdle) {
       document.body.classList.remove("is-performing");
+      document.body.classList.remove("has-performance-microphone");
+      this.character.hideMicrophone();
       required<HTMLElement>("#performance-live").hidden = true;
       this.setPerformanceUiLocked(false);
     }
@@ -1245,6 +1307,8 @@ export class AppController {
 
   private async restoreAfterPerformance(): Promise<void> {
     document.body.classList.remove("is-performing");
+    document.body.classList.remove("has-performance-microphone");
+    this.character.hideMicrophone();
     required<HTMLElement>("#performance-live").hidden = true;
     this.setPerformanceUiLocked(false);
     const generation = this.beginDirectInteraction();
@@ -1283,8 +1347,6 @@ export class AppController {
     this.interactionGeneration += 1;
     this.interactionBusy = false;
     this.interactionVoice.cancel();
-    const bubble = document.querySelector<HTMLElement>("#stage-dialogue");
-    if (bubble) bubble.hidden = true;
   }
 
   private notify(message: string, variant: ToastVariant = "info"): void {

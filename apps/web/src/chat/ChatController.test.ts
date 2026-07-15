@@ -178,6 +178,27 @@ describe("ChatController context consistency", () => {
     expect(harness.events.onWarning).not.toHaveBeenCalledWith("Đã tắt giọng nói.");
     expect(harness.tts.synthesize).not.toHaveBeenCalled();
   });
+
+  it("renders and speaks a performance outro without inventing a user message", async () => {
+    const harness = createHarness({ voiceEnabled: true });
+    harness.controller.setReady();
+
+    await expect(harness.controller.announceLocally("Em hát xong rồi, anh thấy thế nào ạ")).resolves.toBe(true);
+
+    expect(harness.events.onUserMessage).not.toHaveBeenCalled();
+    expect(harness.events.onAssistantMessage).toHaveBeenCalledWith(expect.objectContaining({
+      role: "assistant",
+      content: "Em hát xong rồi, anh thấy thế nào ạ",
+      animation: "gentle-gesture"
+    }));
+    expect(harness.tts.synthesize).toHaveBeenCalledWith(
+      "Em hát xong rồi, anh thấy thế nào ạ",
+      expect.any(Object),
+      expect.any(AbortSignal),
+      expect.any(Number)
+    );
+    expect(harness.controller.states.state).toBe("IDLE");
+  });
 });
 
 function createHarness(options: {
