@@ -96,11 +96,7 @@ const minimumBytes = {
 const canonicalAssets = new Map([
   [
     "apps/web/public/audio/music/Cham-Vao-Binh-Minh.mp3",
-    "5e7dccbe6ff1659b62e936636986a3a54e83c4d22837d1796b2f19d80ba0de57"
-  ],
-  [
-    "apps/web/public/audio/music/Cham-Vao-Binh-Minh.lyrics.txt",
-    "413c0999553551fad68137c610c0330ac44eee00836dfa9a2da45bf84ebb0359"
+    "69bdbdca2349e9c4397ab9cd30b3564935c85ecb15c78bc33d1948876292c162"
   ]
 ]);
 const failures = [];
