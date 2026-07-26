@@ -41,6 +41,17 @@ body {
   color: var(--ink);
 }
 
+body.has-performance-microphone {
+  /*
+   * Replace the room image for the whole viewport while singing. The Three.js
+   * stage remains transparent around its geometry, so this prevents the old
+   * room from showing through at wide aspect ratios or after camera rotation.
+   */
+  --room-background:
+    radial-gradient(circle at 50% 32%, rgba(86, 55, 170, 0.82) 0%, rgba(19, 21, 58, 0.96) 44%, #07091a 100%),
+    linear-gradient(180deg, #121334 0%, #070817 100%);
+}
+
 body::before {
   position: fixed;
   inset: 0;
@@ -1070,8 +1081,7 @@ body.is-focus-mode #help-toggle {
 
 body.is-performing .control-panel,
 body.is-performing .chat-panel {
-  opacity: 0.12;
-  pointer-events: none;
+  display: none;
 }
 
 @keyframes spin {

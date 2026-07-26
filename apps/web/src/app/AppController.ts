@@ -275,6 +275,7 @@ export class AppController {
         this.aipaiPerformance.stop(false);
         this.invalidateDirectInteraction();
         document.body.classList.add("is-performing", "has-performance-microphone");
+        this.character.showSingingStage();
         this.showPerformanceLive(companionSong.label);
         if (this.currentState !== "IDLE") await this.chat.stopSpeaking();
         if (!this.character.showMicrophone()) {
@@ -293,6 +294,7 @@ export class AppController {
       },
       onCleanup: () => {
         this.character.hideMicrophone();
+        this.character.hideSingingStage();
         document.body.classList.remove("has-performance-microphone");
       },
       onStop: () => this.restoreAfterPerformance(),
