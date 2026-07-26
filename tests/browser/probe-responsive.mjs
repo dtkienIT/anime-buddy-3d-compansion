@@ -44,19 +44,12 @@ try {
   ]) {
     await page.setViewportSize(viewport);
     await page.waitForTimeout(250);
-    if (viewport.width >= 760 && viewport.width <= 1099) {
-      await page.waitForFunction(() => window.getComputedStyle(document.querySelector(".stage-toolbar")).transform === "none", null, {
-        timeout: 2_000
-      });
-    }
     await setStudioOpen(page, false);
     await setChatExpanded(page, true);
 
     const metrics = await collectMetrics(page);
     assertWithinViewport(viewport.name, "chat", metrics.chat, viewport);
     assertWithinViewport(viewport.name, "app bar", metrics.appBar, viewport);
-    assertWithinViewport(viewport.name, "stage toolbar", metrics.stageToolbar, viewport, 2);
-
     if (metrics.chatHeader.top < metrics.chat.top - 1) {
       throw new Error(`${viewport.name}: chat header is outside the chat panel`);
     }
@@ -217,11 +210,9 @@ async function collectMetrics(pageInstance) {
       chatContent: rect("#chat-content"),
       chatForm: rect("#chat-form"),
       controls: rect("#controls"),
-      stageToolbar: rect(".stage-toolbar"),
       chatInputFontSize: window.getComputedStyle(document.querySelector("#chat-input")).fontSize,
       touchTargets: [
         "#studio-toggle", "#focus-toggle", "#help-toggle",
-        "#camera-zoom-out", "#camera-reset", "#camera-zoom-in", "#stage-wave", "#interaction-menu-toggle", "#fullscreen-toggle",
         "#voice-toggle", "#toggle-menu", "#collapse-chat", "#record-message", "#chat-send",
         ".prompt-grid button"
       ].map((selector) => ({ selector, ...rect(selector) })),

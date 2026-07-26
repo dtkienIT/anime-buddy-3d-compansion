@@ -103,7 +103,6 @@ export class AppController {
   private currentState: CompanionState = "BOOTING";
   private menuOpen = false;
   private focusMode = false;
-  private interactionMenuOpen = false;
   private chatCollapsedBeforeStudio: boolean | null = null;
   private interactionBusy = false;
   private interactionGeneration = 0;
@@ -525,11 +524,8 @@ export class AppController {
     setText("#welcome-title", `Đây là không gian của bạn và ${name}`);
     setText("#welcome-copy", `Kéo để đổi góc nhìn, chạm ${name} để nhận phản hồi hoặc bắt đầu một cuộc trò chuyện thật tự nhiên.`);
     setText("#help-touch-copy", `Chạm trực tiếp vào ${name} khi bạn muốn tương tác nhanh.`);
-    setText("#stage-hint", `Kéo để xoay · cuộn để zoom · chạm vào ${name} để tương tác`);
     const input = required<HTMLTextAreaElement>("#chat-input");
     input.placeholder = `Nhắn điều gì đó cho ${name}…`;
-    const wave = required<HTMLButtonElement>("#stage-wave");
-    wave.title = `Chào ${name}`;
   }
 
   private currentCharacterLabel(): string {
@@ -953,50 +949,7 @@ export class AppController {
     });
     required<HTMLElement>("#help-dialog").addEventListener("keydown", (event) => this.trapHelpFocus(event));
 
-    required<HTMLButtonElement>("#camera-reset").addEventListener("click", () => this.resetCamera());
-    required<HTMLButtonElement>("#camera-zoom-in").addEventListener("click", () => this.character.zoomBy(0.12));
-    required<HTMLButtonElement>("#camera-zoom-out").addEventListener("click", () => this.character.zoomBy(-0.12));
-    required<HTMLButtonElement>("#stage-wave").addEventListener("click", () => void this.handleCharacterInteraction("wave"));
-    required<HTMLButtonElement>("#interaction-menu-toggle").addEventListener("click", () => {
-      this.setInteractionMenuOpen(!this.interactionMenuOpen);
-    });
-    document.querySelectorAll<HTMLButtonElement>("#interaction-menu [data-interaction-id]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const interactionId = button.dataset.interactionId as DirectInteractionId | undefined;
-        this.setInteractionMenuOpen(false);
-        if (interactionId && interactionId in directInteractions) void this.handleCharacterInteraction(interactionId);
-      });
-    });
-    required<HTMLElement>("#interaction-menu").addEventListener("keydown", (event) => {
-      const items = [...document.querySelectorAll<HTMLButtonElement>("#interaction-menu [role='menuitem']")];
-      const currentIndex = Math.max(0, items.indexOf(document.activeElement as HTMLButtonElement));
-      let nextIndex: number | null = null;
-      if (event.key === "ArrowDown" || event.key === "ArrowRight") nextIndex = (currentIndex + 1) % items.length;
-      else if (event.key === "ArrowUp" || event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + items.length) % items.length;
-      else if (event.key === "Home") nextIndex = 0;
-      else if (event.key === "End") nextIndex = items.length - 1;
-      else if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        this.setInteractionMenuOpen(false, true);
-        return;
-      }
-      if (nextIndex !== null) {
-        event.preventDefault();
-        items[nextIndex]?.focus();
-      }
-    });
-    document.addEventListener("pointerdown", (event) => {
-      if (!this.interactionMenuOpen) return;
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const menu = required<HTMLElement>("#interaction-menu");
-      const toggle = required<HTMLButtonElement>("#interaction-menu-toggle");
-      if (!menu.contains(target) && !toggle.contains(target)) this.setInteractionMenuOpen(false);
-    });
-    required<HTMLButtonElement>("#fullscreen-toggle").addEventListener("click", () => void this.toggleFullscreen());
     required<HTMLButtonElement>("#stop-performance-live").addEventListener("click", () => this.stopPerformances(true));
-    document.addEventListener("fullscreenchange", () => this.updateFullscreenButton());
 
     required<HTMLButtonElement>("#welcome-dismiss").addEventListener("click", () => this.dismissWelcome());
     required<HTMLButtonElement>("#welcome-start").addEventListener("click", () => {
@@ -1052,7 +1005,6 @@ export class AppController {
     toggle.setAttribute("aria-expanded", String(open));
     toggle.classList.toggle("is-active", open);
     if (persist) this.preferences.update({ controlsOpen: open });
-    this.setInteractionMenuOpen(false);
     this.syncStageComposition();
   }
 
@@ -1066,7 +1018,6 @@ export class AppController {
     toggle.setAttribute("aria-pressed", String(active));
     toggle.title = active ? "Thoát chế độ tập trung (F)" : "Chế độ tập trung (F)";
     if (active) {
-      this.setInteractionMenuOpen(false);
       this.setControlsOpen(false, false);
       this.setMenuOpen(false);
       this.dismissWelcome(false);
@@ -1152,39 +1103,6 @@ export class AppController {
     if (persist) this.preferences.update({ welcomeSeen: true });
   }
 
-  private async toggleFullscreen(): Promise<void> {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
-    } catch {
-      this.notify("Trình duyệt chưa cho phép mở toàn màn hình.", "warning");
-    }
-  }
-
-  private updateFullscreenButton(): void {
-    const button = required<HTMLButtonElement>("#fullscreen-toggle");
-    const active = Boolean(document.fullscreenElement);
-    button.setAttribute("aria-label", active ? "Thoát toàn màn hình" : "Toàn màn hình");
-    button.title = active ? "Thoát toàn màn hình" : "Toàn màn hình";
-    const icon = button.querySelector("span");
-    if (icon) icon.textContent = active ? "⤢" : "⛶";
-  }
-
-  private setInteractionMenuOpen(open: boolean, restoreFocus = false): void {
-    if (open && (this.focusMode || document.body.classList.contains("is-performing"))) return;
-    this.interactionMenuOpen = open;
-    const menu = required<HTMLElement>("#interaction-menu");
-    const toggle = required<HTMLButtonElement>("#interaction-menu-toggle");
-    menu.hidden = !open;
-    toggle.setAttribute("aria-expanded", String(open));
-    toggle.classList.toggle("is-active", open);
-    if (open) {
-      requestAnimationFrame(() => menu.querySelector<HTMLButtonElement>("button")?.focus());
-    } else if (restoreFocus) {
-      toggle.focus();
-    }
-  }
-
   private syncStageComposition(): void {
     let composition: "center" | "left" | "right" = "center";
     if (window.innerWidth >= 760 && window.innerWidth < 1100) {
@@ -1208,7 +1126,6 @@ export class AppController {
     if (event.key === "Escape") {
       if (document.body.classList.contains("is-performing")) this.stopPerformances(true);
       else if (!help.hidden) this.closeHelp();
-      else if (this.interactionMenuOpen) this.setInteractionMenuOpen(false, true);
       else if (this.controls.classList.contains("is-open")) this.setControlsOpen(false);
       else if (this.menuOpen) this.setMenuOpen(false);
       else if (this.focusMode) this.setFocusMode(false);
@@ -1239,7 +1156,6 @@ export class AppController {
     const now = performance.now();
     if (this.currentState !== "IDLE" || this.interactionBusy || now - this.lastInteractionAt < 900 || document.body.classList.contains("is-performing")) return;
     this.lastInteractionAt = now;
-    this.setInteractionMenuOpen(false);
     const generation = this.beginDirectInteraction();
     const animationId = forcedAnimation ?? directInteractionCycle[this.interactionCount++ % directInteractionCycle.length];
     const interaction = directInteractions[animationId];
@@ -1326,10 +1242,8 @@ export class AppController {
   }
 
   private setPerformanceUiLocked(locked: boolean): void {
-    if (locked) this.setInteractionMenuOpen(false);
     this.controls.inert = locked || !this.controls.classList.contains("is-open") || this.focusMode;
     required<HTMLElement>("#chat-panel").inert = locked || this.focusMode;
-    required<HTMLElement>(".stage-toolbar").inert = locked;
     required<HTMLButtonElement>("#studio-toggle").disabled = locked;
     required<HTMLButtonElement>("#help-toggle").disabled = locked;
   }

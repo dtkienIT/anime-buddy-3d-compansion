@@ -6,38 +6,6 @@
   .chat-panel {
     width: 440px;
   }
-
-  .stage-toolbar {
-    left: calc((100vw - 458px) / 2);
-  }
-}
-
-@media (min-width: 1100px) and (max-width: 1499px) {
-  .stage-toolbar {
-    left: calc((100vw - 438px) / 2);
-  }
-}
-
-@media (min-width: 760px) and (max-width: 1099px) {
-  .stage-toolbar .stage-tool-wide {
-    width: 44px;
-    min-width: 44px;
-    padding-inline: 0;
-  }
-
-  .stage-toolbar .stage-tool-wide span:last-child {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-  }
-}
-
-body.is-focus-mode .stage-toolbar {
-  left: 50%;
 }
 
 @media (max-width: 1099px) {
@@ -60,27 +28,6 @@ body.is-focus-mode .stage-toolbar {
     bottom: max(12px, env(safe-area-inset-bottom));
     left: max(12px, env(safe-area-inset-left));
     width: min(340px, calc(100vw - 24px));
-  }
-
-  .stage-toolbar {
-    right: auto;
-    bottom: max(18px, env(safe-area-inset-bottom));
-    left: max(18px, env(safe-area-inset-left));
-    transform: none;
-  }
-
-  .stage-hint {
-    bottom: calc(max(18px, env(safe-area-inset-bottom)) + 58px);
-    left: max(18px, env(safe-area-inset-left));
-    transform: none;
-  }
-
-  body:has(.chat-panel.is-collapsed) .stage-toolbar {
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
-  }
-
-  body:has(.chat-panel.is-collapsed) .stage-hint {
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 132px);
   }
 }
 
@@ -346,35 +293,6 @@ body.is-focus-mode .stage-toolbar {
   .chat-menu {
     padding: 10px;
   }
-
-  .stage-toolbar {
-    right: auto;
-    bottom: calc(min(48svh, 430px) + max(18px, env(safe-area-inset-bottom)));
-    left: 50%;
-    max-width: calc(100vw - 16px);
-    transform: translateX(-50%);
-    border-radius: 16px;
-    padding: 5px;
-  }
-
-  .stage-tool {
-    min-width: 44px;
-    height: 44px;
-    padding: 0 8px;
-  }
-
-  .stage-tool-wide {
-    font-size: 10px;
-  }
-
-  .stage-hint {
-    display: none;
-  }
-
-  body:has(.chat-panel.is-collapsed) .stage-toolbar {
-    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 72px);
-  }
-
   .stage-busy {
     top: calc(max(8px, env(safe-area-inset-top)) + var(--app-bar-height) + 10px);
   }
@@ -392,12 +310,6 @@ body.is-focus-mode .stage-toolbar {
     width: calc(100vw - 16px);
     padding: 16px;
   }
-
-  body:has(.welcome-card:not([hidden])) .stage-toolbar {
-    opacity: 0;
-    pointer-events: none;
-  }
-
   .welcome-card h2,
   .help-card h2 {
     font-size: 18px;
@@ -444,18 +356,6 @@ body.is-focus-mode .stage-toolbar {
     min-width: 46px;
     font-size: 16px;
   }
-
-  .stage-tool-wide span:last-child {
-    display: none;
-  }
-
-  .stage-tool-wide {
-    min-width: 44px;
-  }
-
-  .stage-tool-divider {
-    margin-inline: 0;
-  }
 }
 
 @media (max-width: 340px) {
@@ -489,25 +389,12 @@ body.is-focus-mode .stage-toolbar {
     padding-block: 0;
     visibility: hidden;
   }
-
-  .stage-toolbar {
-    bottom: max(14px, env(safe-area-inset-bottom));
-  }
-
-  .stage-hint {
-    display: none;
-  }
 }
 
 @media (max-height: 650px) and (max-width: 759px) {
   .chat-panel:not(.is-collapsed) {
     height: clamp(225px, 54svh, 295px);
   }
-
-  .stage-toolbar {
-    bottom: calc(clamp(225px, 54svh, 295px) + max(14px, env(safe-area-inset-bottom)));
-  }
-
   .chat-empty p {
     display: none;
   }

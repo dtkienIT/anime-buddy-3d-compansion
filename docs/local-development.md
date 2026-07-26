@@ -47,7 +47,6 @@ supabase db push
 
 ```powershell
 npm install
-uv sync --project apps/tts
 ```
 
 VieNeu-TTS package/model setup, if available for your Python runtime:
@@ -58,17 +57,36 @@ uv sync --project apps/tts --extra vieneu
 
 ## Run
 
+When `apps/tts/.venv` already exists, open three PowerShell terminals at the
+repository root.
+
+Terminal 1 - AI/TTS:
+
 ```powershell
-npm run dev
+.\apps\tts\.venv\Scripts\python.exe -m uvicorn --app-dir apps/tts app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Or run services separately:
+Terminal 2 - API:
+
+```powershell
+npm run dev:api
+```
+
+Terminal 3 - Web:
 
 ```powershell
 npm run dev:web
-npm run dev:api
-npm run dev:tts
 ```
+
+If `uv` is installed and available on `PATH`, install/sync the TTS environment
+and run all services in one terminal:
+
+```powershell
+uv sync --project apps/tts
+npm run dev
+```
+
+`npm run dev:tts` requires the `uv` command to be available on `PATH`.
 
 ## Verify
 

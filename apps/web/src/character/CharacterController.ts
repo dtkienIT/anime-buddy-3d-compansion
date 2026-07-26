@@ -44,8 +44,12 @@ interface MicrophoneRig {
   root: THREE.Group;
   hand: THREE.Object3D;
   head: THREE.Object3D;
-  glow: THREE.MeshStandardMaterial;
-  ring: THREE.Mesh;
+  handle: THREE.Mesh;
+  grille: THREE.Mesh;
+  collar: THREE.Mesh;
+  initialized: boolean;
+  lastUpdateTime: number;
+  length: number;
 }
 
 export class CharacterController {
@@ -67,7 +71,9 @@ export class CharacterController {
   private readonly microphoneHandPosition = new THREE.Vector3();
   private readonly microphoneMouthPosition = new THREE.Vector3();
   private readonly microphoneDirection = new THREE.Vector3();
+  private readonly microphoneTargetPosition = new THREE.Vector3();
   private readonly microphoneUp = new THREE.Vector3(0, 1, 0);
+  private readonly microphoneTargetQuaternion = new THREE.Quaternion();
   private currentVrm: VrmInstance | null = null;
   private modelRoot: THREE.Group | null = null;
   private microphone: MicrophoneRig | null = null;
@@ -336,36 +342,41 @@ export class CharacterController {
     root.renderOrder = 3;
 
     const handleMaterial = new THREE.MeshStandardMaterial({
-      color: 0x31384d,
-      emissive: 0x111529,
-      emissiveIntensity: 0.35,
-      metalness: 0.72,
-      roughness: 0.28
+      color: 0x17191f,
+      emissive: 0x08090d,
+      emissiveIntensity: 0.18,
+      metalness: 0.62,
+      roughness: 0.32,
+      depthTest: false,
+      depthWrite: false
     });
     const grilleMaterial = new THREE.MeshStandardMaterial({
-      color: 0x343b4d,
-      emissive: 0x101522,
-      emissiveIntensity: 0.22,
-      metalness: 0.84,
-      roughness: 0.34
+      color: 0xaeb5c0,
+      emissive: 0x151820,
+      emissiveIntensity: 0.14,
+      metalness: 0.78,
+      roughness: 0.38,
+      depthTest: false,
+      depthWrite: false
     });
-    const glow = new THREE.MeshStandardMaterial({
-      color: 0xff7896,
-      emissive: 0xff4f78,
-      emissiveIntensity: 0.8,
-      metalness: 0.3,
-      roughness: 0.24
+    const collarMaterial = new THREE.MeshStandardMaterial({
+      color: 0x323640,
+      metalness: 0.82,
+      roughness: 0.28,
+      depthTest: false,
+      depthWrite: false
     });
 
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.019, 0.16, 20), handleMaterial);
-    handle.position.y = 0.08;
-    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.034, 24, 16), grilleMaterial);
-    grille.position.y = 0.178;
-    grille.scale.y = 0.84;
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.029, 0.005, 10, 28), glow);
-    ring.position.y = 0.148;
-    ring.rotation.x = Math.PI / 2;
-    root.add(handle, grille, ring);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.018, 0.2, 24), handleMaterial);
+    handle.position.y = 0.1;
+    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.028, 28, 20), grilleMaterial);
+    grille.position.y = 0.225;
+    grille.scale.y = 1.18;
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.018, 0.018, 24), collarMaterial);
+    collar.position.y = 0.194;
+    const endCap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.013, 0.012, 20), collarMaterial);
+    endCap.position.y = -0.006;
+    root.add(handle, grille, collar, endCap);
     root.traverse((node: any) => {
       if (node.isMesh) {
         node.castShadow = true;
@@ -374,7 +385,17 @@ export class CharacterController {
       }
     });
     this.scene.add(root);
-    this.microphone = { root, hand, head, glow, ring };
+    this.microphone = {
+      root,
+      hand,
+      head,
+      handle,
+      grille,
+      collar,
+      initialized: false,
+      lastUpdateTime: this.clock.elapsedTime,
+      length: 0.225
+    };
     this.updateMicrophone(this.clock.elapsedTime);
     return true;
   }
@@ -712,22 +733,47 @@ export class CharacterController {
 
     const handPosition = this.microphoneHandPosition;
     const mouthPosition = this.microphoneMouthPosition;
-    microphone.hand.getWorldPosition(handPosition);
-    microphone.head.getWorldPosition(mouthPosition);
-    // VRM head bones sit near the base of the skull. Lift toward the mouth and
-    // pull the prop slightly toward the camera so clothing cannot occlude it.
-    mouthPosition.y -= 0.005;
-    mouthPosition.z += 0.12;
+    // The normalized hand origin is at the wrist. Move the grip slightly
+    // toward the palm and toward the camera so the microphone stays visible
+    // instead of disappearing behind the forearm.
+    handPosition.set(0, -0.024, 0.052);
+    microphone.hand.localToWorld(handPosition);
+    // Use a head-local target so the microphone follows head turns while
+    // remaining just below and beside the lips instead of covering the face.
+    mouthPosition.set(0.028, 0.025, 0.18);
+    microphone.head.localToWorld(mouthPosition);
     const direction = this.microphoneDirection.subVectors(mouthPosition, handPosition);
-    if (direction.lengthSq() < 1e-6) direction.set(0, 1, 0);
+    const handToMouthDistance = direction.length();
+    if (handToMouthDistance < 1e-3) direction.set(0, 1, 0);
     direction.normalize();
 
-    microphone.root.position.copy(mouthPosition).addScaledVector(direction, -0.178);
-    microphone.root.quaternion.setFromUnitVectors(this.microphoneUp, direction);
-    const pulse = this.reducedMotion ? 0.5 : 0.5 + 0.5 * Math.sin(time * 7.5);
-    const ringScale = 1 + pulse * 0.1;
-    microphone.ring.scale.setScalar(ringScale);
-    microphone.glow.emissiveIntensity = 0.55 + pulse * 0.9;
+    const gripOffset = 0.045;
+    const targetLength = THREE.MathUtils.clamp(handToMouthDistance + gripOffset, 0.19, 0.36);
+    this.microphoneTargetPosition.copy(handPosition).addScaledVector(direction, -gripOffset);
+    // Keep the prop just in front of the animated hand/face depth plane.
+    this.microphoneTargetPosition.z += 0.028;
+    this.microphoneTargetQuaternion.setFromUnitVectors(this.microphoneUp, direction);
+
+    let smoothing = 1;
+    if (!microphone.initialized) {
+      microphone.root.position.copy(this.microphoneTargetPosition);
+      microphone.root.quaternion.copy(this.microphoneTargetQuaternion);
+      microphone.length = targetLength;
+      microphone.initialized = true;
+    } else {
+      const deltaSeconds = Math.min(0.05, Math.max(0, time - microphone.lastUpdateTime));
+      smoothing = this.reducedMotion ? 1 : 1 - Math.exp(-deltaSeconds * 14);
+      microphone.root.position.lerp(this.microphoneTargetPosition, smoothing);
+      microphone.root.quaternion.slerp(this.microphoneTargetQuaternion, smoothing);
+      microphone.length = THREE.MathUtils.lerp(microphone.length, targetLength, smoothing);
+    }
+
+    const handleLength = Math.max(0.12, microphone.length - 0.032);
+    microphone.handle.position.y = handleLength / 2;
+    microphone.handle.scale.y = handleLength / 0.2;
+    microphone.collar.position.y = microphone.length - 0.031;
+    microphone.grille.position.y = microphone.length;
+    microphone.lastUpdateTime = time;
   }
 
   private applyDefaultFraming(resetZoom: boolean): void {

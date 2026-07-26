@@ -8,7 +8,7 @@ The current frontend is designed around the character instead of treating the Th
 
 - Responsive stage, chat dock, and Companion Studio layouts for mobile, tablet, desktop, and short screens.
 - First-visit onboarding, contextual help, empty-state prompts, loading progress, network status, and non-blocking toasts.
-- Camera zoom/reset/fullscreen controls, focus mode, animation search, character/background cards, a semantic quick-interaction palette, and two local music performances.
+- Direct camera gestures, focus mode, animation search, character/background cards, direct companion interaction, and two local music performances.
 - Direct character interaction: pointer/touch hit testing, gaze following, natural blinking, wave/nod/gentle/curious responses, speech bubbles, and quiet ambient moments.
 - Accessible tabs and controls with keyboard focus states, ARIA state, screen-reader status updates, reduced-motion support, and IME-safe chat input.
 - Conversation search, rename, delete, export, replay, quick new chat, and long-term-memory view/edit/delete controls.
@@ -56,8 +56,27 @@ Create `.env` from `.env.example`, then fill backend-only secrets:
 ```powershell
 Copy-Item .env.example .env
 npm install
-uv sync --project apps/tts
-npm run dev
+```
+
+If `apps/tts/.venv` already exists, run the full project in three PowerShell
+terminals from the repository root:
+
+Terminal 1 - AI/TTS:
+
+```powershell
+.\apps\tts\.venv\Scripts\python.exe -m uvicorn --app-dir apps/tts app.main:app --host 127.0.0.1 --port 8000
+```
+
+Terminal 2 - API:
+
+```powershell
+npm run dev:api
+```
+
+Terminal 3 - Web:
+
+```powershell
+npm run dev:web
 ```
 
 Open `http://127.0.0.1:3001/`.
@@ -68,7 +87,15 @@ Services:
 - API: `http://127.0.0.1:3002`
 - TTS: `http://127.0.0.1:8000`
 
-Run services separately with `npm run dev:web`, `npm run dev:api`, and `npm run dev:tts`.
+If `uv` is installed and available on `PATH`, install/sync the TTS environment
+and start all three services in one terminal:
+
+```powershell
+uv sync --project apps/tts
+npm run dev
+```
+
+`npm run dev:tts` also requires the `uv` command to be available on `PATH`.
 
 ## Verification
 

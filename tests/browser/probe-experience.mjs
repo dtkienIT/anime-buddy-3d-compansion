@@ -102,28 +102,6 @@ try {
     ), null, { timeout: 10_000 });
   });
 
-  await check("quick interaction menu offers semantic companion reactions", async () => {
-    const toggle = page.locator("#interaction-menu-toggle");
-    await toggle.click();
-    if (await toggle.getAttribute("aria-expanded") !== "true") {
-      throw new Error("interaction menu did not expose its expanded state");
-    }
-    const items = page.locator("#interaction-menu [data-interaction-id]");
-    if (await items.count() < 4) throw new Error("interaction menu is missing semantic reactions");
-    await page.waitForFunction(() => document.activeElement?.getAttribute("data-interaction-id") === "wave");
-    await page.keyboard.press("ArrowDown");
-    if (await page.evaluate(() => document.activeElement?.getAttribute("data-interaction-id")) !== "nod") {
-      throw new Error("interaction menu did not support arrow-key navigation");
-    }
-    await page.keyboard.press("End");
-    await page.keyboard.press("Enter");
-    await page.locator("#state-pill[data-state='REACTING']").waitFor({ timeout: 5_000 });
-    await page.locator("#state-pill[data-state='IDLE']").waitFor({ timeout: 10_000 });
-    if (await toggle.getAttribute("aria-expanded") !== "false") {
-      throw new Error("interaction menu stayed open after choosing a reaction");
-    }
-  });
-
   await check("experience setting applies and persists reduced motion", async () => {
     await page.locator("#toggle-menu").click();
     await page.locator("#tab-experience-btn").click();
@@ -156,17 +134,6 @@ try {
       && document.querySelector("#performance-live")?.hidden === true
       && document.querySelector("#state-pill")?.getAttribute("data-state") === "IDLE"
     ), null, { timeout: 15_000 });
-  });
-
-  await check("stage actions remain keyboard-accessible", async () => {
-    for (const selector of ["#camera-zoom-out", "#camera-reset", "#camera-zoom-in", "#stage-wave"]) {
-      const button = page.locator(selector);
-      await button.focus();
-      await page.keyboard.press("Enter");
-    }
-    if (await page.locator("#stage-wave").getAttribute("type") !== "button") {
-      throw new Error("stage wave action can submit an unrelated form");
-    }
   });
 
   await check("studio drawer supports explicit open and close", async () => {

@@ -691,132 +691,6 @@ button:disabled {
   opacity: 0.52;
 }
 
-.stage-toolbar {
-  position: fixed;
-  bottom: max(22px, env(safe-area-inset-bottom));
-  left: 50%;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transform: translateX(-50%);
-  border: 1px solid rgba(255, 255, 255, 0.68);
-  border-radius: 18px;
-  padding: 6px;
-  background: rgba(255, 253, 250, 0.78);
-  box-shadow: var(--shadow-float);
-  backdrop-filter: blur(20px) saturate(1.1);
-  transition: opacity 200ms ease, transform 200ms ease;
-}
-
-.stage-tool {
-  min-width: 42px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 0;
-  border-radius: 12px;
-  padding: 0 10px;
-  background: transparent;
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 850;
-}
-
-.stage-tool-wide {
-  font-size: 11px;
-}
-
-.stage-tool:hover {
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--accent-deep);
-}
-
-.stage-tool[aria-expanded="true"] {
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-}
-
-.stage-tool-divider {
-  width: 1px;
-  height: 24px;
-  margin: 0 2px;
-  background: var(--line);
-}
-
-.interaction-menu {
-  position: absolute;
-  bottom: calc(100% + 9px);
-  left: 50%;
-  width: min(286px, calc(100vw - 24px));
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  transform: translateX(-50%);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 17px;
-  padding: 7px;
-  background: rgba(255, 253, 250, 0.94);
-  box-shadow: var(--shadow-float);
-  backdrop-filter: blur(20px) saturate(1.12);
-}
-
-.interaction-menu button {
-  min-width: 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 0 10px;
-  background: rgba(255, 255, 255, 0.68);
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 820;
-}
-
-.interaction-menu button:hover,
-.interaction-menu button:focus-visible {
-  border-color: rgba(103, 87, 217, 0.32);
-  background: var(--accent-soft);
-  color: var(--accent-deep);
-}
-
-.interaction-menu button > span:first-child {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 25px;
-  height: 25px;
-  border-radius: 9px;
-  background: rgba(103, 87, 217, 0.1);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.stage-hint {
-  position: fixed;
-  bottom: calc(max(22px, env(safe-area-inset-bottom)) + 60px);
-  left: 50%;
-  z-index: 8;
-  margin: 0;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  padding: 7px 11px;
-  background: rgba(36, 31, 49, 0.58);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.02em;
-  pointer-events: none;
-  transition: opacity 240ms ease;
-}
-
 .stage-busy {
   position: fixed;
   top: calc(max(14px, env(safe-area-inset-top)) + var(--app-bar-height) + 18px);
@@ -1176,8 +1050,7 @@ body.is-error #loader {
 
 body.is-focus-mode .control-panel,
 body.is-focus-mode .chat-panel,
-body.is-focus-mode .welcome-card,
-body.is-focus-mode .stage-hint {
+body.is-focus-mode .welcome-card {
   opacity: 0 !important;
   transform: translateY(18px) scale(0.98) !important;
   pointer-events: none !important;
@@ -1196,9 +1069,7 @@ body.is-focus-mode #help-toggle {
 }
 
 body.is-performing .control-panel,
-body.is-performing .chat-panel,
-body.is-performing .stage-toolbar,
-body.is-performing .stage-hint {
+body.is-performing .chat-panel {
   opacity: 0.12;
   pointer-events: none;
 }

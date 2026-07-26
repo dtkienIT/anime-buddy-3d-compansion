@@ -37,7 +37,7 @@ Fresh verification on this working tree:
 - Workspace unit tests: PASS `76/76` — shared `4/4`, API `30/30`, web `42/42`.
 - Python TTS tests: PASS `10/10`; only the upstream Starlette deprecation and pytest cache-path warnings remain.
 - Responsive browser probe: PASS `9/9` at `320 x 568`, `390 x 844`, `667 x 375`, `700 x 900`, `754 x 900`, `768 x 1024`, `844 x 390`, `1024 x 768`, and `1440 x 900`; application console errors `0`.
-- Experience probe: PASS `9/9`, including onboarding memory controls, help/Escape, shortcuts, direct tap, semantic interaction menu, reduced motion, performance stop, keyboard stage tools, and Studio state; application console errors `0`.
+- The floating stage toolbar and its interaction hint were removed; camera gestures, direct companion taps, keyboard shortcuts, and Studio controls remain available.
 - Installed visible Google Chrome reran the complete experience probe with `--headed`: PASS `9/9`, application console errors `0`.
 - Animation browser probe: PASS `36/36` — eight deterministic motions across four representative models plus four legacy smoke motions; issues and aborted asset requests `0`.
 - Interaction/audio fault probe: PASS `8/8` — deterministic multi-chunk playback, stop at first/later synthesis, rapid replacement, voice toggle, and unavailable/malformed/slow TTS paths.
