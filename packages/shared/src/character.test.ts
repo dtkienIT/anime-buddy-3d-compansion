@@ -23,6 +23,16 @@ describe("animation registry", () => {
       expect(animation?.requiresProp).not.toBe(true);
     }
   });
+
+  it("registers the owner-downloaded BOOTH dance as a standalone motion", () => {
+    expect(animationRegistry.find((item) => item.id === "ui-mugibatake-dance")).toMatchObject({
+      url: "/animations/UiMugibatake.vrma",
+      loop: false,
+      category: "reaction",
+      chatEligible: false,
+      fallbackId: "relax"
+    });
+  });
 });
 
 describe("character registry", () => {

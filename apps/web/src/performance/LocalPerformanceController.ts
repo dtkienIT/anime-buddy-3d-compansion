@@ -1,8 +1,9 @@
 export interface LocalPerformanceOptions {
   label: string;
+  stageLabel?: string;
   button: HTMLButtonElement;
   status: HTMLElement;
-  audioUrl: string;
+  audioUrl: string | null;
   startSeconds: number;
   durationSeconds: number;
   onPrepare: () => Promise<void>;
@@ -12,6 +13,7 @@ export interface LocalPerformanceOptions {
   onCleanup?: () => void;
   onAudioStart?: (analyser: AnalyserNode) => void;
   onAudioStop?: () => void;
+  onProgress?: (elapsedSeconds: number, durationSeconds: number) => void;
   onWarning: (message: string) => void;
 }
 
@@ -20,9 +22,11 @@ export class LocalPerformanceController {
   private active = false;
   private starting = false;
   private available = false;
+  private audioLoaded = false;
   private disposed = false;
   private serial = 0;
   private stopTimer: ReturnType<typeof setTimeout> | null = null;
+  private progressFrameId: number | null = null;
   private audioContext: AudioContext | null = null;
   private audioSource: ReturnType<AudioContext["createMediaElementSource"]> | null = null;
   private analyser: AnalyserNode | null = null;
@@ -49,9 +53,10 @@ export class LocalPerformanceController {
   async initialize(): Promise<void> {
     await this.options.onPrepare();
     if (this.disposed) return;
-    this.available = await this.loadAudio();
+    this.audioLoaded = this.options.audioUrl ? await this.loadAudio() : false;
+    this.available = this.audioLoaded || !this.options.audioUrl;
     if (this.disposed) return;
-    this.options.button.disabled = false;
+    this.options.button.disabled = !this.available;
     this.updateUi();
   }
 
@@ -60,7 +65,7 @@ export class LocalPerformanceController {
       return false;
     }
     if (!this.available) {
-      this.options.onWarning(`Thiếu file nhạc: ${this.options.audioUrl}`);
+      this.options.onWarning(`Thiếu file nhạc: ${this.options.audioUrl ?? "không xác định"}`);
       return false;
     }
     void this.play();
@@ -76,6 +81,7 @@ export class LocalPerformanceController {
     this.starting = false;
     this.active = false;
     this.clearStopTimer();
+    this.stopProgress();
     this.audio.pause();
     this.options.onAudioStop?.();
     this.options.onCleanup?.();
@@ -101,19 +107,22 @@ export class LocalPerformanceController {
     }
     this.audio.removeAttribute("src");
     this.audio.load();
+    this.audioLoaded = false;
     this.available = false;
     this.options.button.disabled = true;
   }
 
   private async loadAudio(): Promise<boolean> {
+    const audioUrl = this.options.audioUrl;
+    if (!audioUrl) return false;
     try {
-      const response = await fetch(this.options.audioUrl, { method: "HEAD", cache: "no-store" });
+      const response = await fetch(audioUrl, { method: "HEAD", cache: "no-store" });
       const contentType = response.headers.get("content-type") ?? "";
       if (!response.ok || (!contentType.startsWith("audio/") && !contentType.includes("mpeg"))) {
         return false;
       }
       if (this.disposed) return false;
-      this.audio.src = this.options.audioUrl;
+      this.audio.src = audioUrl;
       this.audio.load();
       await waitForMedia(this.audio);
       return !this.disposed;
@@ -133,31 +142,57 @@ export class LocalPerformanceController {
     this.audio.currentTime = startAt;
 
     try {
+      // onStart mounts the stage synchronously before its first await. The
+      // dance promise intentionally stays pending until its one-shot VRMA
+      // finishes, so media and playback state must not wait for that promise.
+      // Calling play() in the same user-activation turn also keeps Chromium
+      // from rejecting the two longer dance tracks.
+      const visualStart = this.options.onStart();
+      void visualStart.catch(() => this.failStart(requestId));
+      // A motion-only showcase has no media element to unlock or analyse.
+      // Keep the stage active while the one-shot VRMA promise runs in parallel
+      // so stop remains available.
+      if (!this.audioLoaded) {
+        if (requestId !== this.serial) return;
+        this.playbackStartedAt = performance.now();
+        this.starting = false;
+        this.active = true;
+        this.updateUi();
+        this.startProgress();
+        this.stopTimer = setTimeout(() => this.finish(), this.options.durationSeconds * 1000);
+        return;
+      }
+
       await this.audio.play();
       if (requestId !== this.serial) {
+        this.audio.pause();
         return;
       }
       this.playbackStartedAt = performance.now();
       this.starting = false;
       this.active = true;
       this.updateUi();
-      void this.startAudioAnalysis(requestId);
+      this.startProgress();
       this.stopTimer = setTimeout(() => this.finish(), this.options.durationSeconds * 1000);
-      await this.options.onStart();
+      void this.startAudioAnalysis(requestId);
     } catch {
-      if (requestId !== this.serial) {
-        return;
-      }
-      this.starting = false;
-      this.options.onWarning("Không thể phát file nhạc trình diễn.");
-      this.active = false;
-      this.clearStopTimer();
-      this.audio.pause();
-      this.options.onAudioStop?.();
-      this.options.onCleanup?.();
-      this.updateUi();
-      await this.options.onStop().catch(() => undefined);
+      await this.failStart(requestId);
     }
+  }
+
+  private async failStart(requestId: number): Promise<void> {
+    if (requestId !== this.serial) return;
+    this.serial += 1;
+    this.starting = false;
+    this.options.onWarning("Không thể phát file nhạc trình diễn.");
+    this.active = false;
+    this.clearStopTimer();
+    this.stopProgress();
+    this.audio.pause();
+    this.options.onAudioStop?.();
+    this.options.onCleanup?.();
+    this.updateUi();
+    await this.options.onStop().catch(() => undefined);
   }
 
   private finish(): void {
@@ -166,6 +201,7 @@ export class LocalPerformanceController {
       this.starting = false;
       this.active = false;
       this.clearStopTimer();
+      this.stopProgress();
       this.audio.pause();
       this.options.onAudioStop?.();
       this.options.onCleanup?.();
@@ -186,17 +222,21 @@ export class LocalPerformanceController {
   }
 
   private updateUi(): void {
-    this.options.button.disabled = false;
+    this.options.button.disabled = this.disposed || this.starting || !this.available;
     this.options.button.textContent = this.active
       ? "Dừng trình diễn"
       : this.available
-        ? this.options.label
+        ? "Bắt đầu trình diễn"
         : "Thiếu file nhạc";
+    this.options.button.setAttribute(
+      "aria-label",
+      this.active ? `Dừng ${this.options.label}` : `Trình diễn ${this.options.label}`
+    );
     this.options.button.classList.toggle("is-active", this.active);
     this.options.button.setAttribute("aria-pressed", String(this.active));
     this.options.status.textContent = this.available
-      ? `Nhạc local đã sẵn sàng · motion ${this.options.durationSeconds.toFixed(2)} giây`
-      : `Thiếu ${this.options.audioUrl.split("/").pop()} trong public/audio/music.`;
+      ? `${this.options.stageLabel ?? this.options.label} · ${formatDuration(this.options.durationSeconds)}${this.audioLoaded ? "" : " · motion-only"}`
+      : `Thiếu ${this.options.audioUrl?.split("/").pop() ?? "file media"} tại đường dẫn audio đã cấu hình.`;
   }
 
   private clearStopTimer(): void {
@@ -204,6 +244,26 @@ export class LocalPerformanceController {
       clearTimeout(this.stopTimer);
       this.stopTimer = null;
     }
+  }
+
+  private startProgress(): void {
+    this.stopProgress();
+    this.options.onProgress?.(0, this.options.durationSeconds);
+    const update = () => {
+      if (!this.active) return;
+      const elapsedSeconds = Math.min(
+        this.options.durationSeconds,
+        (performance.now() - this.playbackStartedAt) / 1000
+      );
+      this.options.onProgress?.(elapsedSeconds, this.options.durationSeconds);
+      this.progressFrameId = scheduleFrame(update);
+    };
+    this.progressFrameId = scheduleFrame(update);
+  }
+
+  private stopProgress(): void {
+    if (this.progressFrameId !== null) cancelFrame(this.progressFrameId);
+    this.progressFrameId = null;
   }
 
   private async startAudioAnalysis(requestId: number): Promise<void> {
@@ -240,6 +300,26 @@ export class LocalPerformanceController {
       this.analyser.connect(this.audioContext.destination);
     }
     return this.analyser;
+  }
+}
+
+function formatDuration(seconds: number): string {
+  const rounded = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(rounded / 60);
+  const remaining = String(rounded % 60).padStart(2, "0");
+  return `${minutes}:${remaining}`;
+}
+
+function scheduleFrame(callback: (timestamp: number) => void): number {
+  if (typeof globalThis.requestAnimationFrame === "function") return globalThis.requestAnimationFrame(callback);
+  return setTimeout(() => callback(Date.now()), 16) as unknown as number;
+}
+
+function cancelFrame(frameId: number): void {
+  if (typeof globalThis.cancelAnimationFrame === "function") {
+    globalThis.cancelAnimationFrame(frameId);
+  } else {
+    clearTimeout(frameId);
   }
 }
 

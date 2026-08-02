@@ -21,8 +21,10 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run test:python && npm run build",
     "check:env": "node scripts/check-env.mjs",
     "generate:animations": "node scripts/generate-companion-vrma.mjs",
+    "generate:original-music": "node scripts/generate-uimugi-music.mjs",
     "verify:generated-animations": "node scripts/generate-companion-vrma.mjs --check",
-    "verify-assets": "node scripts/verify-assets.mjs && npm run verify:generated-animations",
+    "verify:original-music": "node scripts/generate-uimugi-music.mjs --check",
+    "verify-assets": "node scripts/verify-assets.mjs && npm run verify:generated-animations && npm run verify:original-music",
     "smoke-test": "node scripts/smoke-test.mjs",
     "test:browser:responsive": "node tests/browser/probe-responsive.mjs",
     "test:browser:animations": "node tests/browser/probe-animations.mjs",
@@ -42,6 +44,7 @@
     "@typescript-eslint/parser": "^8.36.0",
     "concurrently": "^9.2.0",
     "eslint": "^9.30.1",
+    "lamejs": "^1.2.1",
     "prettier": "^3.6.2",
     "typescript": "^5.8.3"
   }

@@ -298,8 +298,17 @@
   }
 
   .performance-live {
-    top: calc(max(8px, env(safe-area-inset-top)) + var(--app-bar-height) + 9px);
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 8px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     max-width: calc(100vw - 16px);
+    width: auto;
+    transform: none;
+  }
+
+  .performance-live-time {
+    display: none;
   }
 
   .welcome-card {

@@ -1,6 +1,9 @@
 import {
   defaultAnimationId,
   getAnimationById,
+  performanceRegistry,
+  type PerformanceId,
+  type PerformanceRegistryItem,
   type AnimationCategory,
   type AnimationRegistryItem,
   type BackgroundRegistryItem,
@@ -23,31 +26,8 @@ import { ChatPanel } from "../ui/ChatPanel.js";
 import { ToastManager, type ToastVariant } from "../ui/ToastManager.js";
 import { VoiceControls } from "../ui/VoiceControls.js";
 
-const blingBangBangBorn = {
-  label: "Bling-Bang-Bang-Born",
-  animationUrl: "/animations/Bling-Bang-Bang-Born.vrma",
-  audioUrl: "/audio/music/Bling-Bang-Bang-Born.mp3",
-  startSeconds: 0,
-  durationSeconds: 19.167
-} as const;
-
-const aipaiDanceHall = {
-  label: "Aipai Dance Hall",
-  animationUrl: "/animations/Aipai-Dance-Hall.vrma",
-  audioUrl: "/audio/music/Aipai-Dance-Hall.mp3",
-  startSeconds: 0,
-  durationSeconds: 32.7
-} as const;
-
-const companionSong = {
-  label: "Chạm Vào Bình Minh",
-  animationUrl: "/animations/Singing.vrma",
-  audioUrl: "/audio/music/Cham-Vao-Binh-Minh.mp3",
-  startSeconds: 0,
-  durationSeconds: 180
-} as const;
-
 const performanceSpeech = {
+  blingOutro: "Màn Bling-Bang-Bang-Born kết thúc rồi, bạn thích đoạn nào nhất ạ?",
   danceIntro: "Dạ, hiện tại em chỉ có thể nhảy bài Aipai Dance Hall, anh hãy thưởng thức nhé",
   danceOutro: "Em nhảy xong rồi, anh thấy thế nào ạ",
   singIntro: "Dạ, em sẽ hát tặng anh bài Chạm Vào Bình Minh, anh hãy lắng nghe nhé.",
@@ -94,9 +74,9 @@ export class AppController {
   private readonly toasts: ToastManager;
   private readonly voiceControls: VoiceControls;
   private readonly interactionVoice: InteractionVoice;
-  private readonly performance: LocalPerformanceController;
-  private readonly aipaiPerformance: LocalPerformanceController;
-  private readonly singingPerformance: LocalPerformanceController;
+  private readonly performances = new Map<PerformanceId, LocalPerformanceController>();
+  private activePerformanceId: PerformanceId | null = null;
+  private lastPerformanceProgressSecond = -1;
   private readonly preferences = new UiPreferencesStore();
   private readonly controls = required<HTMLElement>("#controls");
   private readonly chatMenu = required<HTMLElement>("#chat-menu");
@@ -111,6 +91,7 @@ export class AppController {
   private helpReturnFocus: HTMLElement | null = null;
   private readonly helpInertedElements: HTMLElement[] = [];
   private ambientTimer: number | null = null;
+  private dialogueTimer: number | null = null;
   private disposed = false;
   private readonly onLayoutResize = (): void => {
     const studioOpen = this.controls.classList.contains("is-open");
@@ -215,94 +196,8 @@ export class AppController {
       this.voiceControls.value
     );
 
-    this.performance = new LocalPerformanceController({
-      label: blingBangBangBorn.label,
-      button: required("#bling-performance"),
-      status: required("#performance-status"),
-      audioUrl: blingBangBangBorn.audioUrl,
-      startSeconds: blingBangBangBorn.startSeconds,
-      durationSeconds: blingBangBangBorn.durationSeconds,
-      onPrepare: () => this.character.preloadAnimationAsset(blingBangBangBorn.animationUrl),
-      onStart: async () => {
-        this.aipaiPerformance.stop(false);
-        this.singingPerformance.stop(false);
-        this.invalidateDirectInteraction();
-        document.body.classList.add("is-performing");
-        this.showPerformanceLive(blingBangBangBorn.label);
-        if (this.currentState !== "IDLE") await this.chat.stopSpeaking();
-        this.setStatus("REACTING", "Đang trình diễn Bling-Bang-Bang-Born");
-        await this.character.playAnimationAsset(blingBangBangBorn.animationUrl, { loop: false, fadeDuration: 0.08 });
-      },
-      onStop: () => this.restoreAfterPerformance(),
-      onWarning: (message) => this.notify(message, "warning")
-    });
-
-    this.aipaiPerformance = new LocalPerformanceController({
-      label: aipaiDanceHall.label,
-      button: required("#aipai-performance"),
-      status: required("#aipai-performance-status"),
-      audioUrl: aipaiDanceHall.audioUrl,
-      startSeconds: aipaiDanceHall.startSeconds,
-      durationSeconds: aipaiDanceHall.durationSeconds,
-      onPrepare: () => this.character.preloadAnimationAsset(aipaiDanceHall.animationUrl),
-      onStart: async () => {
-        this.performance.stop(false);
-        this.singingPerformance.stop(false);
-        this.invalidateDirectInteraction();
-        document.body.classList.add("is-performing");
-        this.showPerformanceLive(aipaiDanceHall.label);
-        if (this.currentState !== "IDLE") await this.chat.stopSpeaking();
-        this.setStatus("REACTING", "Đang trình diễn Aipai Dance Hall");
-        await this.character.playAnimationAsset(aipaiDanceHall.animationUrl, { loop: false, fadeDuration: 0.08 });
-      },
-      onStop: () => this.restoreAfterPerformance(),
-      onComplete: async () => {
-        await this.chat.announceLocally(performanceSpeech.danceOutro);
-      },
-      onWarning: (message) => this.notify(message, "warning")
-    });
-
-    this.singingPerformance = new LocalPerformanceController({
-      label: companionSong.label,
-      button: required("#singing-performance"),
-      status: required("#singing-performance-status"),
-      audioUrl: companionSong.audioUrl,
-      startSeconds: companionSong.startSeconds,
-      durationSeconds: companionSong.durationSeconds,
-      onPrepare: () => this.character.preloadAnimationAsset(companionSong.animationUrl),
-      onStart: async () => {
-        this.performance.stop(false);
-        this.aipaiPerformance.stop(false);
-        this.invalidateDirectInteraction();
-        document.body.classList.add("is-performing", "has-performance-microphone");
-        this.character.showSingingStage();
-        this.showPerformanceLive(companionSong.label);
-        if (this.currentState !== "IDLE") await this.chat.stopSpeaking();
-        if (!this.character.showMicrophone()) {
-          this.notify("Nhân vật này chưa thể cầm micro đúng vị trí.", "warning");
-        }
-        this.setStatus("REACTING", `Đang hát ${companionSong.label}`);
-        await this.character.playAnimationAsset(companionSong.animationUrl, { loop: true, fadeDuration: 0.12 });
-      },
-      onAudioStart: (analyser) => {
-        this.character.attachLipSyncAnalyser(analyser);
-        this.character.startLipSync();
-      },
-      onAudioStop: () => {
-        this.character.stopLipSync();
-        this.character.attachLipSyncAnalyser(null);
-      },
-      onCleanup: () => {
-        this.character.hideMicrophone();
-        this.character.hideSingingStage();
-        document.body.classList.remove("has-performance-microphone");
-      },
-      onStop: () => this.restoreAfterPerformance(),
-      onComplete: async () => {
-        await this.chat.announceLocally(performanceSpeech.singOutro);
-      },
-      onWarning: (message) => this.notify(message, "warning")
-    });
+    this.renderPerformanceCards();
+    this.initPerformanceControllers();
 
     this.voiceControls.addEventListener("change", (event) => {
       const settings = (event as CustomEvent<VoiceSettings>).detail;
@@ -315,6 +210,127 @@ export class AppController {
     this.initMemoryAndSessionUi();
     this.initAppShell();
     this.applyReducedMotion(this.preferences.current.reducedMotion, false);
+  }
+
+  private renderPerformanceCards(): void {
+    const container = required<HTMLElement>("#performance-list");
+    container.replaceChildren();
+    required("#performance-count").textContent = String(performanceRegistry.length);
+
+    for (const performance of performanceRegistry) {
+      const article = document.createElement("article");
+      article.className = `performance-card theme-${performance.stageTheme}`;
+      article.dataset.performanceId = performance.id;
+
+      const art = document.createElement("span");
+      art.className = "performance-art";
+      art.setAttribute("aria-hidden", "true");
+      art.textContent = performance.kind === "sing"
+        ? "♪"
+        : performance.stageTheme === "neon-cube" ? "B"
+          : performance.stageTheme === "wheat-field" ? "U"
+            : "A";
+
+      const copy = document.createElement("div");
+      copy.className = "performance-copy";
+      const title = document.createElement("strong");
+      title.textContent = performance.label;
+      const meta = document.createElement("span");
+      meta.className = "performance-meta";
+      meta.textContent = `${performance.artistLabel} · ${performance.stageLabel}`;
+      const description = document.createElement("p");
+      description.className = "performance-description";
+      description.textContent = performance.description;
+      const status = document.createElement("p");
+      status.className = "performance-status";
+      status.id = performanceStatusId(performance.id);
+      status.textContent = "Đang chuẩn bị media local…";
+      copy.append(title, meta, description, status);
+
+      const button = document.createElement("button");
+      button.className = "control-button performance-button";
+      button.id = performanceButtonId(performance.id);
+      button.type = "button";
+      button.setAttribute("aria-pressed", "false");
+      button.textContent = "Đang chuẩn bị…";
+      article.append(art, copy, button);
+      container.append(article);
+    }
+  }
+
+  private initPerformanceControllers(): void {
+    for (const performance of performanceRegistry) {
+      const button = required<HTMLButtonElement>(`#${performanceButtonId(performance.id)}`);
+      const status = required<HTMLElement>(`#${performanceStatusId(performance.id)}`);
+      const controller = new LocalPerformanceController({
+        label: performance.label,
+        stageLabel: performance.stageLabel,
+        button,
+        status,
+        audioUrl: performance.audioUrl,
+        startSeconds: performance.startSeconds,
+        durationSeconds: performance.durationSeconds,
+        onPrepare: () => this.character.preloadAnimationAsset(performance.animationUrl),
+        onStart: async () => {
+          this.stopOtherPerformances(performance.id);
+          this.invalidateDirectInteraction();
+          this.activePerformanceId = performance.id;
+          document.body.classList.add("is-performing", `performance-theme-${performance.stageTheme}`);
+          if (performance.microphone) document.body.classList.add("has-performance-microphone");
+          this.character.showPerformanceStage(performance.stageTheme);
+          this.showPerformanceLive(performance);
+          if (this.currentState !== "IDLE") await this.chat.stopSpeaking();
+          if (performance.microphone && !this.character.showMicrophone()) {
+            this.notify("Nhân vật này chưa thể cầm micro đúng vị trí.", "warning");
+          }
+          const verb = performance.kind === "sing" ? "hát" : "trình diễn";
+          this.setStatus("REACTING", `Đang ${verb} ${performance.label}`);
+          await this.character.playAnimationAsset(performance.animationUrl, {
+            loop: performance.loopAnimation,
+            fadeDuration: performance.kind === "sing" ? 0.12 : 0.08
+          });
+        },
+        onAudioStart: (analyser) => {
+          this.character.attachPerformanceAnalyser(analyser);
+          if (performance.microphone) {
+            this.character.attachLipSyncAnalyser(analyser);
+            this.character.startLipSync();
+          }
+        },
+        onAudioStop: () => {
+          this.character.attachPerformanceAnalyser(null);
+          if (performance.microphone) {
+            this.character.stopLipSync();
+            this.character.attachLipSyncAnalyser(null);
+          }
+        },
+        onCleanup: () => {
+          this.character.hideMicrophone();
+          this.character.hidePerformanceStage();
+          document.body.classList.remove("has-performance-microphone", `performance-theme-${performance.stageTheme}`);
+        },
+        onStop: () => this.restoreAfterPerformance(),
+        onComplete: async () => {
+          const outro = performance.id === "bling-bang-bang-born"
+            ? performanceSpeech.blingOutro
+            : performance.kind === "dance" ? performanceSpeech.danceOutro : performanceSpeech.singOutro;
+          await this.chat.announceLocally(outro);
+        },
+        onProgress: (elapsedSeconds, durationSeconds) => {
+          if (this.activePerformanceId === performance.id) {
+            this.updatePerformanceProgress(elapsedSeconds, durationSeconds);
+          }
+        },
+        onWarning: (message) => this.notify(message, "warning")
+      });
+      this.performances.set(performance.id, controller);
+    }
+  }
+
+  private stopOtherPerformances(activeId: PerformanceId): void {
+    for (const [id, controller] of this.performances) {
+      if (id !== activeId) controller.stop(false);
+    }
   }
 
   async init(): Promise<void> {
@@ -347,15 +363,13 @@ export class AppController {
       required<HTMLElement>("#welcome-card").hidden = false;
     }
 
-    void this.performance.initialize().catch(() => {
-      this.notify("Không chuẩn bị được Bling-Bang-Bang-Born.", "warning");
-    });
-    void this.aipaiPerformance.initialize().catch(() => {
-      this.notify("Không chuẩn bị được Aipai Dance Hall.", "warning");
-    });
-    void this.singingPerformance.initialize().catch(() => {
-      this.notify(`Không chuẩn bị được ${companionSong.label}.`, "warning");
-    });
+    for (const performance of performanceRegistry) {
+      const controller = this.performances.get(performance.id);
+      if (!controller) continue;
+      void controller.initialize().catch(() => {
+        this.notify(`Không chuẩn bị được ${performance.label}.`, "warning");
+      });
+    }
 
     this.startAmbientMoments();
     this.syncStageComposition();
@@ -365,12 +379,11 @@ export class AppController {
     if (this.disposed) return;
     this.disposed = true;
     if (this.ambientTimer) window.clearTimeout(this.ambientTimer);
+    if (this.dialogueTimer) window.clearTimeout(this.dialogueTimer);
     this.interactionVoice.cancel();
     window.removeEventListener("resize", this.onLayoutResize);
     this.stopPerformances(false);
-    this.performance.dispose();
-    this.aipaiPerformance.dispose();
-    this.singingPerformance.dispose();
+    for (const controller of this.performances.values()) controller.dispose();
     this.character.dispose();
   }
 
@@ -552,9 +565,10 @@ export class AppController {
     }
 
     const intro = intent === "dance" ? performanceSpeech.danceIntro : performanceSpeech.singIntro;
-    const performance = intent === "dance" ? this.aipaiPerformance : this.singingPerformance;
+    const performanceId: PerformanceId = intent === "dance" ? "aipai-dance-hall" : "cham-vao-binh-minh";
+    const performance = this.performances.get(performanceId);
     const ready = await this.chat.respondLocally(message, intro);
-    if (ready && !performance.start()) {
+    if (ready && performance && !performance.start()) {
       await this.chat.stopSpeaking();
     }
   }
@@ -1164,6 +1178,7 @@ export class AppController {
     const bubble = animationId === "wave"
       ? `Chào bạn! ${this.currentCharacterLabel()} đang lắng nghe đây.`
       : interaction.bubble;
+    this.showStageDialogue(bubble);
     void this.interactionVoice.speak(bubble, this.voiceControls.value);
     this.setStatus("REACTING", interaction.status);
     await this.character.playAnimation(animationId, { loop: false, maxDurationMs: 4_000 }).catch(() => undefined);
@@ -1211,13 +1226,15 @@ export class AppController {
   }
 
   private stopPerformances(restoreIdle: boolean): void {
-    this.performance.stop(restoreIdle);
-    this.aipaiPerformance.stop(restoreIdle);
-    this.singingPerformance.stop(restoreIdle);
+    for (const controller of this.performances.values()) controller.stop(restoreIdle);
     if (!restoreIdle) {
       document.body.classList.remove("is-performing");
       document.body.classList.remove("has-performance-microphone");
       this.character.hideMicrophone();
+      this.character.hidePerformanceStage();
+      this.character.attachPerformanceAnalyser(null);
+      this.activePerformanceId = null;
+      this.hideStageDialogue();
       required<HTMLElement>("#performance-live").hidden = true;
       this.setPerformanceUiLocked(false);
     }
@@ -1227,6 +1244,10 @@ export class AppController {
     document.body.classList.remove("is-performing");
     document.body.classList.remove("has-performance-microphone");
     this.character.hideMicrophone();
+    this.character.hidePerformanceStage();
+    this.character.attachPerformanceAnalyser(null);
+    this.activePerformanceId = null;
+    this.hideStageDialogue();
     required<HTMLElement>("#performance-live").hidden = true;
     this.setPerformanceUiLocked(false);
     const generation = this.beginDirectInteraction();
@@ -1237,10 +1258,45 @@ export class AppController {
     this.updateActiveButtons();
   }
 
-  private showPerformanceLive(label: string): void {
-    required("#performance-live-label").textContent = `Đang trình diễn · ${label}`;
+  private showPerformanceLive(performance: PerformanceRegistryItem): void {
+    required("#performance-live-stage").textContent = performance.stageLabel;
+    required("#performance-live-label").textContent = `Đang trình diễn · ${performance.label}`;
+    required("#performance-live-time").textContent = `0:00 / ${formatDuration(performance.durationSeconds)}`;
+    const progress = required<HTMLElement>("#performance-live-progress");
+    progress.setAttribute("aria-valuenow", "0");
+    required<HTMLElement>("#performance-live-progress-fill").style.width = "0%";
+    this.lastPerformanceProgressSecond = -1;
     required<HTMLElement>("#performance-live").hidden = false;
     this.setPerformanceUiLocked(true);
+  }
+
+  private updatePerformanceProgress(elapsedSeconds: number, durationSeconds: number): void {
+    const progressPercent = Math.min(100, Math.max(0, (elapsedSeconds / Math.max(durationSeconds, 0.001)) * 100));
+    required<HTMLElement>("#performance-live-progress-fill").style.width = `${progressPercent}%`;
+    required<HTMLElement>("#performance-live-progress").setAttribute("aria-valuenow", String(Math.round(progressPercent)));
+    const wholeSecond = Math.floor(elapsedSeconds);
+    if (wholeSecond === this.lastPerformanceProgressSecond) return;
+    this.lastPerformanceProgressSecond = wholeSecond;
+    required("#performance-live-time").textContent =
+      `${formatDuration(elapsedSeconds)} / ${formatDuration(durationSeconds)}`;
+  }
+
+  private showStageDialogue(message: string): void {
+    if (this.dialogueTimer) window.clearTimeout(this.dialogueTimer);
+    const dialogue = required<HTMLElement>("#stage-dialogue");
+    required("#stage-dialogue-text").textContent = message;
+    dialogue.hidden = false;
+    this.dialogueTimer = window.setTimeout(() => {
+      dialogue.hidden = true;
+      this.dialogueTimer = null;
+    }, 4_800);
+  }
+
+  private hideStageDialogue(): void {
+    if (this.dialogueTimer) window.clearTimeout(this.dialogueTimer);
+    this.dialogueTimer = null;
+    const dialogue = document.querySelector<HTMLElement>("#stage-dialogue");
+    if (dialogue) dialogue.hidden = true;
   }
 
   private setPerformanceUiLocked(locked: boolean): void {
@@ -1329,6 +1385,31 @@ function normalizeSearch(value: string): string {
     .replace(/Đ/g, "D")
     .toLowerCase()
     .trim();
+}
+
+function performanceButtonId(id: PerformanceId): string {
+  return id === "bling-bang-bang-born"
+    ? "bling-performance"
+    : id === "aipai-dance-hall"
+      ? "aipai-performance"
+      : id === "cham-vao-binh-minh"
+        ? "singing-performance"
+        : "ui-mugibatake-performance";
+}
+
+function performanceStatusId(id: PerformanceId): string {
+  return id === "bling-bang-bang-born"
+    ? "performance-status"
+    : id === "aipai-dance-hall"
+      ? "aipai-performance-status"
+      : id === "cham-vao-binh-minh"
+        ? "singing-performance-status"
+        : "ui-mugibatake-performance-status";
+}
+
+function formatDuration(seconds: number): string {
+  const rounded = Math.max(0, Math.round(seconds));
+  return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, "0")}`;
 }
 
 function required<T extends HTMLElement>(selector: string): T {

@@ -40,6 +40,35 @@ const env: ApiEnv = {
 };
 
 describe("api", () => {
+  it("publishes the safe local performance catalog", async () => {
+    const app = await createApp(env);
+    const response = await app.inject({ method: "GET", url: "/api/performances" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toContain("max-age=300");
+    expect(response.json()).toMatchObject({
+      capabilities: {
+        localPlayback: true,
+        audioReactiveStages: true,
+        reducedMotion: true
+      },
+      performances: [
+        { id: "bling-bang-bang-born", stageTheme: "neon-cube" },
+        { id: "aipai-dance-hall", stageTheme: "lantern-festival" },
+        { id: "cham-vao-binh-minh", stageTheme: "aurora-dawn", microphone: true },
+        {
+          id: "ui-mugibatake-dance",
+          stageTheme: "wheat-field",
+          microphone: false,
+          durationSeconds: 26.8,
+          mediaMode: "local-audio"
+        }
+      ]
+    });
+    expect(response.body).not.toContain("/audio/");
+    expect(response.body).not.toContain("/animations/");
+  });
+
   it("returns health without calling Mistral", async () => {
     const app = await createApp(env, {
       tts: { health: async () => true, synthesize: async () => { throw new Error("unused"); } } as any

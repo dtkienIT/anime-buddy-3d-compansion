@@ -1,6 +1,80 @@
 # Current Status
 
-Authoritative as of 2026-07-14 (Asia/Saigon). Older dated sections, audits, and QA documents are historical snapshots; use the newest section here and the linked reports/artifacts for the current working tree.
+Authoritative as of 2026-07-26 (Asia/Saigon). Older dated sections, audits, and QA documents are historical snapshots; use the newest section here and the linked reports/artifacts for the current working tree.
+
+## 2026-07-26 performance-stage and presentation-flow upgrade
+
+This pass was performed as a user journey through the running app. The four
+local performances now share one registry and one playback lifecycle, so the
+stage, animation, audio-reactive lighting, progress state, and cleanup cannot
+drift apart between cards.
+
+Working branch: `update_v1`.
+
+Performance experience:
+
+- `Bling Bang Bang Born` now uses the **Neon Cube Arena**: a black/red LED wall,
+  suspended luminous cubes, laser-like beams, a runway, and edge lights.
+- `Aipai Dance Hall` now uses the **Moon Lantern Festival**: a large moon gate,
+  layered arches, floating lanterns, magenta/gold beams, and an illuminated
+  runway.
+- `Chạm Vào Bình Minh` now uses the **Aurora Dawn** stage: a sunrise disc,
+  aurora rings/ribbons, side screens, cyan/gold beams, and a stepped platform.
+- `Vũ điệu Uimugi Batake` now appears in the same **Live Moments** performance
+  list on the **Golden Wheatlight** stage. It uses the owner-downloaded
+  26.8-second VRMA and the new first-party **Golden Wheatlight** soundtrack.
+  The revised 20-bar, 179.104 BPM hyper remix uses rapid bass, syncopated kick,
+  snare rolls, dense hats/arpeggios, two drop sections, and short original
+  Vietnamese call-and-response vocals. The vocals use the local VieNeu Trúc Ly
+  preset; no lyric, melody, or recording is copied from the two reference
+  dance tracks. The mix ends with the motion at 26.8 seconds.
+- Every performance card displays its stage concept and a short description.
+  The live overlay shows the current stage, elapsed/total time, a progress bar,
+  and a single stop action. The overlay no longer covers the companion's face.
+- Dance media starts in the original click activation turn while the one-shot
+  VRMA prepares concurrently. This prevents Chromium from blocking
+  `Bling-Bang-Bang-Born` and `Aipai Dance Hall`, and the live timer no longer
+  waits for the animation promise to finish.
+- Direct companion taps now produce a bounded Vietnamese stage dialogue bubble,
+  while an active performance temporarily owns the stage and hides the bubble.
+- The API exposes a safe, asset-free catalog at `GET /api/performances`; the
+  frontend keeps the actual local asset URLs private to its own registry.
+- Reduced-motion mode still disables the animated stage pulse while preserving
+  readable stage geometry and playback controls.
+- The Studio registry now contains 39 companion animations. The new standalone
+  `UiMugibatake.vrma` is the unmodified 26.8-second VRMA selected from Maron
+  Yatsuhashi's authenticated BOOTH download; no Unity, FBX, BVH, VMD, or song
+  audio was imported. Provenance, hashes, and redistribution limits are in
+  [the asset license record](licenses/MaronYatsuhashi-BOOTH-5846143.md).
+
+The stage vocabulary is based on official live-show references: movable LED
+cubes and LED floors, a 360-degree audience-aware layout, real-time screen
+content, overhead elements, handcrafted scenic silhouettes, and synchronized
+lighting. See [Performance Stage Design](performance-stage-design.md).
+
+Fresh verification for this pass:
+
+- Shared tests: PASS (`9/9`).
+- API tests: PASS (`32/32`, rerun independently with a 15-second test
+  allowance to avoid machine contention).
+- Web tests: PASS (`99/99`).
+- Lint and workspace typechecks: PASS.
+- Asset verification: PASS (`66` files, including `3` canonical vocal stems;
+  `9` generated VRMA parity/spec checks and byte-identical original-music
+  regeneration).
+- Browser responsive probe: PASS (`9/9`); experience probe: PASS (`7/7`) with
+  zero application console errors.
+- A single in-app browser tab manually started and stopped all four
+  music-backed performances in sequence. Each received its own stage theme, live label,
+  progress state, and cleanup. The existing exhaustive animation artifact
+  remains `36/36`; a fresh multi-context rerun was intentionally not used as a
+  release gate after its dev watcher exited under sustained workload.
+- A one-page browser check starts Uimugi with the generated MP3, creates no
+  external media iframe, and supports a clean stop/idle transition with no
+  application errors.
+- The same single tab dispatched all eight generated core motions; looped
+  motions remained `IDLE`, one-shot motions entered `REACTING` and returned to
+  idle as designed.
 
 ## 2026-07-14 product, responsive, motion, and privacy upgrade
 
@@ -50,7 +124,7 @@ The frontend has been redesigned around a usable 3D companion experience rather 
 
 - A responsive app shell now provides a persistent 3D stage, compact app bar, camera toolbar, docked chat, and an on-demand Companion Studio drawer/sheet. Mobile and short-height layouts preserve a meaningful visible stage area instead of covering the character's face with chat and controls.
 - The first-run path now includes dismissible onboarding, prompt starters, a help dialog, network state, staged loading progress/retry, empty/loading/error states, and typed non-blocking toasts.
-- Companion Studio provides accessible tabs, animation search, descriptive character/background cards, animation categories, and the existing two local music performances.
+- Companion Studio provides accessible tabs, animation search, descriptive character/background cards, animation categories, and four local music-backed performances.
 - Chat now has IME-safe keyboard submission, autosizing and character count, quick new chat, message copy, stop/replacement behavior, replay state, speech-input state, session search/rename/delete/export, and explicit long-term-memory view/edit/delete controls.
 - Experience controls include reduced motion, focus mode, fullscreen, camera zoom/reset, reset experience, and persistent device-local preferences for character, background, Studio state, onboarding, and reduced motion.
 - Keyboard and assistive-technology behavior was expanded with visible focus, skip navigation, ARIA tab/state semantics, live regions, focus restoration, and shortcuts: `/`, `C`, `R`, `F`, `?`, and `Esc`.

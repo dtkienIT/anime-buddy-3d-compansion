@@ -8,7 +8,7 @@ The current frontend is designed around the character instead of treating the Th
 
 - Responsive stage, chat dock, and Companion Studio layouts for mobile, tablet, desktop, and short screens.
 - First-visit onboarding, contextual help, empty-state prompts, loading progress, network status, and non-blocking toasts.
-- Direct camera gestures, focus mode, animation search, character/background cards, direct companion interaction, and two local music performances.
+- Direct camera gestures, focus mode, animation search, character/background cards, direct companion interaction, and four music-backed performances with distinct 3D stages.
 - Direct character interaction: pointer/touch hit testing, gaze following, natural blinking, wave/nod/gentle/curious responses, speech bubbles, and quiet ambient moments.
 - Accessible tabs and controls with keyboard focus states, ARIA state, screen-reader status updates, reduced-motion support, and IME-safe chat input.
 - Conversation search, rename, delete, export, replay, quick new chat, and long-term-memory view/edit/delete controls.
@@ -28,7 +28,7 @@ Keyboard shortcuts:
 
 ## Motion library
 
-The shared registry exposes 38 companion animations plus two music-synchronized performance assets. Eight core motions are generated deterministically at 30 fps:
+The shared registry exposes 39 companion animations and four local music-backed performances. Eight core motions are generated deterministically at 30 fps:
 
 - `Relax.vrma` — regenerated seamless idle loop.
 - `Listening.vrma` — attentive loop used while speech input is active.
@@ -38,6 +38,24 @@ The shared registry exposes 38 companion animations plus two music-synchronized 
 - `CuriousTilt.vrma` — curiosity/attention one-shot.
 - `Nod.vrma` — short acknowledgement.
 - `Wave.vrma` — short greeting.
+
+`UiMugibatake.vrma` is an owner-downloaded third-party BOOTH motion registered
+as a standalone 26.8-second Studio animation and Live Moments performance. Its
+commercial reference song is not copied into the repository. The performance
+instead uses the first-party `Golden-Wheatlight-Original.mp3`, a deterministic
+26.8-second dance soundtrack synthesized and mixed by
+`scripts/generate-uimugi-music.mjs` without commercial samples. Short original
+Vietnamese vocal hooks are generated locally with VieNeu's Trúc Ly preset and
+mixed as call-and-response chops around the drops. Source, hashes, selected
+archive contents, and redistribution limits are documented in
+[`docs/licenses/MaronYatsuhashi-BOOTH-5846143.md`](docs/licenses/MaronYatsuhashi-BOOTH-5846143.md).
+
+Regenerate or byte-verify the original soundtrack with:
+
+```powershell
+npm run generate:original-music
+npm run verify:original-music
+```
 
 The generator writes identical assets to `animations/` and `apps/web/public/animations/`, declares `VRMC_vrm_animation.specVersion` `1.0`, and validates tracks and loop endpoints. Generate or verify them with:
 

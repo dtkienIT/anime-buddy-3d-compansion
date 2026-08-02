@@ -30,6 +30,7 @@ const assetGroups = {
     "Thinking.vrma",
     "ShakeHead.vrma",
     "Dance25.vrma",
+    "UiMugibatake.vrma",
     "WelcomePose.vrma",
     "CutePose.vrma",
     "VictoryPose.vrma",
@@ -72,8 +73,14 @@ const assetGroups = {
   audio: [
     "Bling-Bang-Bang-Born.mp3",
     "Aipai-Dance-Hall.mp3",
-    "Cham-Vao-Binh-Minh.mp3"
-  ].map((name) => `apps/web/public/audio/music/${name}`)
+    "Cham-Vao-Binh-Minh.mp3",
+    "Golden-Wheatlight-Original.mp3"
+  ].map((name) => `apps/web/public/audio/music/${name}`),
+  audioSources: [
+    "hook.wav",
+    "countdown.wav",
+    "lift.wav"
+  ].map((name) => `assets/audio-sources/golden-wheatlight/${name}`)
 };
 
 const generatedAnimations = [
@@ -91,12 +98,37 @@ const minimumBytes = {
   models: 16 * 1024,
   animations: 1024,
   backgrounds: 1024,
-  audio: 1024
+  audio: 1024,
+  audioSources: 1024
 };
 const canonicalAssets = new Map([
   [
+    "animations/UiMugibatake.vrma",
+    "8f57fd5257086261650e8c0a3095092ad27ee705142826d0b3ef2350ca425e04"
+  ],
+  [
+    "apps/web/public/animations/UiMugibatake.vrma",
+    "8f57fd5257086261650e8c0a3095092ad27ee705142826d0b3ef2350ca425e04"
+  ],
+  [
     "apps/web/public/audio/music/Cham-Vao-Binh-Minh.mp3",
     "69bdbdca2349e9c4397ab9cd30b3564935c85ecb15c78bc33d1948876292c162"
+  ],
+  [
+    "apps/web/public/audio/music/Golden-Wheatlight-Original.mp3",
+    "5b9cb9730855ec63ca9ef07904bad8882b50203ac0a842f43a073b04fca9ceed"
+  ],
+  [
+    "assets/audio-sources/golden-wheatlight/hook.wav",
+    "42733e39de4c5543999e6d309d801ad3051b22bddfab9578a9faf8ecc4c1f37a"
+  ],
+  [
+    "assets/audio-sources/golden-wheatlight/countdown.wav",
+    "4d69c9fa6b5cb4c1d5685287c0fe30b969e95b79d1a620433e844d42ca57319c"
+  ],
+  [
+    "assets/audio-sources/golden-wheatlight/lift.wav",
+    "8243acf27423685e28c087b9e746f3a3ec704271c9e551e4f71bced5f995280c"
   ]
 ]);
 const failures = [];
@@ -191,6 +223,11 @@ function validateSignature(relativePath, buffer) {
     const isId3 = buffer.subarray(0, 3).toString("ascii") === "ID3";
     const isMpegFrame = buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0;
     return isId3 || isMpegFrame ? null : "invalid MP3 signature";
+  }
+  if (relativePath.endsWith(".wav")) {
+    const isRiff = buffer.subarray(0, 4).toString("ascii") === "RIFF";
+    const isWave = buffer.subarray(8, 12).toString("ascii") === "WAVE";
+    return isRiff && isWave ? null : "invalid WAV signature";
   }
   return null;
 }

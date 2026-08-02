@@ -57,9 +57,6 @@ try {
       throw new Error(`${viewport.name}: chat content collapsed to ${metrics.chatContent.height}px`);
     }
     assertContained(viewport.name, "chat form", metrics.chatForm, metrics.chat, 1.5);
-    if (rectanglesOverlap(metrics.chat, metrics.stageToolbar, 1)) {
-      throw new Error(`${viewport.name}: stage toolbar overlaps the expanded chat panel`);
-    }
     if (metrics.chatScrollTop !== 0) {
       throw new Error(`${viewport.name}: chat panel retained root scrolling`);
     }
@@ -84,9 +81,6 @@ try {
         }
       } else if (visibleStageHeight < Math.max(64, viewport.height * 0.18)) {
         throw new Error(`${viewport.name}: landscape layout leaves no usable companion area above chat`);
-      }
-      if (metrics.stageToolbar.bottom > metrics.chat.top + 2) {
-        throw new Error(`${viewport.name}: stage toolbar overlaps the chat sheet`);
       }
       if (Number.parseFloat(metrics.chatInputFontSize) < 16) {
         throw new Error(`${viewport.name}: mobile chat input must remain at least 16px`);

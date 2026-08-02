@@ -4,6 +4,10 @@ Date: 2026-07-10
 
 ## Initial repository state
 
+> This document is a historical audit. The current performance-stage
+> architecture is documented in [Current Status](CURRENT_STATUS.md) and
+> [Performance Stage Design](performance-stage-design.md).
+
 - Current stack: static HTML/CSS, bundled browser JavaScript, Three.js/VRM code in `app.bundle.js`, source copy in `src/app.js`, and a hand-written Node HTTP server in `server.mjs`.
 - Package manager: no `package.json`, no lock file, and no workspace package manager were present at audit time. Node `v22.20.0`, npm `10.9.3`, Python `3.14.2`, and uv `0.11.19` are available. `pnpm` is not installed.
 - Git status: clean on `main` at the start. Creating `feat/3d-ai-companion` failed because Git could not create `.git/refs/heads/feat/3d-ai-companion` after the repo was flagged for dubious ownership. Work continued in the working tree and this is documented here.
@@ -66,3 +70,17 @@ Date: 2026-07-10
 - All existing backgrounds remain selectable.
 - The viewer still opens locally on `127.0.0.1`.
 - Chat continues to function as text even when Supabase or TTS is unavailable.
+
+## Current performance-stage architecture
+
+The four local performances are now described by the shared
+`packages/shared/src/performance.ts` registry. The frontend
+`LocalPerformanceController` consumes that registry for animation, audio,
+progress, stop, and cleanup behavior. `PerformanceStageController` owns only
+Three.js geometry, shader surfaces, lights, particles, and audio-reactive
+intensity; it does not duplicate song metadata.
+
+The backend exposes `GET /api/performances` as a safe diagnostics/catalog
+endpoint. It returns labels, stage themes, durations, and capabilities while
+omitting local audio and animation URLs. This keeps the backend/frontend
+contract useful without leaking implementation asset paths.

@@ -13,6 +13,7 @@ import { registerConversationRoutes } from "./routes/conversations.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerTtsRoute } from "./routes/tts.js";
 import { registerMemoryRoutes } from "./routes/memoryRoutes.js";
+import { registerPerformanceRoutes } from "./routes/performances.js";
 import { ResponseCacheService } from "./services/responseCacheService.js";
 
 
@@ -65,6 +66,7 @@ export async function createApp(env: ApiEnv = getEnv(), services: AppServices = 
   const responseCache = new ResponseCacheService(env, supabase.getClient());
 
   registerHealthRoute(app, env, supabase, tts);
+  registerPerformanceRoutes(app);
   registerChatRoute(app, env, ai, supabase, responseCache);
   registerTtsRoute(app, env, tts, responseCache);
   registerConversationRoutes(app, supabase);

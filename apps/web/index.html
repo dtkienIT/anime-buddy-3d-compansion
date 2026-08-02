@@ -13,6 +13,10 @@
     <main class="stage-shell" aria-label="Không gian nhân vật 3D">
       <canvas id="stage" aria-label="Không gian tương tác với nhân vật AI 3D"></canvas>
       <div class="scene-wash" aria-hidden="true"></div>
+      <div class="stage-dialogue" id="stage-dialogue" role="status" aria-live="polite" hidden>
+        <span class="stage-dialogue-mark" aria-hidden="true">✦</span>
+        <span id="stage-dialogue-text"></span>
+      </div>
     </main>
 
     <header class="app-bar" aria-label="Thanh điều hướng chính">
@@ -48,9 +52,22 @@
       <span id="stage-busy-label">Đang chuẩn bị nhân vật…</span>
     </div>
 
-    <div class="performance-live" id="performance-live" role="status" hidden>
+    <div class="performance-live" id="performance-live" role="status" aria-live="polite" hidden>
       <span class="performance-live-pulse" aria-hidden="true"></span>
-      <span id="performance-live-label">Đang trình diễn</span>
+      <span class="performance-live-copy">
+        <span class="performance-live-stage" id="performance-live-stage">Sân khấu trực tiếp</span>
+        <span id="performance-live-label">Đang trình diễn</span>
+      </span>
+      <span
+        class="performance-live-track"
+        id="performance-live-progress"
+        role="progressbar"
+        aria-label="Tiến độ trình diễn"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+      ><span id="performance-live-progress-fill"></span></span>
+      <span class="performance-live-time" id="performance-live-time" aria-hidden="true">0:00 / 0:00</span>
       <button id="stop-performance-live" type="button">Dừng</button>
     </div>
 
@@ -106,31 +123,10 @@
       <section class="control-section performance-section" id="control-performance" role="tabpanel" aria-labelledby="control-tab-performance" hidden>
         <div class="section-heading">
           <div><span class="eyebrow">LIVE MOMENTS</span><p class="control-title" id="performance-heading">Sân khấu riêng của Mika</p></div>
+          <span class="section-count" id="performance-count">4</span>
         </div>
-        <article class="performance-card">
-          <span class="performance-art" aria-hidden="true">B</span>
-          <div class="performance-copy">
-            <strong>Bling-Bang-Bang-Born</strong>
-            <p class="performance-status" id="performance-status">Đang kiểm tra nhạc local…</p>
-          </div>
-          <button class="control-button performance-button" id="bling-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
-        </article>
-        <article class="performance-card is-violet">
-          <span class="performance-art" aria-hidden="true">A</span>
-          <div class="performance-copy">
-            <strong>Aipai Dance Hall</strong>
-            <p class="performance-status" id="aipai-performance-status">Đang kiểm tra nhạc local…</p>
-          </div>
-          <button class="control-button performance-button" id="aipai-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
-        </article>
-        <article class="performance-card is-sunrise">
-          <span class="performance-art" aria-hidden="true">♪</span>
-          <div class="performance-copy">
-            <strong>Chạm Vào Bình Minh</strong>
-            <p class="performance-status" id="singing-performance-status">Đang chuẩn bị giọng hát local…</p>
-          </div>
-          <button class="control-button performance-button" id="singing-performance" type="button" aria-pressed="false">Đang chuẩn bị…</button>
-        </article>
+        <p class="performance-intro">Mỗi tiết mục có sân khấu 3D, ánh sáng và visual phản ứng theo nhạc riêng.</p>
+        <div class="performance-list" id="performance-list"></div>
       </section>
 
       <section class="control-section" id="control-backgrounds" role="tabpanel" aria-labelledby="control-tab-backgrounds" hidden>

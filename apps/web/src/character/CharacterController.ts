@@ -18,8 +18,9 @@ import { AnimationController } from "./AnimationController.js";
 import { ExpressionController } from "./ExpressionController.js";
 import { LipSyncController } from "./LipSyncController.js";
 import { LookAtController } from "./LookAtController.js";
+import { PerformanceStageController } from "./PerformanceStageController.js";
 import type { PlayAnimationOptions, VrmInstance } from "./types.js";
-import type { CompanionExpression } from "@anime-buddy/shared";
+import type { CompanionExpression, PerformanceStageTheme } from "@anime-buddy/shared";
 
 const targetHeight = 2.03;
 
@@ -52,19 +53,6 @@ interface MicrophoneRig {
   length: number;
 }
 
-interface SingingStage {
-  group: THREE.Group;
-  spotlights: THREE.SpotLight[];
-  ledMaterials: THREE.MeshBasicMaterial[];
-  ledBars: THREE.Mesh[];
-  screenMaterial: THREE.ShaderMaterial;
-  rings: THREE.Mesh[];
-  heroRings: THREE.Mesh[];
-  beams: THREE.Mesh[];
-  particles: THREE.Points;
-  particleBasePositions: Float32Array;
-}
-
 export class CharacterController {
   readonly expressions = new ExpressionController();
   private readonly renderer: THREE.WebGLRenderer;
@@ -77,9 +65,11 @@ export class CharacterController {
   private readonly animations: AnimationController;
   private readonly lookAt = new LookAtController();
   private readonly lipSync = new LipSyncController(this.expressions);
+  private readonly performanceStage = new PerformanceStageController(this.scene);
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointerNdc = new THREE.Vector2();
   private readonly interactionBounds = new THREE.Box3();
+  private readonly interactionPosition = new THREE.Vector3();
   private readonly framingTarget = new THREE.Vector3(0, 1.04, 0);
   private readonly microphoneHandPosition = new THREE.Vector3();
   private readonly microphoneHeadPosition = new THREE.Vector3();
@@ -92,7 +82,6 @@ export class CharacterController {
   private currentVrm: VrmInstance | null = null;
   private modelRoot: THREE.Group | null = null;
   private microphone: MicrophoneRig | null = null;
-  private singingStage: SingingStage | null = null;
   private currentCharacterId = defaultCharacterId;
   private currentAnimationId = defaultAnimationId;
   private currentBackgroundId = defaultBackgroundId;
@@ -344,274 +333,16 @@ export class CharacterController {
     this.lipSync.stop();
   }
 
-  showSingingStage(): void {
-    if (this.singingStage) return;
-
-    const group = new THREE.Group();
-    group.name = "SingingStage";
-    group.position.set(0, 0, -0.72);
-    group.renderOrder = -2;
-
-    const backdropMaterial = new THREE.MeshBasicMaterial({
-      color: 0x0b1230,
-      transparent: true,
-      opacity: 0.18,
-      depthWrite: false
-    });
-    const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 4.5), backdropMaterial);
-    backdrop.position.set(0, 2.15, -0.5);
-    group.add(backdrop);
-
-    const screenFrameMaterial = new THREE.MeshStandardMaterial({
-      color: 0x261453,
-      emissive: 0x6d28d9,
-      emissiveIntensity: 0.9,
-      metalness: 0.74,
-      roughness: 0.24,
-      transparent: true,
-      opacity: 0.44,
-      depthWrite: false
-    });
-    const screenFramePieces = [
-      { size: [3.78, 0.055, 0.08] as const, position: [0, 3.02, -0.43] as const },
-      { size: [3.78, 0.055, 0.08] as const, position: [0, 1.26, -0.43] as const },
-      { size: [0.055, 1.82, 0.08] as const, position: [-1.86, 2.14, -0.43] as const },
-      { size: [0.055, 1.82, 0.08] as const, position: [1.86, 2.14, -0.43] as const }
-    ];
-    for (const piece of screenFramePieces) {
-      const framePiece = new THREE.Mesh(
-        new THREE.BoxGeometry(piece.size[0], piece.size[1], piece.size[2]),
-        screenFrameMaterial.clone()
-      );
-      framePiece.position.set(piece.position[0], piece.position[1], piece.position[2]);
-      framePiece.renderOrder = -2;
-      group.add(framePiece);
-    }
-
-    const screenMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uPulse: { value: 0 }
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float uTime;
-        uniform float uPulse;
-        varying vec2 vUv;
-        void main() {
-          vec2 centered = vUv - 0.5;
-          float vignette = smoothstep(0.78, 0.18, length(centered));
-          float wave = 0.5 + 0.5 * sin(uTime * 1.2 + centered.x * 5.2 + centered.y * 3.8);
-          float glow = exp(-8.0 * length(centered + vec2(0.0, 0.08)));
-          vec3 deep = vec3(0.08, 0.025, 0.28);
-          vec3 violet = vec3(0.62, 0.10, 0.74);
-          vec3 cyan = vec3(0.08, 0.86, 0.92);
-          vec3 color = mix(deep, violet, 0.5 + 0.32 * wave);
-          color = mix(color, cyan, glow * (0.32 + 0.26 * uPulse));
-          float starA = smoothstep(0.018, 0.0, abs(fract((vUv.x + uTime * 0.008) * 8.0) - 0.5));
-          float starB = smoothstep(0.014, 0.0, abs(fract((vUv.y - uTime * 0.006) * 5.0) - 0.5));
-          color += vec3(0.38, 0.68, 1.0) * starA * starB * 0.22;
-          gl_FragColor = vec4((color + vec3(0.035, 0.02, 0.06)) * vignette, 0.98);
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      depthTest: true
-    });
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.54, 1.58), screenMaterial);
-    screen.position.set(0, 2.14, -0.375);
-    screen.renderOrder = -1;
-    group.add(screen);
-
-    const heroRings: THREE.Mesh[] = [];
-    for (const [radius, color] of [[0.82, 0x67e8f9], [0.68, 0xf0abfc], [0.54, 0xa78bfa]] as const) {
-      const heroRing = new THREE.Mesh(
-        new THREE.TorusGeometry(radius, 0.018, 8, 64),
-        new THREE.MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: 0.46,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending
-        })
-      );
-      heroRing.position.set(0, 1.42, -0.3);
-      heroRing.scale.y = 1.2;
-      group.add(heroRing);
-      heroRings.push(heroRing);
-    }
-
-    const haloMaterial = new THREE.MeshBasicMaterial({
-      color: 0x8b5cf6,
-      transparent: true,
-      opacity: 0.34,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
-    });
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(2.38, 0.045, 10, 96), haloMaterial);
-    halo.position.set(0, 1.98, -0.33);
-    halo.scale.y = 0.45;
-    group.add(halo);
-
-    const podiumMaterial = new THREE.MeshStandardMaterial({
-      color: 0x171329,
-      emissive: 0x24114f,
-      emissiveIntensity: 0.62,
-      metalness: 0.78,
-      roughness: 0.3
-    });
-    const podium = new THREE.Mesh(new THREE.CylinderGeometry(2.45, 2.72, 0.16, 64), podiumMaterial);
-    podium.position.set(0, 0.08, -0.25);
-    podium.receiveShadow = true;
-    group.add(podium);
-
-    const podiumTopMaterial = new THREE.MeshStandardMaterial({
-      color: 0x251d45,
-      emissive: 0x34216c,
-      emissiveIntensity: 0.72,
-      metalness: 0.64,
-      roughness: 0.26
-    });
-    const podiumTop = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.045, 64), podiumTopMaterial);
-    podiumTop.position.set(0, 0.18, -0.25);
-    podiumTop.receiveShadow = true;
-    group.add(podiumTop);
-
-    const rings: THREE.Mesh[] = [];
-    for (const [radius, color] of [[2.12, 0x22d3ee], [1.76, 0xf472b6], [1.38, 0xa855f7]] as const) {
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(radius, 0.018, 8, 64),
-        new THREE.MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: 0.72,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending
-        })
-      );
-      ring.position.set(0, 0.215, -0.25);
-      ring.rotation.x = Math.PI / 2;
-      group.add(ring);
-      rings.push(ring);
-    }
-
-    const ledMaterials: THREE.MeshBasicMaterial[] = [];
-    const ledBars: THREE.Mesh[] = [];
-    const ledColors = [0x22d3ee, 0xa855f7, 0xf472b6, 0x38bdf8];
-    for (let index = 0; index < 4; index += 1) {
-      const material = new THREE.MeshBasicMaterial({
-        color: ledColors[index % ledColors.length],
-        transparent: true,
-        opacity: 0.76,
-        depthWrite: false
-      });
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.72, 0.028), material);
-      bar.position.set(index < 2 ? -2.04 : 2.04, 1.94 - (index % 2) * 0.18, -0.34);
-      group.add(bar);
-      ledMaterials.push(material);
-      ledBars.push(bar);
-    }
-
-    const sidePillarMaterial = new THREE.MeshBasicMaterial({
-      color: 0x6d28d9,
-      transparent: true,
-      opacity: 0.68,
-      depthWrite: false
-    });
-    for (const x of [-2.22, 2.22]) {
-      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.7, 0.16), sidePillarMaterial.clone());
-      pillar.position.set(x, 1.46, -0.35);
-      group.add(pillar);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.06, 0.2), sidePillarMaterial.clone());
-      cap.position.set(x, 2.78, -0.35);
-      group.add(cap);
-    }
-
-    const beams: THREE.Mesh[] = [];
-    const beamColors = [0x22d3ee, 0xa855f7, 0xf472b6];
-    for (let index = 0; index < 3; index += 1) {
-      const beamMaterial = new THREE.MeshBasicMaterial({
-        color: beamColors[index],
-        transparent: true,
-        opacity: 0.11,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-      });
-      const beam = new THREE.Mesh(new THREE.ConeGeometry(0.16, 3.5, 24, 1, true), beamMaterial);
-      beam.position.set((index - 1) * 1.5, 2.12, -0.18);
-      beam.rotation.x = Math.PI;
-      beam.rotation.z = (index - 1) * 0.18;
-      group.add(beam);
-      beams.push(beam);
-    }
-
-    const spotlights: THREE.SpotLight[] = [];
-    const spotlightColors = [0x22d3ee, 0xf472b6, 0xa855f7];
-    for (let index = 0; index < 3; index += 1) {
-      const spotlight = new THREE.SpotLight(spotlightColors[index], 3.2, 5.4, Math.PI / 8, 0.65, 1.2);
-      spotlight.position.set((index - 1) * 1.8, 3.55, 0.3);
-      spotlight.castShadow = index === 1;
-      spotlight.shadow.mapSize.set(512, 512);
-      const target = new THREE.Object3D();
-      target.position.set((index - 1) * 0.65, 0.16, -0.2);
-      group.add(target);
-      spotlight.target = target;
-      group.add(spotlight);
-      spotlights.push(spotlight);
-    }
-
-    const particleBasePositions = new Float32Array(120 * 3);
-    for (let index = 0; index < 120; index += 1) {
-      particleBasePositions[index * 3] = (Math.random() - 0.5) * 5.4;
-      particleBasePositions[index * 3 + 1] = 0.3 + Math.random() * 2.8;
-      particleBasePositions[index * 3 + 2] = -0.05 - Math.random() * 0.65;
-    }
-    const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute("position", new THREE.BufferAttribute(particleBasePositions.slice(), 3));
-    const particles = new THREE.Points(
-      particleGeometry,
-      new THREE.PointsMaterial({
-        color: 0xf5d0fe,
-        size: 0.026,
-        transparent: true,
-        opacity: 0.82,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-      })
-    );
-    group.add(particles);
-
-    this.scene.add(group);
-    this.singingStage = {
-      group,
-      spotlights,
-      ledMaterials,
-      ledBars,
-      screenMaterial,
-      rings,
-      heroRings,
-      beams,
-      particles,
-      particleBasePositions
-    };
+  showPerformanceStage(theme: PerformanceStageTheme): void {
+    this.performanceStage.show(theme);
   }
 
-  hideSingingStage(): void {
-    const stage = this.singingStage;
-    if (!stage) return;
-    this.singingStage = null;
-    this.scene.remove(stage.group);
-    stage.group.traverse((node: any) => {
-      node.geometry?.dispose?.();
-      this.disposeMaterial(node.material);
-    });
+  hidePerformanceStage(): void {
+    this.performanceStage.hide();
+  }
+
+  attachPerformanceAnalyser(analyser: AnalyserNode | null): void {
+    this.performanceStage.setAnalyser(analyser);
   }
 
   showMicrophone(): boolean {
@@ -708,7 +439,7 @@ export class CharacterController {
     if (this.renderFrameId !== null) window.cancelAnimationFrame(this.renderFrameId);
     this.renderFrameId = null;
     this.lipSync.stop();
-    this.hideSingingStage();
+    this.performanceStage.dispose();
     this.hideMicrophone();
     this.animations.dispose();
     this.disposeMountedVrm(this.currentVrm, this.modelRoot);
@@ -955,7 +686,7 @@ export class CharacterController {
       const time = this.clock.elapsedTime;
       this.modelRoot.position.y = this.reducedMotion ? 0 : Math.sin(time * 1.35) * 0.006;
     }
-    this.updateSingingStage(this.clock.elapsedTime);
+    this.performanceStage.update(this.clock.elapsedTime, this.reducedMotion);
     this.updateMicrophone(this.clock.elapsedTime);
 
     this.controls.update();
@@ -988,11 +719,23 @@ export class CharacterController {
       1 - ((event.clientY - rect.top) / rect.height) * 2
     );
     this.raycaster.setFromCamera(this.pointerNdc, this.camera);
-    // Some third-party VRMs contain geometry groups whose material index is
-    // missing. Three.js mesh raycasting throws for those assets, so use the
-    // animated model's world-space bounds for a forgiving, material-agnostic
-    // touch target.
-    this.interactionBounds.setFromObject(this.modelRoot);
+    // Some third-party VRMs expose stale or enormous skinned-mesh bounds after
+    // animation. Mesh raycasting can also throw when material indices are
+    // incomplete. Use a stable, normalized person-shaped world-space target:
+    // every mounted companion is scaled to roughly 2 m and stands at root Y.
+    // This keeps shoulders/torso easy to tap without turning the whole canvas
+    // into an interaction hotspot.
+    this.modelRoot.getWorldPosition(this.interactionPosition);
+    this.interactionBounds.min.set(
+      this.interactionPosition.x - 0.66,
+      this.interactionPosition.y - 0.04,
+      this.interactionPosition.z - 0.42
+    );
+    this.interactionBounds.max.set(
+      this.interactionPosition.x + 0.66,
+      this.interactionPosition.y + 2.18,
+      this.interactionPosition.z + 0.42
+    );
     const hit = !this.interactionBounds.isEmpty()
       && this.raycaster.ray.intersectsBox(this.interactionBounds);
     if (hit) this.options.onInteract?.();
@@ -1013,64 +756,6 @@ export class CharacterController {
     }
 
     if (time >= this.nextBlinkAt) this.blinkStartedAt = time;
-  }
-
-  private updateSingingStage(time: number): void {
-    const stage = this.singingStage;
-    if (!stage || this.reducedMotion) return;
-
-    const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
-    const sweep = Math.sin(time * 0.82);
-    stage.group.rotation.y = Math.sin(time * 0.18) * 0.018;
-    stage.group.position.x = Math.sin(time * 0.24) * 0.018;
-    stage.screenMaterial.uniforms.uTime.value = time;
-    stage.screenMaterial.uniforms.uPulse.value = pulse;
-    stage.rings.forEach((ring, index) => {
-      ring.rotation.z = time * (0.12 + index * 0.035) * (index % 2 === 0 ? 1 : -1);
-      ring.scale.setScalar(1 + 0.018 * Math.sin(time * 2.4 + index));
-      (ring.material as THREE.MeshBasicMaterial).opacity = 0.48 + pulse * 0.3;
-    });
-    stage.heroRings.forEach((ring, index) => {
-      ring.rotation.z = time * (0.18 + index * 0.045) * (index % 2 === 0 ? 1 : -1);
-      ring.scale.set(
-        1 + 0.04 * Math.sin(time * 1.8 + index),
-        1.2 + 0.05 * Math.sin(time * 1.4 + index),
-        1
-      );
-      (ring.material as THREE.MeshBasicMaterial).opacity = 0.28 + pulse * 0.24;
-    });
-
-    stage.spotlights.forEach((spotlight, index) => {
-      const phase = time * (0.72 + index * 0.11) + index * 1.9;
-      spotlight.position.x = (index - 1) * 1.8 + Math.sin(phase) * 0.62;
-      spotlight.position.z = 0.3 + Math.cos(phase * 0.8) * 0.18;
-      spotlight.intensity = 2.3 + pulse * 1.65 + index * 0.12;
-      spotlight.target.position.x = (index - 1) * 0.65 + Math.sin(phase * 0.7) * 0.42;
-    });
-
-    stage.ledBars.forEach((bar, index) => {
-      const phase = time * 2.2 + index * 0.55;
-      bar.scale.x = 0.94 + 0.08 * (0.5 + 0.5 * Math.sin(phase));
-      bar.position.x = sweep * (index % 2 === 0 ? 0.035 : -0.035);
-      stage.ledMaterials[index].opacity = 0.38 + 0.34 * (0.5 + 0.5 * Math.sin(phase + 0.7));
-    });
-
-    stage.beams.forEach((beam, index) => {
-      beam.rotation.z = (index - 1) * 0.18 + Math.sin(time * 0.62 + index) * 0.09;
-      (beam.material as THREE.MeshBasicMaterial).opacity =
-        0.07 + 0.06 * (0.5 + 0.5 * Math.sin(time * 2.4 + index));
-    });
-
-    const positions = stage.particles.geometry.getAttribute("position") as THREE.BufferAttribute;
-    for (let index = 0; index < positions.count; index += 1) {
-      const baseIndex = index * 3;
-      positions.array[baseIndex] =
-        stage.particleBasePositions[baseIndex] + Math.sin(time * 0.42 + index * 0.37) * 0.035;
-      positions.array[baseIndex + 1] =
-        stage.particleBasePositions[baseIndex + 1] + ((time * (0.035 + (index % 4) * 0.006) + index * 0.013) % 0.22);
-    }
-    positions.needsUpdate = true;
-    stage.particles.rotation.y = time * 0.045;
   }
 
   private updateMicrophone(time: number): void {

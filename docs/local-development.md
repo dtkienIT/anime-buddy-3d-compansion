@@ -122,6 +122,16 @@ The memory probe writes sanitized JSON and screenshots under `test-results/brows
 
 The formal five-run memory artifact now passes the retrieval budget: memory wall p95 is 497 ms against a 700 ms target, with no timeout or fallback in that sample. Remote Supabase latency should still be monitored.
 
+The performance catalog is available without invoking Mistral, Supabase, or
+TTS:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3002/api/performances
+```
+
+It returns the four stage themes and playback metadata, but deliberately omits
+the frontend's local audio and VRMA URLs.
+
 ## Frontend experience QA
 
 With the web app running at `http://127.0.0.1:3001`:
@@ -135,7 +145,25 @@ npm run test:browser:interactions
 npm run test:browser:ui
 ```
 
-The probes seed `animeBuddy.uiPreferences.v2` so onboarding, chat-collapse state, and the Studio drawer start deterministically. They write screenshots and JSON under `test-results/browser/`. The current working tree passes responsive `9/9`, experience `9/9`, animation `36/36`, and interaction/audio scenarios `8/8`; reports are under the matching subdirectories. To watch the journey in the installed Google Chrome, run `node tests/browser/probe-experience.mjs --headed`.
+The probes seed `animeBuddy.uiPreferences.v2` so onboarding, chat-collapse state, and the Studio drawer start deterministically. They write screenshots and JSON under `test-results/browser/`. The last exhaustive animation artifact covers `36/36`; the current stage-flow gate is responsive `9/9`, experience `7/7`, and a one-tab manual pass across all four local-audio performances. Reports are under the matching subdirectories. To watch the journey in the installed Google Chrome, run `node tests/browser/probe-experience.mjs --headed`.
+
+The Uimugi performance uses a deterministic first-party soundtrack:
+
+```text
+apps/web/public/audio/music/Golden-Wheatlight-Original.mp3
+```
+
+It contains no third-party samples and can be regenerated or checked with:
+
+```powershell
+npm run generate:original-music
+npm run verify:original-music
+```
+
+For the stage-specific manual pass, start each performance card once, check its
+stage label and progress bar, stop it mid-playback, then tap the companion after
+returning to idle. The expected idle result is a short stage dialogue bubble
+and no lingering stage lights.
 
 Manual keyboard checks:
 
