@@ -24,6 +24,10 @@ export interface CompleteCompanionInput {
 
 export interface CompanionAiService {
   complete(input: CompleteCompanionInput): Promise<Omit<CompanionChatResponse, "sessionId" | "warnings">>;
+  stream?(input: CompleteCompanionInput): Promise<{
+    tokenStream: AsyncIterable<string>;
+    getFinalResponse: () => Promise<Omit<CompanionChatResponse, "sessionId" | "warnings">>;
+  }>;
 }
 
 const emotionAnimationFallback: Record<CompanionEmotion, string> = {
@@ -81,6 +85,94 @@ export class MistralService implements CompanionAiService {
 
     const content = extractMistralText(response);
     return parseCompanionModelPayload(content, input.availableAnimationIds);
+  }
+
+  async stream(input: CompleteCompanionInput): Promise<{
+    tokenStream: AsyncIterable<string>;
+    getFinalResponse: () => Promise<Omit<CompanionChatResponse, "sessionId" | "warnings">>;
+  }> {
+    const safeAnimations = animationRegistry.filter((animation) => input.availableAnimationIds.includes(animation.id));
+    const allowedAnimations = safeAnimations.length > 0 ? safeAnimations : animationRegistry;
+    const character = getCharacterById(input.characterId);
+    let systemPrompt = buildCharacterSystemPrompt(allowedAnimations, character);
+    if (input.memoryContext) {
+      systemPrompt += "\n" + input.memoryContext;
+    }
+    const messages = [
+      { role: "system" as const, content: systemPrompt },
+      ...input.history.map((message) => ({
+        role: message.role === "assistant" ? "assistant" as const : "user" as const,
+        content: message.content
+      })),
+      { role: "user" as const, content: input.message }
+    ];
+
+    const responseStream = await this.client.chat.stream({
+      model: this.env.MISTRAL_MODEL,
+      messages,
+      temperature: 0.45,
+      responseFormat: { type: "json_object" }
+    } as any);
+
+    let fullJsonBuffer = "";
+    let inReplyField = false;
+    let extractedIndex = 0;
+
+    async function* generateTokens(): AsyncIterable<string> {
+      for await (const chunk of responseStream) {
+        const delta = (chunk as any).data?.choices?.[0]?.delta?.content;
+        if (typeof delta === "string") {
+          fullJsonBuffer += delta;
+
+          if (!inReplyField) {
+            const match = /"reply"\s*:\s*"/i.exec(fullJsonBuffer);
+            if (match) {
+              inReplyField = true;
+              extractedIndex = match.index + match[0].length;
+            }
+          }
+
+          if (inReplyField) {
+            let token = "";
+            let i = extractedIndex;
+            while (i < fullJsonBuffer.length) {
+              const char = fullJsonBuffer[i];
+              if (char === "\\") {
+                if (i + 1 < fullJsonBuffer.length) {
+                  const nextChar = fullJsonBuffer[i + 1];
+                  if (nextChar === "n") token += "\n";
+                  else if (nextChar === "t") token += "\t";
+                  else if (nextChar === '"') token += '"';
+                  else if (nextChar === "\\") token += "\\";
+                  else token += nextChar;
+                  i += 2;
+                } else {
+                  break;
+                }
+              } else if (char === '"') {
+                inReplyField = false;
+                extractedIndex = i + 1;
+                break;
+              } else {
+                token += char;
+                i++;
+              }
+            }
+            extractedIndex = i;
+            if (token) {
+              yield token;
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      tokenStream: generateTokens(),
+      getFinalResponse: async () => {
+        return parseCompanionModelPayload(fullJsonBuffer, input.availableAnimationIds);
+      }
+    };
   }
 }
 

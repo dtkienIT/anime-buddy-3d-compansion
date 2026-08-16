@@ -62,6 +62,13 @@ describe("api", () => {
           microphone: false,
           durationSeconds: 26.8,
           mediaMode: "local-audio"
+        },
+        {
+          id: "happy-synthesizer-stage",
+          stageTheme: "happy-synthwave",
+          microphone: false,
+          durationSeconds: 19.933,
+          mediaMode: "local-audio"
         }
       ]
     });

@@ -54,5 +54,21 @@ assets, alongside the stated model terms for the synthesized voice.
   soundtrack described above.
   Source and complete provenance:
   [`docs/licenses/MaronYatsuhashi-BOOTH-5846143.md`](docs/licenses/MaronYatsuhashi-BOOTH-5846143.md).
+- `Happy-Synthesizer.vrma` is the unmodified VRMA from Maron Yatsuhashi's free
+  BOOTH item `TikTok_ダンスモーション76_『ハッピーシンセサイザ』`, item 7050627.
+  The creator's terms permit commercial and non-commercial use in streams,
+  videos, games, apps, and software integrations where the motion data cannot
+  be directly extracted. Unauthorized redistribution and resale are prohibited.
+  Only the VRMA file is included; the FBX, BVH, VMD, Unity package, and Unity
+  animation files from the download are not copied into this repository.
+  Source: https://booth.pm/en/items/7050627
+- Checked-in VRMA SHA-256: `4583CD76E9A3944B7334F677E0D5094EE825728201E7B60E51114B9F236D4BC2`.
+- `Happy-Synthesizer-Stage.mp4` is an original audio/video asset generated in
+  the owner's authenticated Google Gemini account from a prompt for cheerful
+  electropop choreography. It is not the BOOTH source song and does not copy
+  an existing melody, lyric, recording, or artist performance. The web app
+  plays the first 19.933 seconds alongside the BOOTH motion; Gemini supplied
+  the downloaded media container as `candy_power_jump.mp4`.
+- Checked-in media SHA-256: `C22ADB24F80CB254FD0F859AC161DAB17D7B9D1943F9750A3CA69B04B2528B03`.
 - `WelcomePose.vrma`, `CutePose.vrma`, `VictoryPose.vrma`, and `PresentationPose.vrma` were supplied by the project owner from `ワンダフルなVRMAセット`. Use is permitted without attribution, but redistribution of unmodified files is prohibited. Source: https://booth.pm/en/items/5917598
 - `MotionPose.vrma`, `Dogeza.vrma`, `StepExercise.vrma`, `Hello.vrma`, `Smartphone.vrma`, `DrinkWater.vrma`, `Encourage.vrma`, and `Startled.vrma` are from `使いどころに困るモーションセット` by へすい/rerofumi, released under CC0. Source: https://booth.pm/ja/items/5527394

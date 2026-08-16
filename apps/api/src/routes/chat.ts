@@ -51,10 +51,6 @@ export function registerChatRoute(
     const [session, prefResult] = await Promise.all([sessionPromise, prefPromise]);
     const isMemoryEnabled = prefResult?.data ? prefResult.data.memory_enabled : true;
 
-    // Text replies are context-dependent and may contain user-specific memory.
-    // Keep response audio caching available through the TTS route, but never
-    // reuse or persist complete chat replies across sessions/users here.
-
     // 2. Fetch history AND retrieve memory context concurrently.
     let recentMessagesMs = 0;
     const recentMessagesStartedAt = performance.now();
@@ -108,6 +104,7 @@ export function registerChatRoute(
     supabase.saveAssistantMessage(session.sessionId, aiResponse).catch((err: unknown) => {
       console.error("Failed to save assistant message in background:", err);
     });
+
     // 6. Background memory extraction & summarization
     if (isMemoryEnabled && memoryService.isConfigured() && env.MEMORY_ENABLED) {
       void memoryService.extractMemories(
@@ -157,5 +154,128 @@ export function registerChatRoute(
       ...aiResponse,
       warnings: session.warnings
     });
+  });
+
+  app.post("/api/chat/stream", {
+    config: {
+      rateLimit: {
+        max: env.CHAT_RATE_LIMIT_PER_MINUTE,
+        timeWindow: "1 minute"
+      }
+    },
+    bodyLimit: 32 * 1024
+  }, async (request, reply) => {
+    const body = chatRequestSchema.parse(request.body);
+
+    const sessionPromise = supabase.getOrCreateSession(body);
+    const prefPromise = memoryService.isConfigured() && env.MEMORY_ENABLED
+      ? (async () => {
+          try {
+            return await supabase.getClient()!
+              .from("user_preferences")
+              .select("memory_enabled")
+              .eq("anonymous_id", body.anonymousId)
+              .maybeSingle();
+          } catch {
+            return { data: null };
+          }
+        })()
+      : Promise.resolve({ data: null });
+
+    const [session, prefResult] = await Promise.all([sessionPromise, prefPromise]);
+    const isMemoryEnabled = prefResult?.data ? prefResult.data.memory_enabled : true;
+
+    const historyPromise = (async () => {
+      try {
+        return await supabase.loadRecentMessages(
+          session.sessionId,
+          body.anonymousId,
+          env.CHAT_MAX_CONTEXT_MESSAGES
+        );
+      } catch {
+        return [];
+      }
+    })();
+
+    const shouldRetrieveMemory = isMemoryEnabled && memoryService.isConfigured() && env.MEMORY_ENABLED;
+    const memoryContextPromise = shouldRetrieveMemory
+      ? memoryService.retrieveContextWithTimings(
+          body.anonymousId,
+          body.characterId,
+          session.sessionId,
+          body.message
+        )
+      : Promise.resolve({ context: "", timings: createMemoryTimings() });
+
+    const [history, memoryResult] = await Promise.all([historyPromise, memoryContextPromise]);
+    const memoryContext = memoryResult.context;
+
+    // Save user message in background
+    supabase.saveUserMessage(session.sessionId, body.message).catch(() => undefined);
+
+    // Set SSE headers
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no"
+    });
+
+    try {
+      if (ai.stream) {
+        const { tokenStream, getFinalResponse } = await ai.stream({
+          message: body.message,
+          characterId: body.characterId,
+          history,
+          availableAnimationIds: body.availableAnimations,
+          sessionId: session.sessionId,
+          memoryContext
+        });
+
+        for await (const token of tokenStream) {
+          reply.raw.write(`event: token\ndata: ${JSON.stringify({ text: token })}\n\n`);
+        }
+
+        const finalResponse = await getFinalResponse();
+
+        // Save assistant message & memory in background
+        supabase.saveAssistantMessage(session.sessionId, finalResponse).catch(() => undefined);
+        if (isMemoryEnabled && memoryService.isConfigured() && env.MEMORY_ENABLED) {
+          void memoryService.extractMemories(
+            session.sessionId,
+            body.anonymousId,
+            body.characterId,
+            body.message,
+            finalResponse.reply
+          );
+          void memoryService.triggerRollingSummary(session.sessionId, body.anonymousId);
+        }
+
+        reply.raw.write(`event: done\ndata: ${JSON.stringify({
+          sessionId: session.sessionId,
+          ...finalResponse,
+          warnings: session.warnings
+        })}\n\n`);
+      } else {
+        const aiResponse = await ai.complete({
+          message: body.message,
+          characterId: body.characterId,
+          history,
+          availableAnimationIds: body.availableAnimations,
+          sessionId: session.sessionId,
+          memoryContext
+        });
+        reply.raw.write(`event: token\ndata: ${JSON.stringify({ text: aiResponse.reply })}\n\n`);
+        reply.raw.write(`event: done\ndata: ${JSON.stringify({
+          sessionId: session.sessionId,
+          ...aiResponse,
+          warnings: session.warnings
+        })}\n\n`);
+      }
+    } catch (err: any) {
+      reply.raw.write(`event: error\ndata: ${JSON.stringify({ error: err?.message || "Stream failed" })}\n\n`);
+    } finally {
+      reply.raw.end();
+    }
   });
 }

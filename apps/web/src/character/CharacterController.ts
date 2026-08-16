@@ -39,6 +39,7 @@ export interface CharacterControllerOptions {
   onProgress: (percent: number, note?: string) => void;
   onAnimationChange?: (animationId: string) => void;
   onInteract?: () => void;
+  onHeadPat?: () => void;
 }
 
 interface MicrophoneRig {
@@ -82,6 +83,7 @@ export class CharacterController {
   private currentVrm: VrmInstance | null = null;
   private modelRoot: THREE.Group | null = null;
   private microphone: MicrophoneRig | null = null;
+  private readonly customCharacters = new Map<string, any>();
   private currentCharacterId = defaultCharacterId;
   private currentAnimationId = defaultAnimationId;
   private currentBackgroundId = defaultBackgroundId;
@@ -186,7 +188,23 @@ export class CharacterController {
   }
 
   getCharacters() {
-    return characterRegistry;
+    return [...characterRegistry, ...this.customCharacters.values()];
+  }
+
+  async loadCustomVrm(file: File): Promise<string> {
+    const customId = `custom-${Date.now()}`;
+    const url = URL.createObjectURL(file);
+    const label = file.name.replace(/\.[^/.]+$/, "");
+    const item = {
+      id: customId,
+      label,
+      description: "Avatar VRM tùy chỉnh",
+      persona: "Một người bạn đồng hành ảo thân thiết và tốt bụng.",
+      url
+    };
+    this.customCharacters.set(customId, item);
+    await this.switchModel(customId);
+    return customId;
   }
 
   getAnimations() {
@@ -214,7 +232,7 @@ export class CharacterController {
   }
 
   async switchModel(characterId: string, initial = false): Promise<void> {
-    const next = getCharacterById(characterId);
+    const next = this.customCharacters.get(characterId) ?? getCharacterById(characterId);
     if (!initial && next.id === this.currentCharacterId && this.currentVrm) {
       return;
     }
@@ -736,9 +754,32 @@ export class CharacterController {
       this.interactionPosition.y + 2.18,
       this.interactionPosition.z + 0.42
     );
+    const hitPoint = new THREE.Vector3();
     const hit = !this.interactionBounds.isEmpty()
-      && this.raycaster.ray.intersectsBox(this.interactionBounds);
-    if (hit) this.options.onInteract?.();
+      && this.raycaster.ray.intersectBox(this.interactionBounds, hitPoint);
+    if (hit) {
+      const isHead = hitPoint.y >= this.interactionPosition.y + 1.25;
+      if (isHead) {
+        this.spawnHeartParticle(event.clientX, event.clientY);
+        if (this.options.onHeadPat) {
+          this.options.onHeadPat();
+        } else {
+          this.options.onInteract?.();
+        }
+      } else {
+        this.options.onInteract?.();
+      }
+    }
+  }
+
+  private spawnHeartParticle(clientX: number, clientY: number): void {
+    const particle = document.createElement("div");
+    particle.className = "heart-particle";
+    particle.textContent = Math.random() > 0.35 ? "❤️" : "✨";
+    particle.style.left = `${clientX}px`;
+    particle.style.top = `${clientY}px`;
+    document.body.appendChild(particle);
+    setTimeout(() => particle.remove(), 1200);
   }
 
   private updateBlink(time: number): void {

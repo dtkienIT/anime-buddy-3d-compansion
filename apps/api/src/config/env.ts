@@ -65,6 +65,7 @@ export function resetEnvCacheForTests(): void {
 function loadEnvFiles(): void {
   const candidates = [
     path.resolve(process.cwd(), ".env"),
+    path.resolve(process.cwd(), "../.env"),
     path.resolve(process.cwd(), "../../.env"),
     path.resolve(process.cwd(), "../../../.env")
   ];

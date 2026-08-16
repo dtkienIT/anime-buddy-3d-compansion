@@ -12,8 +12,9 @@ export interface UiPreferences {
 }
 
 const defaultPreferences = (): UiPreferences => ({
-  controlsOpen: window.innerWidth >= 1200,
-  chatCollapsed: false,
+  // Start in immersive mode: the 3D stage is the first thing users see.
+  controlsOpen: false,
+  chatCollapsed: true,
   reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   welcomeSeen: false
 });

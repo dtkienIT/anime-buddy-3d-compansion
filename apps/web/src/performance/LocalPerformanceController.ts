@@ -118,7 +118,13 @@ export class LocalPerformanceController {
     try {
       const response = await fetch(audioUrl, { method: "HEAD", cache: "no-store" });
       const contentType = response.headers.get("content-type") ?? "";
-      if (!response.ok || (!contentType.startsWith("audio/") && !contentType.includes("mpeg"))) {
+      // Gemini may return a playable MP4 container with an audio stream. It
+      // remains a local media asset; HTMLAudioElement can decode the audio
+      // track even though the HTTP content type is video/mp4.
+      const playableMedia = contentType.startsWith("audio/")
+        || contentType.includes("mpeg")
+        || contentType.includes("mp4");
+      if (!response.ok || !playableMedia) {
         return false;
       }
       if (this.disposed) return false;

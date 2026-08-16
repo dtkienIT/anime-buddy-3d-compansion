@@ -73,7 +73,7 @@ Date: 2026-07-10
 
 ## Current performance-stage architecture
 
-The four local performances are now described by the shared
+The five local performances are now described by the shared
 `packages/shared/src/performance.ts` registry. The frontend
 `LocalPerformanceController` consumes that registry for animation, audio,
 progress, stop, and cleanup behavior. `PerformanceStageController` owns only

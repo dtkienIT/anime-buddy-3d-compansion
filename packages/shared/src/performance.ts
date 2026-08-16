@@ -1,6 +1,6 @@
-export type PerformanceId = "bling-bang-bang-born" | "aipai-dance-hall" | "cham-vao-binh-minh" | "ui-mugibatake-dance";
+export type PerformanceId = "bling-bang-bang-born" | "aipai-dance-hall" | "cham-vao-binh-minh" | "ui-mugibatake-dance" | "happy-synthesizer-stage";
 export type PerformanceKind = "dance" | "sing";
-export type PerformanceStageTheme = "neon-cube" | "lantern-festival" | "aurora-dawn" | "wheat-field";
+export type PerformanceStageTheme = "neon-cube" | "lantern-festival" | "aurora-dawn" | "wheat-field" | "happy-synthwave";
 
 export interface PerformanceRegistryItem {
   id: PerformanceId;
@@ -71,11 +71,11 @@ export const performanceRegistry: readonly PerformanceRegistryItem[] = [
   {
     id: "ui-mugibatake-dance",
     label: "Vũ điệu Uimugi Batake",
-    artistLabel: "Original hyper remix",
+    artistLabel: "Original electro dance",
     kind: "dance",
     stageTheme: "wheat-field",
     stageLabel: "Golden Wheatlight",
-    description: "Hyper remix 179 BPM với bass nhanh, vocal hook tiếng Việt, snare roll và drop điện tử dồn dập.",
+    description: "Original 175 BPM electro dance remix với bass syncopated, synth lễ hội, taiko và vocal chant call-and-response.",
     animationUrl: "/animations/UiMugibatake.vrma",
     audioUrl: "/audio/music/Golden-Wheatlight-Original.mp3",
     startSeconds: 0,
@@ -83,6 +83,22 @@ export const performanceRegistry: readonly PerformanceRegistryItem[] = [
     loopAnimation: false,
     microphone: false,
     featured: false
+  },
+  {
+    id: "happy-synthesizer-stage",
+    label: "Happy Synthesizer",
+    artistLabel: "Original electropop",
+    kind: "dance",
+    stageTheme: "happy-synthwave",
+    stageLabel: "Chromatic Disco Tunnel",
+    description: "Sân khấu synthwave cyan-magenta với tunnel disco chrome, đĩa sáng và equalizer phản ứng theo nhịp.",
+    animationUrl: "/animations/Happy-Synthesizer.vrma",
+    audioUrl: "/audio/music/Happy-Synthesizer-Stage.mp4",
+    startSeconds: 0,
+    durationSeconds: 19.933,
+    loopAnimation: false,
+    microphone: false,
+    featured: true
   }
 ] as const;
 

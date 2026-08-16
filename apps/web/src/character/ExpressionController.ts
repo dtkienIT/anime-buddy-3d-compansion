@@ -66,6 +66,47 @@ export class ExpressionController {
     manager.update?.();
   }
 
+  setVisemeWeights(visemes: { aa: number; ih: number; ou: number; ee: number; oh: number }): void {
+    const manager = this.vrm?.expressionManager;
+    if (!manager) return;
+
+    const visemeMap: Record<string, string[]> = {
+      aa: ["aa", "A", "mouthAa"],
+      ih: ["ih", "I", "mouthI"],
+      ou: ["ou", "U", "mouthU"],
+      ee: ["ee", "E", "mouthE"],
+      oh: ["oh", "O", "mouthO"]
+    };
+
+    let anyFound = false;
+    for (const [key, val] of Object.entries(visemes)) {
+      const candidates = visemeMap[key] ?? [key];
+      const found = candidates.find((name) => this.hasExpression(name));
+      if (found) {
+        manager.setValue(found, clamp(val, 0, 1));
+        anyFound = true;
+      }
+    }
+
+    if (!anyFound && this.mouthExpression) {
+      const maxVal = Math.max(visemes.aa, visemes.ih, visemes.ou, visemes.ee, visemes.oh);
+      manager.setValue(this.mouthExpression, clamp(maxVal, 0, 1));
+    }
+    manager.update?.();
+  }
+
+  resetVisemes(): void {
+    const manager = this.vrm?.expressionManager;
+    if (!manager) return;
+    const allVisemeNames = ["aa", "A", "mouthAa", "ih", "I", "mouthI", "ou", "U", "mouthU", "ee", "E", "mouthE", "oh", "O", "mouthO"];
+    for (const name of allVisemeNames) {
+      if (this.hasExpression(name)) {
+        manager.setValue(name, 0);
+      }
+    }
+    this.resetMouth();
+  }
+
   resetMouth(): void {
     this.setMouthOpen(0);
   }
@@ -84,7 +125,7 @@ export class ExpressionController {
 
   resetAll(): void {
     this.resetEmotionalExpressions();
-    this.resetMouth();
+    this.resetVisemes();
     this.setBlink(0);
   }
 

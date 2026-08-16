@@ -336,14 +336,50 @@ export class ChatController {
       void this.character.playAnimation("thinking", { loop: true });
 
       perfMetrics.mark(runId, "chatRequestStartedAt");
-      const reply = await this.api.sendChat({
-        sessionId: this.store.getSessionId(),
-        anonymousId: this.store.getAnonymousId(),
-        characterId: this.character.getCurrentCharacterId(),
-        message: normalized,
-        availableAnimations: getAvailableAnimationIds(),
-        signal: this.activeAbort.signal
-      });
+      const assistantMsgId = crypto.randomUUID();
+      let streamedText = "";
+      let firstTokenReceived = false;
+
+      const sendPromise = typeof this.api.sendChatStream === "function"
+        ? this.api.sendChatStream({
+            sessionId: this.store.getSessionId(),
+            anonymousId: this.store.getAnonymousId(),
+            characterId: this.character.getCurrentCharacterId(),
+            message: normalized,
+            availableAnimations: getAvailableAnimationIds(),
+            signal: this.activeAbort.signal
+          }, (token) => {
+            if (operationId !== this.operationSequence) return;
+            if (!firstTokenReceived) {
+              firstTokenReceived = true;
+              perfMetrics.mark(runId, "firstVisibleTextAt");
+              if (memoryStatusTimeout) clearTimeout(memoryStatusTimeout);
+            }
+            streamedText += token;
+            this.events.onStreamingChunk?.(assistantMsgId, sanitizeAiText(streamedText));
+          }).catch(async (streamErr) => {
+            if (this.isAbortError(streamErr) || operationId !== this.operationSequence) throw streamErr;
+            // Fallback to standard non-streaming chat endpoint if stream route encounters network issue
+            return await this.api.sendChat({
+              sessionId: this.store.getSessionId(),
+              anonymousId: this.store.getAnonymousId(),
+              characterId: this.character.getCurrentCharacterId(),
+              message: normalized,
+              availableAnimations: getAvailableAnimationIds(),
+              signal: this.activeAbort?.signal
+            });
+          })
+        : this.api.sendChat({
+            sessionId: this.store.getSessionId(),
+            anonymousId: this.store.getAnonymousId(),
+            characterId: this.character.getCurrentCharacterId(),
+            message: normalized,
+            availableAnimations: getAvailableAnimationIds(),
+            signal: this.activeAbort?.signal
+          });
+
+      const reply = await sendPromise;
+
       perfMetrics.mark(runId, "chatResponseReceivedAt");
       perfMetrics.mark(runId, "assistantReplyStartedAt");
       perfMetrics.mark(runId, "assistantReplyCompletedAt");
@@ -356,6 +392,7 @@ export class ChatController {
       const cleanReply = sanitizeAiText(reply.reply);
       this.lastReply = cleanReply;
       const assistantMessage = this.store.add({
+        id: assistantMsgId,
         role: "assistant",
         content: cleanReply,
         emotion: reply.emotion,
@@ -364,7 +401,9 @@ export class ChatController {
       });
       this.events.onAssistantMessage(assistantMessage);
       perfMetrics.mark(runId, "replyRenderedAt");
-      perfMetrics.mark(runId, "firstVisibleTextAt");
+      if (!firstTokenReceived) {
+        perfMetrics.mark(runId, "firstVisibleTextAt");
+      }
       this.character.setExpression(reply.expression as CompanionExpression, reply.intensity);
 
       if (this.voiceSettings.enabled) {

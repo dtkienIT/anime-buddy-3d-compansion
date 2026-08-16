@@ -1,17 +1,42 @@
 # Local performance music
 
-The local performance track is stored as `Bling-Bang-Bang-Born.mp3`.
+These files are static audio/media assets served by the web app. Runtime
+playback does not call a music-generation service.
 
-The app serves it at `/audio/music/Bling-Bang-Bang-Born.mp3`. It is normalized to -16 LUFS and padded to the VRMA duration of 19.167 seconds.
+`Bling-Bang-Bang-Born.mp3` and `Aipai-Dance-Hall.mp3` are the existing
+project-local dance tracks. `Cham-Vao-Binh-Minh.mp3` is the existing full-length
+vocal performance track.
 
-`Aipai-Dance-Hall.mp3` is extracted from the local `0711.mp4`, normalized to -16 LUFS, delayed by 0.9 seconds to match the motion lead-in, and padded to 32.7 seconds.
+## Uimugi Batake
 
-`Cham-Vao-Binh-Minh.mp3` is the canonical, full-length companion song with the finalized Vietnamese Trúc Ly vocal. It is stored as a static product asset so performances never invoke generation, training, or voice conversion at runtime. Source material, training data, notebooks, checkpoints, and intermediate stems are intentionally excluded from this repository.
+`Golden-Wheatlight-Original.mp3` is the current soundtrack for the
+26.8-second `UiMugibatake.vrma` performance. The filename is kept stable so
+existing registry and browser-test references continue to work, but its bytes
+were replaced on 2026-08-02 with the approved original MP3 generated in the
+owner's authenticated Google Gemini account using Lyria 3 music generation.
 
-`Golden-Wheatlight-Original.mp3` is a first-party 26.8-second, 179.104 BPM
-electronic hyper remix composed for the Uimugi motion and Golden Wheatlight
-stage. It contains no commercial recording or sample. Original Vietnamese
-call-and-response hooks are synthesized with the local VieNeu Trúc Ly preset
-and mixed as short vocal chops. The deterministic mix source is
-`scripts/generate-uimugi-music.mjs`; run `npm run generate:original-music` to
-regenerate it and `npm run verify:original-music` to verify byte identity.
+The generated track is titled **Uimugi Night Parade**, is approximately
+2 minutes 30 seconds long, and was prompted as a 175 BPM, 4/4 electro dance
+remix with festival synths, taiko/house percussion, and short original
+call-and-response group vocal chants. The performance controller plays the
+first 26.8 seconds to stay synchronized with the one-shot VRMA motion.
+
+The downloaded source file was `Stomp_at_Midnight.mp3` (Gemini's download
+filename), 3,607,213 bytes, SHA-256
+`5EB17984FB058D37350D43D80CCABEED4727A593CDA5927B209968E36E244473`.
+The provenance and usage note is maintained in
+[`docs/licenses/Golden-Wheatlight-Original.md`](../../../../docs/licenses/Golden-Wheatlight-Original.md).
+
+The old deterministic local synthesizer remains only as historical source
+code in `scripts/generate-uimugi-music.mjs`; it is no longer wired to a package
+generation command and must not overwrite this approved Gemini asset.
+
+## Happy Synthesizer
+
+`Happy-Synthesizer-Stage.mp4` is the original Gemini-generated electropop
+stage track for the 19.933-second `Happy-Synthesizer.vrma` motion. The track is
+cheerful, bright, and choreography-focused with short original vocal chops;
+the performance controller intentionally plays only the first 19.933 seconds
+so the audio and motion finish together. The media container is kept as MP4
+because Gemini delivered the generated audio in that format. Provenance and
+the BOOTH motion terms are recorded in the root `LICENSES.md`.

@@ -145,19 +145,21 @@ npm run test:browser:interactions
 npm run test:browser:ui
 ```
 
-The probes seed `animeBuddy.uiPreferences.v2` so onboarding, chat-collapse state, and the Studio drawer start deterministically. They write screenshots and JSON under `test-results/browser/`. The last exhaustive animation artifact covers `36/36`; the current stage-flow gate is responsive `9/9`, experience `7/7`, and a one-tab manual pass across all four local-audio performances. Reports are under the matching subdirectories. To watch the journey in the installed Google Chrome, run `node tests/browser/probe-experience.mjs --headed`.
+The probes seed `animeBuddy.uiPreferences.v2` so onboarding, chat-collapse state, and the Studio drawer start deterministically. They write screenshots and JSON under `test-results/browser/`. The last exhaustive animation artifact covers `36/36`; the current stage-flow gate is responsive `9/9`, experience `7/7`, and a one-tab manual pass across all five local performances. Reports are under the matching subdirectories. To watch the journey in the installed Google Chrome, run `node tests/browser/probe-experience.mjs --headed`.
 
-The Uimugi performance uses a deterministic first-party soundtrack:
+The Uimugi performance uses the approved Gemini/Lyria 3 soundtrack:
 
 ```text
 apps/web/public/audio/music/Golden-Wheatlight-Original.mp3
 ```
 
-It contains no third-party samples and can be regenerated or checked with:
+The runtime filename is kept stable for the registry. The current MP3 is an
+original 175 BPM, approximately 2:30 Gemini generation; the controller uses
+its first 26.8 seconds to match `UiMugibatake.vrma`. Verify its pinned hash
+with:
 
 ```powershell
-npm run generate:original-music
-npm run verify:original-music
+npm run verify:uimugi-music
 ```
 
 For the stage-specific manual pass, start each performance card once, check its

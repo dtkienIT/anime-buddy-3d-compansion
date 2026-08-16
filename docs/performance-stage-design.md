@@ -45,10 +45,27 @@ the scope appropriate for a local MVP:
 | Aipai Dance Hall | `lantern-festival` | moon gate, layered arches, lanterns, petals | indigo, magenta, warm gold, teal |
 | Chạm Vào Bình Minh | `aurora-dawn` | sunrise disc, aurora rings, ribbons, side screens | deep blue, coral, cyan, dawn gold |
 | Vũ điệu Uimugi Batake | `wheat-field` | golden sun, wheat silhouettes, glowing arch, amber field particles | plum, amber, wheat gold, sage |
+| Happy Synthesizer | `happy-synthwave` | upright neon stargate corridor, edge equalizers, floor grid, deterministic particles | cyan, magenta, violet, deep plum |
 
 The shared registry in `packages/shared/src/performance.ts` is the source of
 truth. `apps/web/src/character/PerformanceStageController.ts` maps a theme to
 geometry and animation; it does not own song URLs or UI labels.
+
+## Happy Synthesizer safe-zone contract
+
+The approved Concept A redesign is **Neon Stargate Corridor**. Four upright
+torus gates sit behind Mika at deterministic local depths (`-0.28`, `-0.42`,
+`-0.56`, `-0.70`) and rotate around their Z axis through the existing `rings`
+runtime contract. The gates frame the silhouette; they must never become a
+horizontal bar across the face.
+
+The character-safe area is intentionally kept clear around the head and upper
+torso (approximately `x = ±0.72`, `y = 1.15..3.10` in stage-local space).
+Equalizer bars, discs, stars, beams, and large particles stay at the side
+edges, above the head, on the floor, or behind the gates. Happy Synthwave
+placement is deterministic so resize, zoom, and repeated reloads preserve the
+same composition. Reduced motion keeps the same safe geometry while easing
+rotation, scale, and particle travel.
 
 ## Runtime contract
 
@@ -65,7 +82,7 @@ The frontend `LocalPerformanceController` owns playback state:
   removes theme classes.
 
 This makes stop, replacement, natural completion, and reduced-motion behavior
-follow the same path for all four performances. The Uimugi entry uses the
+follow the same path for all five performances. The Uimugi entry uses the
 first-party Golden Wheatlight hyper remix, whose exact 20-bar duration matches
 the 26.8-second motion. It follows the same audio analysis, active state,
 progress, stop, cleanup, and natural-completion lifecycle as the other entries.
@@ -80,6 +97,9 @@ progress, stop, cleanup, and natural-completion lifecycle as the other entries.
 - Tap the companion outside a performance and confirm a bounded dialogue bubble.
 - Toggle reduced motion and confirm the stage remains legible without pulsing
   geometry.
+- Start Happy Synthesizer and confirm no ring, beam, disc, star, or large
+  particle crosses Mika's face or upper-torso safe zone at desktop and mobile
+  aspect ratios.
 - Run:
 
 ```powershell

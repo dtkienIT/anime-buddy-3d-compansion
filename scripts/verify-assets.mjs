@@ -59,7 +59,8 @@ const assetGroups = {
     "Squat.vrma",
     "vrma_01.vrma",
     "Bling-Bang-Bang-Born.vrma",
-    "Aipai-Dance-Hall.vrma"
+    "Aipai-Dance-Hall.vrma",
+    "Happy-Synthesizer.vrma"
   ].map((name) => `apps/web/public/animations/${name}`),
   backgrounds: [
     "study-room-sunlit.png",
@@ -75,6 +76,9 @@ const assetGroups = {
     "Aipai-Dance-Hall.mp3",
     "Cham-Vao-Binh-Minh.mp3",
     "Golden-Wheatlight-Original.mp3"
+  ].map((name) => `apps/web/public/audio/music/${name}`),
+  audioVideos: [
+    "Happy-Synthesizer-Stage.mp4"
   ].map((name) => `apps/web/public/audio/music/${name}`),
   audioSources: [
     "hook.wav",
@@ -99,7 +103,8 @@ const minimumBytes = {
   animations: 1024,
   backgrounds: 1024,
   audio: 1024,
-  audioSources: 1024
+  audioSources: 1024,
+  audioVideos: 1024
 };
 const canonicalAssets = new Map([
   [
@@ -116,7 +121,7 @@ const canonicalAssets = new Map([
   ],
   [
     "apps/web/public/audio/music/Golden-Wheatlight-Original.mp3",
-    "5b9cb9730855ec63ca9ef07904bad8882b50203ac0a842f43a073b04fca9ceed"
+    "5eb17984fb058d37350d43d80ccabeed4727a593cda5927b209968e36e244473"
   ],
   [
     "assets/audio-sources/golden-wheatlight/hook.wav",
@@ -223,6 +228,9 @@ function validateSignature(relativePath, buffer) {
     const isId3 = buffer.subarray(0, 3).toString("ascii") === "ID3";
     const isMpegFrame = buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0;
     return isId3 || isMpegFrame ? null : "invalid MP3 signature";
+  }
+  if (relativePath.endsWith(".mp4")) {
+    return buffer.subarray(4, 8).toString("ascii") === "ftyp" ? null : "invalid MP4 signature";
   }
   if (relativePath.endsWith(".wav")) {
     const isRiff = buffer.subarray(0, 4).toString("ascii") === "RIFF";

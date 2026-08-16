@@ -62,6 +62,7 @@ export const animationRegistry: AnimationRegistryItem[] = [
   { id: "shake-head", label: "Lắc đầu", url: "/animations/ShakeHead.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax", description: "Phản hồi không đồng ý" },
   { id: "dance-25", label: "Nhảy vui", url: "/animations/Dance25.vrma", loop: false, fadeDuration: 0.16, category: "reaction", fallbackId: "relax", chatEligible: false, description: "Một màn biểu diễn dài" },
   { id: "ui-mugibatake-dance", label: "Vũ điệu Uimugi Batake", url: "/animations/UiMugibatake.vrma", loop: false, fadeDuration: 0.14, category: "reaction", fallbackId: "relax", chatEligible: false, description: "Motion BOOTH 26,8 giây của Maron Yatsuhashi, không kèm nhạc" },
+  { id: "happy-synthesizer-stage", label: "Happy Synthesizer", url: "/animations/Happy-Synthesizer.vrma", loop: false, fadeDuration: 0.1, category: "reaction", fallbackId: "relax", chatEligible: false, description: "Motion dance 19,9 giây từ Maron Yatsuhashi, không kèm nhạc" },
   { id: "welcome-pose", label: "Chào mừng", url: "/animations/WelcomePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
   { id: "cute-pose", label: "Dáng đáng yêu", url: "/animations/CutePose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },
   { id: "victory-pose", label: "Chiến thắng", url: "/animations/VictoryPose.vrma", loop: false, fadeDuration: 0.16, category: "gesture", fallbackId: "relax" },

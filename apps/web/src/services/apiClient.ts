@@ -86,6 +86,74 @@ export class ApiClient {
     return chatResponseSchema.parse(payload);
   }
 
+  async sendChatStream(
+    input: SendChatInput,
+    onToken: (token: string) => void
+  ): Promise<CompanionReply> {
+    const response = await fetch(`${this.baseUrl}/api/chat/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: input.sessionId,
+        anonymousId: input.anonymousId,
+        characterId: input.characterId,
+        message: input.message,
+        availableAnimations: input.availableAnimations
+      }),
+      signal: input.signal
+    });
+
+    if (!response.ok) {
+      const payload = await readJson(response).catch(() => null);
+      throw new Error(readErrorMessage(payload) || `Chat stream request failed with ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error("Response body is missing");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new globalThis.TextDecoder();
+    let buffer = "";
+    let finalPayload: CompanionReply | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      let currentEvent = "";
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          const dataStr = line.slice(6).trim();
+          try {
+            const data = JSON.parse(dataStr);
+            if (currentEvent === "token" && data.text) {
+              onToken(data.text);
+            } else if (currentEvent === "done") {
+              finalPayload = chatResponseSchema.parse(data);
+            } else if (currentEvent === "error") {
+              throw new Error(data.error || "Streaming error occurred");
+            }
+          } catch (e: any) {
+            if (currentEvent === "error" || currentEvent === "done") throw e;
+          }
+        }
+      }
+    }
+
+    if (!finalPayload) {
+      throw new Error("Stream ended without completion metadata");
+    }
+
+    return finalPayload;
+  }
+
   async clearConversation(sessionId: string, anonymousId: string): Promise<void> {
     const response = await fetch(`${this.baseUrl}/api/conversations/${encodeURIComponent(sessionId)}?anonymousId=${encodeURIComponent(anonymousId)}`, {
       method: "DELETE"

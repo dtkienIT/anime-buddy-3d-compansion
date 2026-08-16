@@ -33,6 +33,16 @@ describe("animation registry", () => {
       fallbackId: "relax"
     });
   });
+
+  it("registers the Happy Synthesizer BOOTH dance as a standalone motion", () => {
+    expect(animationRegistry.find((item) => item.id === "happy-synthesizer-stage")).toMatchObject({
+      url: "/animations/Happy-Synthesizer.vrma",
+      loop: false,
+      category: "reaction",
+      chatEligible: false,
+      fallbackId: "relax"
+    });
+  });
 });
 
 describe("character registry", () => {

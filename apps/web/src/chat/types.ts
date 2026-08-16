@@ -18,6 +18,7 @@ export interface LocalChatMessage extends ChatMessage {
 export interface ChatControllerEvents {
   onUserMessage: (message: LocalChatMessage) => void;
   onAssistantMessage: (message: LocalChatMessage) => void;
+  onStreamingChunk?: (messageId: string, partialText: string) => void;
   onStatus: (status: string, state: CompanionState) => void;
   onWarning: (message: string) => void;
   onSessionsLoaded?: (sessions: SessionSummary[]) => void;

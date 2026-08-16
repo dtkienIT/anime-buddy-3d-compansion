@@ -4,16 +4,15 @@ A browser-based VRM companion with a responsive 3D stage, expressive VRMA motion
 
 ## Experience
 
-The current frontend is designed around the character instead of treating the Three.js canvas as a background:
-
+- **Real-time SSE Streaming Chat**: `/api/chat/stream` streams tokens incrementally for instant typewriter UI rendering and sentence-level audio prefetching.
+- **Audio Lip-Sync & Viseme Modulation**: Formant-aware spectral analysis maps audio to VRM blendshapes (`aa`, `ih`, `ou`, `ee`, `oh`) in real time for lifelike mouth movement.
+- **Hands-Free Voice Mode & Barge-In**: Automatic speech interruption stops audio immediately when the user speaks.
+- **Touch & Head-Pat Interaction**: Click/tap on character's head triggers blushing animations, floating heart particles, and warm vocal reactions.
+- **Custom VRM Upload**: Load and interact with any local `.vrm` 3D model directly from Companion Studio.
 - Responsive stage, chat dock, and Companion Studio layouts for mobile, tablet, desktop, and short screens.
-- First-visit onboarding, contextual help, empty-state prompts, loading progress, network status, and non-blocking toasts.
-- Direct camera gestures, focus mode, animation search, character/background cards, direct companion interaction, and four music-backed performances with distinct 3D stages.
-- Direct character interaction: pointer/touch hit testing, gaze following, natural blinking, wave/nod/gentle/curious responses, speech bubbles, and quiet ambient moments.
+- Direct camera gestures, focus mode, animation search, character/background cards, direct companion interaction, and five music-backed performances with distinct 3D stages.
 - Accessible tabs and controls with keyboard focus states, ARIA state, screen-reader status updates, reduced-motion support, and IME-safe chat input.
 - Conversation search, rename, delete, export, replay, quick new chat, and long-term-memory view/edit/delete controls.
-- Local experience preferences preserve the selected character, background, studio state, chat-collapse state, onboarding state, and reduced-motion choice.
-- Onboarding explains long-term memory before use and links directly to its controls; every character has its own bounded persona and dynamic UI identity.
 
 Keyboard shortcuts:
 
@@ -28,7 +27,7 @@ Keyboard shortcuts:
 
 ## Motion library
 
-The shared registry exposes 39 companion animations and four local music-backed performances. Eight core motions are generated deterministically at 30 fps:
+The shared registry exposes 40 companion animations and five local music-backed performances. Eight core motions are generated deterministically at 30 fps:
 
 - `Relax.vrma` — regenerated seamless idle loop.
 - `Listening.vrma` — attentive loop used while speech input is active.
@@ -42,19 +41,19 @@ The shared registry exposes 39 companion animations and four local music-backed 
 `UiMugibatake.vrma` is an owner-downloaded third-party BOOTH motion registered
 as a standalone 26.8-second Studio animation and Live Moments performance. Its
 commercial reference song is not copied into the repository. The performance
-instead uses the first-party `Golden-Wheatlight-Original.mp3`, a deterministic
-26.8-second dance soundtrack synthesized and mixed by
-`scripts/generate-uimugi-music.mjs` without commercial samples. Short original
-Vietnamese vocal hooks are generated locally with VieNeu's Trúc Ly preset and
-mixed as call-and-response chops around the drops. Source, hashes, selected
-archive contents, and redistribution limits are documented in
-[`docs/licenses/MaronYatsuhashi-BOOTH-5846143.md`](docs/licenses/MaronYatsuhashi-BOOTH-5846143.md).
+uses the approved `Golden-Wheatlight-Original.mp3` runtime asset, an original
+high-energy Uimugi Night Parade soundtrack generated with Gemini Pro/Lyria 3
+and downloaded as MP3 after preview approval. The controller plays the first
+26.8 seconds to match the motion. The detailed provenance and hash are in
+[`docs/licenses/Golden-Wheatlight-Original.md`](docs/licenses/Golden-Wheatlight-Original.md).
 
-Regenerate or byte-verify the original soundtrack with:
+The detailed BOOTH motion provenance and redistribution limits are documented
+in [`docs/licenses/MaronYatsuhashi-BOOTH-5846143.md`](docs/licenses/MaronYatsuhashi-BOOTH-5846143.md).
+
+Verify the approved Uimugi Night Parade soundtrack with:
 
 ```powershell
-npm run generate:original-music
-npm run verify:original-music
+npm run verify:uimugi-music
 ```
 
 The generator writes identical assets to `animations/` and `apps/web/public/animations/`, declares `VRMC_vrm_animation.specVersion` `1.0`, and validates tracks and loop endpoints. Generate or verify them with:

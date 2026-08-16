@@ -134,7 +134,8 @@ export class AppController {
         if (note) loaderNote.textContent = note;
       },
       onAnimationChange: () => this.updateActiveButtons(),
-      onInteract: () => void this.handleCharacterInteraction()
+      onInteract: () => void this.handleCharacterInteraction(),
+      onHeadPat: () => void this.handleHeadPat()
     });
 
     this.voiceControls = new VoiceControls(required("#voice-toggle"), defaultVoiceSettings);
@@ -190,6 +191,7 @@ export class AppController {
           this.chatPanel.addMessage(message);
         },
         onAssistantMessage: (message) => this.chatPanel.addMessage(message),
+        onStreamingChunk: (messageId, partialText) => this.chatPanel.updateStreamingMessage(messageId, partialText),
         onStatus: (message, state) => this.setStatus(state, message),
         onWarning: (message) => this.notify(message, "warning")
       },
@@ -229,7 +231,8 @@ export class AppController {
         ? "♪"
         : performance.stageTheme === "neon-cube" ? "B"
           : performance.stageTheme === "wheat-field" ? "U"
-            : "A";
+            : performance.stageTheme === "happy-synthwave" ? "H"
+              : "A";
 
       const copy = document.createElement("div");
       copy.className = "performance-copy";
@@ -402,6 +405,54 @@ export class AppController {
   private renderButtons(container: HTMLElement, options: ControlOption[], type: ControlType): void {
     container.replaceChildren();
     const fragment = document.createDocumentFragment();
+
+    if (type === "model") {
+      const uploadButton = document.createElement("button");
+      uploadButton.className = "control-button is-upload";
+      uploadButton.type = "button";
+      uploadButton.title = "Tải lên mô hình VRM (.vrm) từ máy tính";
+      uploadButton.setAttribute("aria-label", "Tải lên mô hình VRM từ máy");
+      uploadButton.setAttribute("aria-pressed", "false");
+
+      const icon = document.createElement("span");
+      icon.className = "option-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "📁";
+      uploadButton.append(icon);
+
+      const copy = document.createElement("span");
+      copy.className = "option-copy";
+      const label = document.createElement("span");
+      label.className = "option-label";
+      label.textContent = "Tải lên VRM";
+      const meta = document.createElement("span");
+      meta.className = "option-meta";
+      meta.textContent = "Chọn file .vrm";
+      copy.append(label, meta);
+      uploadButton.append(copy);
+
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".vrm";
+      fileInput.style.display = "none";
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        try {
+          this.notify(`Đang nạp mô hình ${file.name}…`, "info");
+          const customId = await this.character.loadCustomVrm(file);
+          this.renderControlButtons();
+          await this.selectModel(customId);
+          this.notify(`Đã nạp thành công mô hình ${file.name}!`, "success");
+        } catch (err: any) {
+          this.notify(`Không thể tải file VRM này: ${err?.message || "Lỗi không xác định"}`, "error");
+        }
+      });
+
+      uploadButton.addEventListener("click", () => fileInput.click());
+      fragment.append(uploadButton);
+    }
+
     const renderedOptions = type === "animation"
       ? [...options].sort((left, right) => categoryOrder.indexOf(getAnimationById(left.id).category) - categoryOrder.indexOf(getAnimationById(right.id).category))
       : options;
@@ -952,11 +1003,20 @@ export class AppController {
     required<HTMLButtonElement>("#studio-toggle").addEventListener("click", () => {
       this.setControlsOpen(!this.controls.classList.contains("is-open"));
     });
+    required<HTMLButtonElement>("#studio-fab").addEventListener("click", () => {
+      this.setControlsOpen(!this.controls.classList.contains("is-open"));
+    });
+    required<HTMLElement>("#studio-backdrop").addEventListener("click", () => {
+      this.setControlsOpen(false);
+      required<HTMLButtonElement>("#studio-fab").focus();
+    });
     required<HTMLButtonElement>("#close-controls").addEventListener("click", () => {
       this.setControlsOpen(false);
       required<HTMLButtonElement>("#studio-toggle").focus();
     });
     required<HTMLButtonElement>("#focus-toggle").addEventListener("click", () => this.setFocusMode(!this.focusMode));
+    required<HTMLButtonElement>("#focus-rail-toggle").addEventListener("click", () => this.setFocusMode(!this.focusMode));
+    required<HTMLButtonElement>("#camera-reset-toggle").addEventListener("click", () => this.resetCamera());
     required<HTMLButtonElement>("#help-toggle").addEventListener("click", () => this.openHelp());
     required<HTMLButtonElement>("#show-help-btn").addEventListener("click", () => this.openHelp());
     required<HTMLButtonElement>("#help-close").addEventListener("click", () => this.closeHelp());
@@ -1020,6 +1080,9 @@ export class AppController {
     const toggle = required<HTMLButtonElement>("#studio-toggle");
     toggle.setAttribute("aria-expanded", String(open));
     toggle.classList.toggle("is-active", open);
+    const fab = required<HTMLButtonElement>("#studio-fab");
+    fab.setAttribute("aria-expanded", String(open));
+    fab.classList.toggle("is-active", open);
     if (persist) this.preferences.update({ controlsOpen: open });
     this.syncStageComposition();
   }
@@ -1032,6 +1095,9 @@ export class AppController {
     this.controls.inert = active || !this.controls.classList.contains("is-open") || document.body.classList.contains("is-performing");
     const toggle = required<HTMLButtonElement>("#focus-toggle");
     toggle.setAttribute("aria-pressed", String(active));
+    const railToggle = required<HTMLButtonElement>("#focus-rail-toggle");
+    railToggle.setAttribute("aria-pressed", String(active));
+    railToggle.classList.toggle("is-active", active);
     toggle.title = active ? "Thoát chế độ tập trung (F)" : "Chế độ tập trung (F)";
     if (active) {
       this.setControlsOpen(false, false);
@@ -1120,12 +1186,9 @@ export class AppController {
   }
 
   private syncStageComposition(): void {
-    let composition: "center" | "left" | "right" = "center";
-    if (window.innerWidth >= 760 && window.innerWidth < 1100) {
-      if (this.controls.classList.contains("is-open")) composition = "right";
-      else if (!this.chatPanel.isCollapsed) composition = "left";
-    }
-    this.character.setStageComposition(composition);
+    // Panels float above the fixed canvas. Keep Mika centered instead of
+    // reflowing the 3D scene whenever Studio or chat changes state.
+    this.character.setStageComposition("center");
   }
 
   private syncNetworkStatus(): void {
@@ -1182,6 +1245,30 @@ export class AppController {
     void this.interactionVoice.speak(bubble, this.voiceControls.value);
     this.setStatus("REACTING", interaction.status);
     await this.character.playAnimation(animationId, { loop: false, maxDurationMs: 4_000 }).catch(() => undefined);
+    if (!this.ownsDirectInteraction(generation)) return;
+    await this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
+    if (!this.ownsDirectInteraction(generation)) return;
+    this.setStatus("IDLE", "Sẵn sàng");
+    this.interactionBusy = false;
+  }
+
+  private async handleHeadPat(): Promise<void> {
+    const now = performance.now();
+    if (this.currentState !== "IDLE" || this.interactionBusy || now - this.lastInteractionAt < 800 || document.body.classList.contains("is-performing")) return;
+    this.lastInteractionAt = now;
+    const generation = this.beginDirectInteraction();
+    const headPatQuotes = [
+      "Hihi, xoa đầu thích thật đó! Cảm ơn bạn nha~",
+      "Hehe, bạn xoa đầu làm mình thấy ấm áp ghê!",
+      "Ưm... cảm giác được bạn vỗ về thật dễ chịu.",
+      "Bạn tốt với mình quá, cảm ơn bạn nhiều nhé!"
+    ];
+    const quote = headPatQuotes[Math.floor(Math.random() * headPatQuotes.length)];
+    this.showStageDialogue(quote);
+    void this.interactionVoice.speak(quote, this.voiceControls.value);
+    this.character.setExpression("happy", 0.9);
+    this.setStatus("REACTING", "Vui vẻ");
+    await this.character.playAnimation("blush", { loop: false, maxDurationMs: 3_600 }).catch(() => undefined);
     if (!this.ownsDirectInteraction(generation)) return;
     await this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
     if (!this.ownsDirectInteraction(generation)) return;
@@ -1303,7 +1390,10 @@ export class AppController {
     this.controls.inert = locked || !this.controls.classList.contains("is-open") || this.focusMode;
     required<HTMLElement>("#chat-panel").inert = locked || this.focusMode;
     required<HTMLButtonElement>("#studio-toggle").disabled = locked;
+    required<HTMLButtonElement>("#studio-fab").disabled = locked;
     required<HTMLButtonElement>("#help-toggle").disabled = locked;
+    required<HTMLButtonElement>("#camera-reset-toggle").disabled = locked;
+    required<HTMLButtonElement>("#focus-rail-toggle").disabled = locked;
   }
 
   private beginDirectInteraction(): number {
@@ -1394,7 +1484,9 @@ function performanceButtonId(id: PerformanceId): string {
       ? "aipai-performance"
       : id === "cham-vao-binh-minh"
         ? "singing-performance"
-        : "ui-mugibatake-performance";
+        : id === "ui-mugibatake-dance"
+          ? "ui-mugibatake-performance"
+          : "happy-synthesizer-performance";
 }
 
 function performanceStatusId(id: PerformanceId): string {
@@ -1404,7 +1496,9 @@ function performanceStatusId(id: PerformanceId): string {
       ? "aipai-performance-status"
       : id === "cham-vao-binh-minh"
         ? "singing-performance-status"
-        : "ui-mugibatake-performance-status";
+        : id === "ui-mugibatake-dance"
+          ? "ui-mugibatake-performance-status"
+          : "happy-synthesizer-performance-status";
 }
 
 function formatDuration(seconds: number): string {

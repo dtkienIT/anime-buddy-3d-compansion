@@ -46,6 +46,14 @@
       </nav>
     </header>
 
+    <div class="stage-tools" aria-label="Công cụ sân khấu">
+      <button class="stage-tool" id="camera-reset-toggle" type="button" title="Căn lại góc nhìn (R)" aria-label="Căn lại góc nhìn">
+        <span aria-hidden="true">⌖</span><span class="stage-tool-label">Góc nhìn</span>
+      </button>
+      <button class="stage-tool" id="focus-rail-toggle" type="button" title="Chế độ tập trung (F)" aria-label="Bật hoặc tắt chế độ tập trung">
+        <span aria-hidden="true">◉</span><span class="stage-tool-label">Tập trung</span>
+      </button>
+    </div>
 
     <div class="stage-busy" id="stage-busy" role="status" hidden>
       <span class="stage-busy-spinner" aria-hidden="true"></span>
@@ -137,6 +145,11 @@
         <div class="button-grid background-grid" id="background-buttons"></div>
       </section>
     </aside>
+
+    <div class="studio-backdrop" id="studio-backdrop" aria-hidden="true"></div>
+    <button class="studio-fab" id="studio-fab" type="button" aria-controls="controls" aria-expanded="false">
+      <span aria-hidden="true">✦</span><span>Companion Studio</span>
+    </button>
 
     <aside class="chat-panel" id="chat-panel" aria-label="Trò chuyện cùng AI companion">
       <div class="chat-header">

@@ -17,7 +17,7 @@ export class IndexedDbOutbox {
   private db: IDBDatabase | null = null;
 
   async init(): Promise<void> {
-    if (this.db) return;
+    if (this.db || typeof indexedDB === "undefined") return;
 
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -41,6 +41,9 @@ export class IndexedDbOutbox {
   }
 
   async add(write: Omit<PendingWrite, "id"> & { id?: string }): Promise<PendingWrite> {
+    if (typeof indexedDB === "undefined") {
+      return { ...write, id: write.id || crypto.randomUUID() } as PendingWrite;
+    }
     await this.ensureDb();
     const entry: PendingWrite = {
       ...write,
@@ -48,9 +51,13 @@ export class IndexedDbOutbox {
     };
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(entry);
+      if (!this.db) {
+        resolve(entry);
+        return;
+      }
+      const tx = this.db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.add(entry);
 
       request.onsuccess = () => resolve(entry);
       request.onerror = () => reject(request.error);
@@ -58,22 +65,34 @@ export class IndexedDbOutbox {
   }
 
   async getAll(): Promise<PendingWrite[]> {
+    if (typeof indexedDB === "undefined") return [];
     await this.ensureDb();
+
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readonly");
-      const store = transaction.objectStore(STORE_NAME);
+      if (!this.db) {
+        resolve([]);
+        return;
+      }
+      const tx = this.db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
       const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => resolve(request.result as PendingWrite[]);
       request.onerror = () => reject(request.error);
     });
   }
 
   async remove(id: string): Promise<void> {
+    if (typeof indexedDB === "undefined") return;
     await this.ensureDb();
+
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
+      if (!this.db) {
+        resolve();
+        return;
+      }
+      const tx = this.db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
       const request = store.delete(id);
 
       request.onsuccess = () => resolve();
@@ -82,7 +101,7 @@ export class IndexedDbOutbox {
   }
 
   private async ensureDb(): Promise<void> {
-    if (!this.db) {
+    if (!this.db && typeof indexedDB !== "undefined") {
       await this.init();
     }
   }

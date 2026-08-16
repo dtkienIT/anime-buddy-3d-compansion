@@ -41,7 +41,7 @@ Performance experience:
   frontend keeps the actual local asset URLs private to its own registry.
 - Reduced-motion mode still disables the animated stage pulse while preserving
   readable stage geometry and playback controls.
-- The Studio registry now contains 39 companion animations. The new standalone
+- The Studio registry now contains 40 companion animations. The new standalone
   `UiMugibatake.vrma` is the unmodified 26.8-second VRMA selected from Maron
   Yatsuhashi's authenticated BOOTH download; no Unity, FBX, BVH, VMD, or song
   audio was imported. Provenance, hashes, and redistribution limits are in
@@ -51,6 +51,15 @@ The stage vocabulary is based on official live-show references: movable LED
 cubes and LED floors, a 360-degree audience-aware layout, real-time screen
 content, overhead elements, handcrafted scenic silhouettes, and synchronized
 lighting. See [Performance Stage Design](performance-stage-design.md).
+
+## 2026-08-02 Happy Synthesizer stage safety redesign
+
+The approved **Neon Stargate Corridor** concept is now implemented for the
+`happy-synthwave` stage. Its four upright gates recede behind Mika, while
+equalizers, discs, stars, beams, and large particles remain at deterministic
+edge, floor, or overhead anchors. The character-safe zone around Mika's face
+and upper torso stays clear during audio-reactive motion, zoom, and responsive
+reframing. Other performance themes are unchanged.
 
 Fresh verification for this pass:
 
@@ -64,7 +73,7 @@ Fresh verification for this pass:
   regeneration).
 - Browser responsive probe: PASS (`9/9`); experience probe: PASS (`7/7`) with
   zero application console errors.
-- A single in-app browser tab manually started and stopped all four
+- A single in-app browser tab manually started and stopped all five
   music-backed performances in sequence. Each received its own stage theme, live label,
   progress state, and cleanup. The existing exhaustive animation artifact
   remains `36/36`; a fresh multi-context rerun was intentionally not used as a
@@ -124,7 +133,7 @@ The frontend has been redesigned around a usable 3D companion experience rather 
 
 - A responsive app shell now provides a persistent 3D stage, compact app bar, camera toolbar, docked chat, and an on-demand Companion Studio drawer/sheet. Mobile and short-height layouts preserve a meaningful visible stage area instead of covering the character's face with chat and controls.
 - The first-run path now includes dismissible onboarding, prompt starters, a help dialog, network state, staged loading progress/retry, empty/loading/error states, and typed non-blocking toasts.
-- Companion Studio provides accessible tabs, animation search, descriptive character/background cards, animation categories, and four local music-backed performances.
+- Companion Studio provides accessible tabs, animation search, descriptive character/background cards, animation categories, and five local music-backed performances.
 - Chat now has IME-safe keyboard submission, autosizing and character count, quick new chat, message copy, stop/replacement behavior, replay state, speech-input state, session search/rename/delete/export, and explicit long-term-memory view/edit/delete controls.
 - Experience controls include reduced motion, focus mode, fullscreen, camera zoom/reset, reset experience, and persistent device-local preferences for character, background, Studio state, onboarding, and reduced motion.
 - Keyboard and assistive-technology behavior was expanded with visible focus, skip navigation, ARIA tab/state semantics, live regions, focus restoration, and shortcuts: `/`, `C`, `R`, `F`, `?`, and `Esc`.

@@ -54,12 +54,11 @@ without warranty.
   Moments performance.
 - No audio from the commercial reference song is downloaded, extracted,
   copied, or committed.
-- The Live Moments performance uses the separate first-party soundtrack
-  `Golden-Wheatlight-Original.mp3`. Its composition is generated from project
-  code without imported commercial recordings or samples. Short original vocal
-  hooks are synthesized locally with VieNeu and are unrelated to the reference
-  song's lyrics or vocal recording.
-- The original soundtrack is pinned and reproducible; see
+- The Live Moments performance uses the separate approved original soundtrack
+  `Golden-Wheatlight-Original.mp3`. It was generated with Gemini Pro/Lyria 3,
+  downloaded as MP3 after preview approval, and is unrelated to the reference
+  song's melody, lyrics, or vocal recording.
+- The soundtrack provenance and pinned hash are documented in
   [`Golden-Wheatlight-Original.md`](Golden-Wheatlight-Original.md).
 - This Vite web application serves public assets as directly downloadable
   files. Before publishing or redistributing a build or repository containing

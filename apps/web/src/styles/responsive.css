@@ -19,8 +19,13 @@
 
   .chat-panel.is-collapsed {
     top: auto;
+    right: max(12px, env(safe-area-inset-right));
     bottom: max(12px, env(safe-area-inset-bottom));
-    height: 64px;
+    left: auto;
+    width: min(390px, calc(100vw - 24px));
+    height: 58px;
+    transform: none;
+    border-radius: 999px;
   }
 
   .control-panel {
@@ -69,6 +74,48 @@
 
   .app-actions {
     gap: 3px;
+  }
+
+  .chat-panel {
+    z-index: 20;
+  }
+
+  .chat-panel.is-collapsed {
+    top: auto;
+    right: 50%;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: auto;
+    transform: translateX(50%);
+    width: min(560px, calc(100vw - 16px));
+    height: 58px;
+    grid-template-rows: 58px;
+    border-radius: 999px;
+  }
+
+  .stage-tools {
+    top: calc(max(8px, env(safe-area-inset-top)) + var(--app-bar-height) + 10px);
+    right: max(8px, env(safe-area-inset-right));
+    transform: none;
+    gap: 5px;
+  }
+
+  .stage-tool {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+    opacity: 0.72;
+  }
+
+  .stage-tool-label {
+    display: none;
+  }
+
+  .studio-fab {
+    right: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    min-height: 44px;
+    padding-inline: 13px;
   }
 
   .app-action {
@@ -129,11 +176,13 @@
 
   .chat-panel.is-collapsed {
     top: auto;
-    right: max(8px, env(safe-area-inset-right));
+    right: 50%;
     bottom: max(8px, env(safe-area-inset-bottom));
-    left: max(8px, env(safe-area-inset-left));
-    width: auto;
-    height: 62px;
+    left: auto;
+    width: calc(100vw - 16px);
+    height: 58px;
+    transform: translateX(50%);
+    border-radius: 999px;
   }
 
   .chat-header {

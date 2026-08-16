@@ -19,3 +19,4 @@ test-results/
 !apps/web/public/audio/music/Cham-Vao-Binh-Minh.mp3
 !apps/web/public/audio/music/Golden-Wheatlight-Original.mp3
 debug.log
+.pytest_cache/

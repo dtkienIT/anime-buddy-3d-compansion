@@ -165,9 +165,23 @@ export class ChatPanel {
   }
 
   addMessage(message: LocalChatMessage): void {
+    const existing = message.id ? this.log.querySelector<HTMLElement>(`[data-message-id="${message.id}"]`) : null;
+    if (existing) {
+      const bubble = existing.querySelector<HTMLElement>(".chat-message");
+      if (bubble) bubble.textContent = sanitizeAiText(message.content);
+      if (message.role === "assistant") {
+        this.hasReplay = true;
+        this.updatePlaybackButtons();
+      }
+      this.setTyping(false);
+      this.updateEmptyState();
+      this.log.scrollTop = this.log.scrollHeight;
+      return;
+    }
+
     const row = document.createElement("article");
     row.className = `message-row is-${message.role}`;
-    row.dataset.messageId = message.id;
+    if (message.id) row.dataset.messageId = message.id;
 
     const avatar = document.createElement("span");
     avatar.className = "message-avatar";
@@ -212,6 +226,22 @@ export class ChatPanel {
       this.updatePlaybackButtons();
     }
     this.updateEmptyState();
+    this.log.scrollTop = this.log.scrollHeight;
+  }
+
+  updateStreamingMessage(messageId: string, partialContent: string): void {
+    this.setTyping(false);
+    const existing = this.log.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    if (existing) {
+      const bubble = existing.querySelector<HTMLElement>(".chat-message");
+      if (bubble) bubble.textContent = partialContent;
+    } else {
+      this.addMessage({
+        id: messageId,
+        role: "assistant",
+        content: partialContent
+      });
+    }
     this.log.scrollTop = this.log.scrollHeight;
   }
 
