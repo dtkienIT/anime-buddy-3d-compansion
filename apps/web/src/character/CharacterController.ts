@@ -374,49 +374,60 @@ export class CharacterController {
 
     const root = new THREE.Group();
     root.name = "CompanionMicrophone";
-    root.renderOrder = 3;
 
     const handleMaterial = new THREE.MeshStandardMaterial({
-      color: 0x17191f,
-      emissive: 0x08090d,
-      emissiveIntensity: 0.18,
-      metalness: 0.62,
-      roughness: 0.32,
-      depthTest: false,
-      depthWrite: false
+      color: 0x181a20,
+      emissive: 0x0a0c12,
+      emissiveIntensity: 0.2,
+      metalness: 0.85,
+      roughness: 0.28
     });
     const grilleMaterial = new THREE.MeshStandardMaterial({
-      color: 0xaeb5c0,
-      emissive: 0x151820,
-      emissiveIntensity: 0.14,
-      metalness: 0.78,
-      roughness: 0.38,
-      depthTest: false,
-      depthWrite: false
+      color: 0xd8dde6,
+      emissive: 0x20242e,
+      emissiveIntensity: 0.15,
+      metalness: 0.95,
+      roughness: 0.22
+    });
+    const ringMaterial = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 2.2,
+      roughness: 0.1
     });
     const collarMaterial = new THREE.MeshStandardMaterial({
-      color: 0x323640,
-      metalness: 0.82,
-      roughness: 0.28,
-      depthTest: false,
-      depthWrite: false
+      color: 0x2d313b,
+      metalness: 0.9,
+      roughness: 0.2
     });
 
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.018, 0.2, 24), handleMaterial);
-    handle.position.y = 0.1;
-    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.028, 28, 20), grilleMaterial);
-    grille.position.y = 0.225;
-    grille.scale.y = 1.18;
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.018, 0.018, 24), collarMaterial);
-    collar.position.y = 0.194;
-    const endCap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.013, 0.012, 20), collarMaterial);
-    endCap.position.y = -0.006;
-    root.add(handle, grille, collar, endCap);
+    // Handle / body shaft
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.017, 0.18, 32), handleMaterial);
+    handle.position.y = 0.09;
+
+    // Glowing LED accent ring
+    const ledRing = new THREE.Mesh(new THREE.CylinderGeometry(0.0175, 0.0175, 0.008, 32), ringMaterial);
+    ledRing.position.y = 0.184;
+
+    // Metallic collar ring
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.0175, 0.016, 32), collarMaterial);
+    collar.position.y = 0.196;
+
+    // Condenser microphone grille dome
+    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.026, 32, 24), grilleMaterial);
+    grille.position.y = 0.222;
+    grille.scale.y = 1.25;
+
+    // Base end-cap
+    const endCap = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.011, 0.018, 24), collarMaterial);
+    endCap.position.y = -0.009;
+
+    root.add(handle, ledRing, collar, grille, endCap);
     root.traverse((node: any) => {
       if (node.isMesh) {
         node.castShadow = true;
+        node.receiveShadow = true;
         node.frustumCulled = false;
-        node.renderOrder = 3;
       }
     });
     this.scene.add(root);
@@ -805,74 +816,39 @@ export class CharacterController {
 
     const handPosition = this.microphoneHandPosition;
     const mouthPosition = this.microphoneMouthPosition;
-    // The normalized hand origin is at the wrist. Move the grip slightly
-    // toward the palm and toward the camera so the microphone stays visible
-    // instead of disappearing behind the forearm.
-    handPosition.set(0, -0.024, 0.052);
-    microphone.hand.localToWorld(handPosition);
-    // Use a head-local target so the microphone follows head turns while
-    // remaining just below and beside the lips instead of covering the face.
-    mouthPosition.set(0.028, 0.025, 0.18);
-    microphone.head.localToWorld(mouthPosition);
-    // Some VRM heads expose their forward axis opposite to the stage camera.
-    // If the local mouth point falls on the far side during an orbit, mirror
-    // that same distance onto the camera-facing side instead of crossing the
-    // microphone through the neck.
-    microphone.head.getWorldPosition(this.microphoneHeadPosition);
-    this.microphoneCameraDirection.subVectors(this.camera.position, this.microphoneHeadPosition);
-    const headOffset = this.microphoneDirection.subVectors(mouthPosition, this.microphoneHeadPosition);
-    if (
-      this.microphoneCameraDirection.lengthSq() > 1e-6 &&
-      headOffset.lengthSq() > 1e-6
-    ) {
-      this.microphoneCameraDirection.normalize();
-      if (headOffset.dot(this.microphoneCameraDirection) < 0) {
-        const mouthDistance = headOffset.length();
-        mouthPosition.copy(this.microphoneHeadPosition)
-          .addScaledVector(this.microphoneCameraDirection, mouthDistance);
-        mouthPosition.y += 0.025;
-      }
-    }
-    const direction = this.microphoneDirection.subVectors(mouthPosition, handPosition);
-    const handToMouthDistance = direction.length();
-    if (handToMouthDistance < 1e-3) direction.set(0, 1, 0);
-    direction.normalize();
 
-    const gripOffset = 0.045;
-    const targetLength = THREE.MathUtils.clamp(handToMouthDistance + gripOffset, 0.19, 0.36);
-    this.microphoneTargetPosition.copy(handPosition).addScaledVector(direction, -gripOffset);
-    // Keep the prop just in front of the animated hand/face from the current
-    // camera angle. A fixed world-Z offset breaks as soon as OrbitControls
-    // moves around the character and makes the microphone cross the neck.
-    this.microphoneCameraDirection.subVectors(this.camera.position, mouthPosition);
-    if (this.microphoneCameraDirection.lengthSq() > 1e-6) {
-      this.microphoneCameraDirection.normalize();
-      // The prop is deliberately brought a little farther toward the
-      // viewer than the hand. This keeps it readable from a side/back orbit
-      // instead of letting the head occlude the grille.
-      this.microphoneTargetPosition.addScaledVector(this.microphoneCameraDirection, 0.105);
+    // Hand grip point in palm local coordinates
+    handPosition.set(0, -0.018, 0.042);
+    microphone.hand.localToWorld(handPosition);
+
+    // Mouth point in head local coordinates (just in front of lips)
+    mouthPosition.set(0, -0.038, 0.125);
+    microphone.head.localToWorld(mouthPosition);
+
+    // Compute direction from hand palm pointing toward the mouth
+    const direction = this.microphoneDirection.subVectors(mouthPosition, handPosition);
+    if (direction.lengthSq() < 1e-6) {
+      direction.set(0, 1, 0);
+    } else {
+      direction.normalize();
     }
+
+    // Microphone hand grip offset along direction axis
+    const gripOffset = 0.055;
+    this.microphoneTargetPosition.copy(handPosition).addScaledVector(direction, -gripOffset);
     this.microphoneTargetQuaternion.setFromUnitVectors(this.microphoneUp, direction);
 
     let smoothing = 1;
     if (!microphone.initialized) {
       microphone.root.position.copy(this.microphoneTargetPosition);
       microphone.root.quaternion.copy(this.microphoneTargetQuaternion);
-      microphone.length = targetLength;
       microphone.initialized = true;
     } else {
       const deltaSeconds = Math.min(0.05, Math.max(0, time - microphone.lastUpdateTime));
-      smoothing = this.reducedMotion ? 1 : 1 - Math.exp(-deltaSeconds * 14);
+      smoothing = this.reducedMotion ? 1 : 1 - Math.exp(-deltaSeconds * 22);
       microphone.root.position.lerp(this.microphoneTargetPosition, smoothing);
       microphone.root.quaternion.slerp(this.microphoneTargetQuaternion, smoothing);
-      microphone.length = THREE.MathUtils.lerp(microphone.length, targetLength, smoothing);
     }
-
-    const handleLength = Math.max(0.12, microphone.length - 0.032);
-    microphone.handle.position.y = handleLength / 2;
-    microphone.handle.scale.y = handleLength / 0.2;
-    microphone.collar.position.y = microphone.length - 0.031;
-    microphone.grille.position.y = microphone.length;
     microphone.lastUpdateTime = time;
   }
 
