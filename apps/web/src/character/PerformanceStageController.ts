@@ -27,53 +27,53 @@ interface PerformanceStageRuntime {
 
 const palettes: Record<PerformanceStageTheme, StagePalette> = {
   "neon-cube": {
-    deep: 0x060814,
-    primary: 0xff0077,
-    secondary: 0x00f0ff,
-    accent: 0xffe600,
-    floor: 0x0f111a,
+    deep: 0x08080e,
+    primary: 0xff315f,
+    secondary: 0xffc928,
+    accent: 0x9dff38,
+    floor: 0x160b18,
     mode: 0
   },
   "lantern-festival": {
-    deep: 0x110820,
-    primary: 0xff4d79,
-    secondary: 0xffb800,
-    accent: 0x00e5ff,
-    floor: 0x1a0f26,
+    deep: 0x130923,
+    primary: 0xff5d8f,
+    secondary: 0xffc857,
+    accent: 0x5eead4,
+    floor: 0x24102e,
     mode: 1
   },
   "aurora-dawn": {
-    deep: 0x051224,
-    primary: 0x00ff9d,
-    secondary: 0x00d2ff,
-    accent: 0xff6b8b,
-    floor: 0x0c192c,
+    deep: 0x071124,
+    primary: 0xff7b71,
+    secondary: 0xffcf70,
+    accent: 0x56d9ff,
+    floor: 0x13152e,
     mode: 2
   },
   "wheat-field": {
-    deep: 0x180d22,
-    primary: 0xff9900,
-    secondary: 0xffdc73,
-    accent: 0x5cdbb5,
-    floor: 0x22132a,
+    deep: 0x1a1027,
+    primary: 0xf0a83b,
+    secondary: 0xffe29a,
+    accent: 0x76d49a,
+    floor: 0x24172a,
     mode: 3
   },
   "happy-synthwave": {
-    deep: 0x0a0416,
-    primary: 0x00f5ff,
-    secondary: 0xff2a9d,
-    accent: 0x9b51e0,
-    floor: 0x140a24,
+    deep: 0x09030f,
+    primary: 0x00e5ff,
+    secondary: 0xff42d0,
+    accent: 0x9a6bff,
+    floor: 0x171027,
     mode: 4
   }
 };
 
 const particleCounts: Record<PerformanceStageTheme, number> = {
-  "neon-cube": 96,
-  "lantern-festival": 120,
-  "aurora-dawn": 144,
-  "wheat-field": 110,
-  "happy-synthwave": 150
+  "neon-cube": 72,
+  "lantern-festival": 110,
+  "aurora-dawn": 128,
+  "wheat-field": 96,
+  "happy-synthwave": 132
 };
 
 export class PerformanceStageController {
@@ -81,7 +81,7 @@ export class PerformanceStageController {
   private analyser: AnalyserNode | null = null;
   private frequencyData: Uint8Array<ArrayBuffer> | null = null;
 
-  constructor(private readonly scene: THREE.Scene) {}
+  constructor(private readonly scene: THREE.Scene) { }
 
   show(theme: PerformanceStageTheme): void {
     if (this.runtime?.theme === theme) return;
@@ -90,7 +90,7 @@ export class PerformanceStageController {
     const palette = palettes[theme];
     const group = new THREE.Group();
     group.name = `PerformanceStage:${theme}`;
-    group.position.set(0, 0, -0.65);
+    group.position.set(0, 0, -0.76);
     group.renderOrder = -3;
 
     const glowMaterials: THREE.MeshBasicMaterial[] = [];
@@ -99,21 +99,15 @@ export class PerformanceStageController {
     const kineticObjects: THREE.Object3D[] = [];
     const spotlights: THREE.SpotLight[] = [];
 
-    // 1. Futuristic Curved Holographic Backdrop Screen
     const screenMaterial = this.createScreenMaterial(palette);
-    const screen = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 4.4, 48, 1, true, -Math.PI * 0.42, Math.PI * 0.84), screenMaterial);
-    screen.position.set(0, 2.1, -1.8);
-    screen.rotation.y = Math.PI;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 4.6), screenMaterial);
+    screen.position.set(0, 2.15, -0.78);
     screen.renderOrder = -4;
     group.add(screen);
 
-    // 2. High-Tech Glossy Stage Podium with Concentric LED Rings
     this.addStageDeck(group, palette, rings, glowMaterials);
-
-    // 3. Dynamic Laser Light Rig & Atmospheric Spotlights (Behind idol, non-obstructing)
     this.addLightRig(group, palette, spotlights, beams, glowMaterials);
 
-    // 4. Distinct Thematic Stage Set Designs
     if (theme === "neon-cube") {
       this.addNeonCubeSet(group, palette, kineticObjects, glowMaterials);
     } else if (theme === "lantern-festival") {
@@ -126,32 +120,35 @@ export class PerformanceStageController {
       this.addWheatFieldSet(group, palette, kineticObjects, rings, glowMaterials);
     }
 
-    // 5. Floating Stardust & Ember Particles
     const particleCount = particleCounts[theme];
     const particleBasePositions = new Float32Array(particleCount * 3);
     const particleSpeed = new Float32Array(particleCount);
     for (let index = 0; index < particleCount; index += 1) {
-      const seedA = pseudoRandom(index + palette.mode * 137);
+      const seed = pseudoRandom(index + palette.mode * 137);
       const seedB = pseudoRandom(index * 7 + palette.mode * 53 + 11);
-      const seedC = pseudoRandom(index * 13 + 5);
-
-      const angle = seedA * Math.PI * 2;
-      const radius = 0.5 + seedB * 2.8;
-      particleBasePositions[index * 3] = Math.cos(angle) * radius;
-      particleBasePositions[index * 3 + 1] = 0.25 + seedC * 3.6;
-      particleBasePositions[index * 3 + 2] = Math.sin(angle) * radius * 0.75 - 0.4;
-      particleSpeed[index] = 0.03 + pseudoRandom(index * 17 + 3) * 0.07;
+      if (theme === "happy-synthwave") {
+        const side = index % 2 === 0 ? -1 : 1;
+        const edge = 1.42 + seed * 1.72;
+        const high = index % 3 === 0;
+        particleBasePositions[index * 3] = side * edge;
+        particleBasePositions[index * 3 + 1] = high ? 3.28 + seedB * 0.52 : 0.28 + seedB * 0.58;
+        particleBasePositions[index * 3 + 2] = -1.8 - pseudoRandom(index * 13 + 5) * 4.2;
+      } else {
+        particleBasePositions[index * 3] = (seed - 0.5) * 6.2;
+        particleBasePositions[index * 3 + 1] = 0.25 + seedB * 3.45;
+        particleBasePositions[index * 3 + 2] = -0.2 - pseudoRandom(index * 13 + 5) * 0.72;
+      }
+      particleSpeed[index] = 0.026 + pseudoRandom(index * 17 + 3) * 0.065;
     }
-
     const particleGeometry = new THREE.BufferGeometry();
     particleGeometry.setAttribute("position", new THREE.BufferAttribute(particleBasePositions.slice(), 3));
     const particles = new THREE.Points(
       particleGeometry,
       new THREE.PointsMaterial({
         color: palette.secondary,
-        size: theme === "lantern-festival" ? 0.038 : theme === "wheat-field" ? 0.032 : 0.028,
+        size: theme === "lantern-festival" ? 0.034 : theme === "wheat-field" ? 0.03 : theme === "happy-synthwave" ? 0.022 : 0.026,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.8,
         depthWrite: false,
         blending: THREE.AdditiveBlending
       })
@@ -186,49 +183,47 @@ export class PerformanceStageController {
     if (!stage) return;
 
     const energy = this.readEnergy(stage.energy);
-    stage.energy = THREE.MathUtils.lerp(stage.energy, energy, reducedMotion ? 0.08 : 0.24);
+    stage.energy = THREE.MathUtils.lerp(stage.energy, energy, reducedMotion ? 0.08 : 0.22);
     const motionEnergy = reducedMotion ? 0.16 : stage.energy;
-    const pulse = reducedMotion ? 0.35 : 0.45 + Math.sin(time * 3.6) * 0.12 + motionEnergy * 0.65;
+    const pulse = reducedMotion ? 0.35 : 0.45 + Math.sin(time * 3.6) * 0.12 + motionEnergy * 0.52;
 
     stage.screenMaterial.uniforms.uTime.value = reducedMotion ? 0 : time;
     stage.screenMaterial.uniforms.uEnergy.value = pulse;
 
     stage.rings.forEach((ring, index) => {
       if (!reducedMotion) {
-        ring.rotation.z = time * (0.06 + index * 0.02) * (index % 2 === 0 ? 1 : -1);
-        const ringPulse = 1 + Math.sin(time * 2.2 + index * 0.8) * 0.015 + motionEnergy * 0.035;
-        ring.scale.set(ringPulse, ringPulse, 1);
+        ring.rotation.z = time * (0.075 + index * 0.026) * (index % 2 === 0 ? 1 : -1);
+        ring.scale.setScalar(1 + Math.sin(time * 1.7 + index) * 0.012 + motionEnergy * 0.025);
       }
       const material = ring.material as THREE.MeshBasicMaterial;
-      material.opacity = Math.min(0.96, 0.4 + pulse * 0.4 + index * 0.03);
+      material.opacity = Math.min(0.92, 0.35 + pulse * 0.36 + index * 0.025);
     });
 
     stage.kineticObjects.forEach((object, index) => {
       if (reducedMotion) return;
-      const phase = time * (0.45 + index * 0.025) + index * 0.75;
-      object.position.y += Math.sin(phase) * 0.0016;
-      object.rotation.y += (0.002 + motionEnergy * 0.004) * (index % 2 === 0 ? 1 : -1);
+      const phase = time * (0.42 + index * 0.018) + index * 0.71;
+      object.position.y += Math.sin(phase) * 0.0018;
+      object.rotation.y += (0.0018 + motionEnergy * 0.0032) * (index % 2 === 0 ? 1 : -1);
     });
 
     stage.spotlights.forEach((spotlight, index) => {
-      const phase = time * (0.6 + index * 0.08) + index * 1.5;
+      const phase = time * (0.58 + index * 0.07) + index * 1.44;
       if (!reducedMotion) {
-        spotlight.position.x = (index - 1.5) * 1.5 + Math.sin(phase) * 0.45;
-        spotlight.target.position.x = (index - 1.5) * 0.4 + Math.sin(phase * 0.7) * 0.5;
+        spotlight.position.x = (index - 1.5) * 1.42 + Math.sin(phase) * 0.42;
+        spotlight.target.position.x = (index - 1.5) * 0.38 + Math.sin(phase * 0.7) * 0.55;
       }
-      spotlight.intensity = 2.0 + pulse * 2.5 + index * 0.1;
+      spotlight.intensity = 1.7 + pulse * 2.25 + index * 0.08;
     });
 
     stage.beams.forEach((beam, index) => {
       if (!reducedMotion) {
-        const sweep = Math.sin(time * 0.7 + index * 1.2) * 0.22;
-        beam.rotation.z = (index - 2.5) * 0.14 + sweep;
+        beam.rotation.z = (index - 1.5) * 0.13 + Math.sin(time * 0.52 + index) * 0.08;
       }
-      (beam.material as THREE.MeshBasicMaterial).opacity = 0.05 + pulse * 0.08;
+      (beam.material as THREE.MeshBasicMaterial).opacity = 0.055 + pulse * 0.075;
     });
 
     stage.glowMaterials.forEach((material, index) => {
-      material.opacity = Math.min(0.96, 0.45 + pulse * 0.4 + (index % 3) * 0.04);
+      material.opacity = Math.min(0.94, 0.38 + pulse * 0.38 + (index % 3) * 0.035);
     });
 
     if (!reducedMotion) this.updateParticles(stage, time);
@@ -296,64 +291,52 @@ export class PerformanceStageController {
 
         void main() {
           vec2 p = vUv - 0.5;
-          float vignette = smoothstep(0.85, 0.2, length(p * vec2(0.8, 1.0)));
+          float vignette = smoothstep(0.82, 0.18, length(p * vec2(0.82, 1.0)));
           vec3 color = uDeep;
 
           if (uMode < 0.5) {
-            // Neon EDM: Digital equalizer bars + glowing neon laser matrix
-            float barIndex = floor(vUv.x * 24.0);
-            float barNoise = 0.5 + 0.5 * sin(barIndex * 1.7 + uTime * 3.5);
-            float barHeight = (0.2 + uEnergy * 0.6) * barNoise;
-            float inBar = step(abs(vUv.y - 0.5), barHeight * 0.5) * step(0.12, fract(vUv.x * 24.0));
-            float diagonal = 0.5 + 0.5 * sin((p.x * 8.0 + p.y * 5.0) - uTime * 2.5);
-            color = mix(uDeep, uPrimary, diagonal * 0.4);
-            color += mix(uSecondary, uAccent, vUv.y) * inBar * (0.65 + uEnergy * 0.5);
-            float grid = max(line(vUv.x * 12.0 + uTime * 0.1, 0.02), line(vUv.y * 8.0, 0.02));
-            color += uSecondary * grid * (0.2 + uEnergy * 0.3);
+            float diagonal = 0.5 + 0.5 * sin((p.x * 9.0 + p.y * 5.0) - uTime * 2.2);
+            float grid = max(line(vUv.x * 11.0 + uTime * 0.12, 0.028), line(vUv.y * 7.0, 0.024));
+            color = mix(uDeep, uPrimary, diagonal * 0.5);
+            color += mix(uSecondary, uAccent, vUv.y) * grid * (0.28 + uEnergy * 0.5);
           } else if (uMode < 1.5) {
-            // Lantern Festival: Luminous lotus moon & flowing starlight silk
             float radius = length(p);
-            float moon = smoothstep(0.35, 0.33, radius) * smoothstep(0.18, 0.20, radius);
-            float silk = 0.5 + 0.5 * sin(p.x * 6.0 + sin(p.y * 5.0 + uTime * 0.6) - uTime * 0.8);
-            color = mix(uDeep, uPrimary, silk * 0.45);
-            color += uSecondary * moon * (0.6 + uEnergy * 0.4);
-            color += uAccent * smoothstep(0.04, 0.0, abs(p.y + 0.25 + sin(p.x * 4.0 + uTime) * 0.04)) * 0.35;
+            float moon = smoothstep(0.34, 0.325, radius) * smoothstep(0.21, 0.225, radius);
+            float silk = 0.5 + 0.5 * sin(p.x * 7.0 + sin(p.y * 6.0 + uTime * 0.5) - uTime * 0.75);
+            color = mix(uDeep, uPrimary, silk * 0.36);
+            color += uSecondary * moon * (0.48 + uEnergy * 0.38);
+            color += uAccent * smoothstep(0.03, 0.0, abs(p.y + 0.28 + sin(p.x * 5.0 + uTime) * 0.035)) * 0.28;
           } else if (uMode < 2.5) {
-            // Aurora Dawn: Dynamic northern lights curtains & crystal solar glow
-            float auroraA = smoothstep(0.12, 0.0, abs(p.y - 0.15 * sin(p.x * 4.5 + uTime * 0.6)));
-            float auroraB = smoothstep(0.08, 0.0, abs(p.y + 0.12 - 0.1 * sin(p.x * 6.0 - uTime * 0.45)));
-            float sun = exp(-5.5 * length(p + vec2(0.0, 0.15)));
-            color = mix(uDeep, uPrimary, sun * 0.6);
-            color += uSecondary * auroraA * (0.55 + uEnergy * 0.45);
-            color += uAccent * auroraB * (0.45 + uEnergy * 0.35);
+            float sunrise = exp(-6.8 * length(p + vec2(0.0, 0.17)));
+            float auroraA = smoothstep(0.07, 0.0, abs(p.y - 0.12 * sin(p.x * 5.0 + uTime * 0.55)));
+            float auroraB = smoothstep(0.045, 0.0, abs(p.y + 0.15 - 0.08 * sin(p.x * 7.0 - uTime * 0.42)));
+            color = mix(uDeep, uPrimary, sunrise * 0.66);
+            color += uSecondary * sunrise * (0.28 + uEnergy * 0.38);
+            color += uAccent * auroraA * 0.38 + uPrimary * auroraB * 0.22;
           } else if (uMode < 3.5) {
-            // Golden Wheat: Sunset glow & gentle warm ambient sweep
-            float horizon = smoothstep(0.65, -0.2, p.y);
-            float sun = smoothstep(0.32, 0.30, length(p - vec2(0.0, 0.12)));
-            float sweep = 0.5 + 0.5 * sin(p.x * 7.0 + p.y * 4.0 - uTime * 0.8);
-            color = mix(uDeep, uPrimary, horizon * 0.45 + sweep * 0.15);
-            color += uSecondary * sun * (0.65 + uEnergy * 0.35);
-            float sparkles = line(vUv.y * 14.0 + p.x * 2.0 + uTime * 0.1, 0.02);
-            color += uAccent * sparkles * (0.25 + horizon * 0.3);
+            float horizon = smoothstep(0.72, -0.16, p.y);
+            float sun = smoothstep(0.31, 0.29, length(p - vec2(0.0, 0.16)));
+            float sweep = 0.5 + 0.5 * sin(p.x * 8.0 + p.y * 5.0 - uTime * 0.7);
+            float grain = line(vUv.y * 13.0 + p.x * 1.7 + uTime * 0.08, 0.018);
+            color = mix(uDeep, uPrimary, horizon * 0.36 + sweep * 0.12);
+            color += uSecondary * sun * (0.52 + uEnergy * 0.35);
+            color += uAccent * grain * (0.18 + horizon * 0.32);
           } else {
-            // Synthwave: Retro grid horizon + neon wireframe portal
-            float horizon = smoothstep(0.65, -0.25, p.y);
-            float gridX = line(vUv.x * 20.0 + uTime * 0.15, 0.025);
-            float gridY = line(vUv.y * 12.0 - uTime * 0.35, 0.025);
-            float sun = smoothstep(0.35, 0.33, length(p - vec2(0.0, 0.15)));
-            float sunBars = step(0.3, fract(p.y * 22.0));
-            color = mix(uDeep, uPrimary, 0.2 + horizon * 0.3);
-            color += uSecondary * (gridX + gridY) * (0.25 + uEnergy * 0.5);
-            color += mix(uSecondary, uAccent, p.y + 0.5) * sun * sunBars * (0.7 + uEnergy * 0.4);
+            float gridX = line(vUv.x * 22.0 + uTime * 0.16, 0.022);
+            float gridY = line(vUv.y * 13.0 - uTime * 0.3, 0.02);
+            float pulse = 0.5 + 0.5 * sin(uTime * 6.7);
+            float horizon = smoothstep(0.72, -0.2, p.y);
+            color = mix(uDeep, uPrimary, 0.16 + horizon * 0.2);
+            color += uSecondary * (gridX + gridY) * (0.18 + uEnergy * 0.48);
+            color += uAccent * smoothstep(0.16, 0.0, abs(p.y - 0.16 * sin(p.x * 7.0 + uTime * 0.8))) * (0.18 + pulse * 0.22);
           }
 
-          gl_FragColor = vec4(color * (0.7 + vignette * 0.45), 0.98);
+          gl_FragColor = vec4(color * (0.62 + vignette * 0.5), 0.985);
         }
       `,
       transparent: true,
       depthWrite: false,
-      depthTest: true,
-      side: THREE.BackSide
+      depthTest: true
     });
   }
 
@@ -363,100 +346,73 @@ export class PerformanceStageController {
     rings: THREE.Mesh[],
     glowMaterials: THREE.MeshBasicMaterial[]
   ): void {
-    // 1. Tier 1 - Outer Titanium Base Platform with Neon Bevel
-    const basePlatform = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.85, 3.1, 0.14, 64),
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.72, 2.98, 0.18, 64),
       new THREE.MeshStandardMaterial({
         color: palette.floor,
         emissive: palette.deep,
-        emissiveIntensity: 0.8,
-        metalness: 0.92,
-        roughness: 0.18
+        emissiveIntensity: 0.68,
+        metalness: 0.82,
+        roughness: 0.22
       })
     );
-    basePlatform.position.set(0, 0.06, -0.1);
-    basePlatform.receiveShadow = true;
-    group.add(basePlatform);
+    base.position.set(0, 0.07, -0.12);
+    base.receiveShadow = true;
+    group.add(base);
 
-    // 2. Tier 2 - Main Glossy Center Stage Platform
-    const centerPlatform = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.55, 2.55, 0.05, 64),
+    const top = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.5, 2.5, 0.04, 64),
       new THREE.MeshStandardMaterial({
         color: palette.floor,
         emissive: palette.primary,
-        emissiveIntensity: 0.18,
-        metalness: 0.88,
-        roughness: 0.14
+        emissiveIntensity: 0.22,
+        metalness: 0.72,
+        roughness: 0.2
       })
     );
-    centerPlatform.position.set(0, 0.155, -0.1);
-    centerPlatform.receiveShadow = true;
-    group.add(centerPlatform);
+    top.position.set(0, 0.18, -0.12);
+    top.receiveShadow = true;
+    group.add(top);
 
-    // 3. Glowing Concentric LED Floor Rings
-    const ringRadii = [2.46, 1.95, 1.35, 0.75];
-    const ringColors = [palette.primary, palette.secondary, palette.accent, palette.primary];
-    ringRadii.forEach((radius, index) => {
+    const ringColors = [palette.primary, palette.secondary, palette.accent];
+    [2.38, 1.92, 1.44].forEach((radius, index) => {
       const material = new THREE.MeshBasicMaterial({
         color: ringColors[index],
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.68,
         depthWrite: false,
         blending: THREE.AdditiveBlending
       });
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.016, 8, 72), material);
-      ring.position.set(0, 0.185 + index * 0.002, -0.1);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.022, 8, 72), material);
+      ring.position.set(0, 0.213 + index * 0.003, -0.12);
       ring.rotation.x = Math.PI / 2;
       group.add(ring);
       rings.push(ring);
       glowMaterials.push(material);
     });
 
-    // 4. Radial Glowing Neon Spokes on the Stage Floor
-    const spokeCount = 12;
-    for (let i = 0; i < spokeCount; i++) {
-      const angle = (i / spokeCount) * Math.PI * 2;
-      const spokeMaterial = new THREE.MeshBasicMaterial({
-        color: i % 2 === 0 ? palette.primary : palette.secondary,
-        transparent: true,
-        opacity: 0.45,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-      });
-      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.004, 1.1), spokeMaterial);
-      const distance = 1.9;
-      spoke.position.set(Math.cos(angle) * distance, 0.184, -0.1 + Math.sin(angle) * distance);
-      spoke.rotation.y = -angle;
-      group.add(spoke);
-      glowMaterials.push(spokeMaterial);
-    }
-
-    // 5. Sleek Front Runway Strip
-    const runway = new THREE.Mesh(
-      new THREE.BoxGeometry(0.88, 0.04, 2.2),
-      new THREE.MeshStandardMaterial({
-        color: palette.floor,
-        emissive: palette.secondary,
-        emissiveIntensity: 0.35,
-        metalness: 0.85,
-        roughness: 0.18
-      })
-    );
-    runway.position.set(0, 0.145, 1.2);
+    const runwayMaterial = new THREE.MeshStandardMaterial({
+      color: palette.floor,
+      emissive: palette.secondary,
+      emissiveIntensity: 0.42,
+      metalness: 0.72,
+      roughness: 0.22
+    });
+    const runway = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.055, 2.4), runwayMaterial);
+    runway.position.set(0, 0.17, 1.25);
     runway.receiveShadow = true;
     group.add(runway);
 
-    // Glowing Runway Edge Strips
-    for (const x of [-0.42, 0.42]) {
+    for (const x of [-0.36, 0.36]) {
       const edgeMaterial = new THREE.MeshBasicMaterial({
         color: palette.accent,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.62,
         depthWrite: false,
         blending: THREE.AdditiveBlending
       });
-      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.012, 2.15), edgeMaterial);
-      edge.position.set(x, 0.17, 1.2);
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 2.28), edgeMaterial);
+      edge.position.set(x, 0.205, 1.25);
       group.add(edge);
       glowMaterials.push(edgeMaterial);
     }
@@ -469,53 +425,53 @@ export class PerformanceStageController {
     beams: THREE.Mesh[],
     glowMaterials: THREE.MeshBasicMaterial[]
   ): void {
-    // 1. Floating Overhead Halo Arch (Positioned behind the stage at z = -1.45, never blocks character)
-    const haloMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1a1d26,
+    const trussMaterial = new THREE.MeshStandardMaterial({
+      color: 0x171722,
       emissive: palette.primary,
-      emissiveIntensity: 0.5,
-      metalness: 0.95,
-      roughness: 0.15
+      emissiveIntensity: 0.18,
+      metalness: 0.9,
+      roughness: 0.28
     });
-    const haloArch = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.045, 12, 64, Math.PI * 0.9), haloMaterial);
-    haloArch.position.set(0, 2.2, -1.45);
-    haloArch.rotation.z = Math.PI * 0.05;
-    group.add(haloArch);
-
-    // 2. Upward Laser Fan Beams (Positioned behind the idol at z = -1.5, fanning outward)
-    const beamColors = [palette.primary, palette.secondary, palette.accent, palette.primary, palette.secondary, palette.accent];
-    for (let index = 0; index < 6; index += 1) {
-      const beamMaterial = new THREE.MeshBasicMaterial({
-        color: beamColors[index],
-        transparent: true,
-        opacity: 0.12,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-      });
-      const beam = new THREE.Mesh(new THREE.ConeGeometry(0.18, 4.8, 18, 1, true), beamMaterial);
-      const spreadX = (index - 2.5) * 0.85;
-      beam.position.set(spreadX, 2.4, -1.5);
-      beam.rotation.x = Math.PI;
-      beam.rotation.z = (index - 2.5) * 0.14;
-      group.add(beam);
-      beams.push(beam);
-      glowMaterials.push(beamMaterial);
+    for (const x of [-3.12, 3.12]) {
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 3.35, 0.14), trussMaterial);
+      pillar.position.set(x, 1.68, -0.52);
+      group.add(pillar);
     }
+    const header = new THREE.Mesh(new THREE.BoxGeometry(6.36, 0.12, 0.14), trussMaterial);
+    header.position.set(0, 3.33, -0.52);
+    group.add(header);
 
-    // 3. Stage Lighting Spotlights (Cast soft focused light without blocking view)
+    const colors = [palette.primary, palette.secondary, palette.accent, palette.primary];
     for (let index = 0; index < 4; index += 1) {
-      const spotlight = new THREE.SpotLight(beamColors[index], 2.8, 7.5, Math.PI / 8, 0.65, 1.2);
-      spotlight.position.set((index - 1.5) * 1.8, 3.8, -0.4);
+      const spotlight = new THREE.SpotLight(colors[index], 3.1, 5.8, Math.PI / 9, 0.68, 1.1);
+      spotlight.position.set((index - 1.5) * 1.42, 3.42, 0.15);
       spotlight.castShadow = index === 1 || index === 2;
       spotlight.shadow.mapSize.set(512, 512);
-
       const target = new THREE.Object3D();
-      target.position.set((index - 1.5) * 0.4, 0.2, -0.1);
+      target.position.set((index - 1.5) * 0.38, 0.2, -0.08);
       group.add(target);
       spotlight.target = target;
       group.add(spotlight);
       spotlights.push(spotlight);
+
+      const beamMaterial = new THREE.MeshBasicMaterial({
+        color: colors[index],
+        transparent: true,
+        opacity: 0.1,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+      });
+      const beam = new THREE.Mesh(new THREE.ConeGeometry(0.2, 3.65, 22, 1, true), beamMaterial);
+      const beamX = palette.mode === 4
+        ? [-2.42, -1.38, 1.38, 2.42][index]
+        : (index - 1.5) * 1.35;
+      beam.position.set(beamX, 2.0, palette.mode === 4 ? -1.62 : -0.22);
+      beam.rotation.x = Math.PI;
+      beam.rotation.z = (index - 1.5) * 0.13;
+      group.add(beam);
+      beams.push(beam);
+      glowMaterials.push(beamMaterial);
     }
   }
 
@@ -525,20 +481,18 @@ export class PerformanceStageController {
     kineticObjects: THREE.Object3D[],
     glowMaterials: THREE.MeshBasicMaterial[]
   ): void {
-    // Floating Cybernetic Equalizer Cubes (Arranged behind character at z = -1.1 to -1.4)
-    const cubeLayout = [
-      [-2.1, 2.6, -1.2, 0.55],
-      [-1.1, 3.0, -1.3, 0.45],
-      [0.0, 3.3, -1.4, 0.65],
-      [1.1, 3.0, -1.3, 0.45],
-      [2.1, 2.6, -1.2, 0.55]
+    const cubePositions = [
+      [-1.78, 2.55, -0.36, 0.64],
+      [-0.88, 2.82, -0.32, 0.5],
+      [0, 2.52, -0.3, 0.74],
+      [0.9, 2.85, -0.32, 0.5],
+      [1.78, 2.56, -0.36, 0.64]
     ] as const;
-
-    cubeLayout.forEach(([x, y, z, size], index) => {
+    cubePositions.forEach(([x, y, z, size], index) => {
       const edgeMaterial = new THREE.MeshBasicMaterial({
         color: index % 2 === 0 ? palette.primary : palette.secondary,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.76,
         depthWrite: false,
         blending: THREE.AdditiveBlending
       });
@@ -547,25 +501,24 @@ export class PerformanceStageController {
         edgeMaterial
       );
       cube.position.set(x, y, z);
-      cube.rotation.set(0.2 * (index % 2), index * 0.3, 0.15 * (index - 2));
+      cube.rotation.set(0.18 * (index % 2), index * 0.24, 0.12 * (index - 2));
       group.add(cube);
       kineticObjects.push(cube);
       glowMaterials.push(edgeMaterial);
     });
 
-    // Vertical Neon Cyber Bars on Sides
-    for (const x of [-2.6, -2.2, 2.2, 2.6]) {
-      const barMaterial = new THREE.MeshBasicMaterial({
-        color: x < 0 ? palette.primary : palette.secondary,
+    for (const x of [-2.52, -2.18, 2.18, 2.52]) {
+      const material = new THREE.MeshBasicMaterial({
+        color: x < 0 ? palette.primary : palette.accent,
         transparent: true,
-        opacity: 0.75,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
+        opacity: 0.68,
+        depthWrite: false
       });
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.045, 2.2, 0.045), barMaterial);
-      bar.position.set(x, 1.8 + Math.abs(x) * 0.06, -1.1);
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.055, 1.72, 0.035), material);
+      bar.position.set(x, 1.65 + Math.abs(x) * 0.08, -0.35);
+      bar.rotation.z = x < 0 ? -0.11 : 0.11;
       group.add(bar);
-      glowMaterials.push(barMaterial);
+      glowMaterials.push(material);
     }
   }
 
@@ -576,52 +529,68 @@ export class PerformanceStageController {
     rings: THREE.Mesh[],
     glowMaterials: THREE.MeshBasicMaterial[]
   ): void {
-    // Elegant Moon Gate Arch
     const moonMaterial = new THREE.MeshBasicMaterial({
       color: palette.secondary,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.54,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
-    const moonGate = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.045, 12, 96), moonMaterial);
-    moonGate.position.set(0, 1.85, -1.2);
+    const moonGate = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.055, 12, 96), moonMaterial);
+    moonGate.position.set(0, 1.75, -0.3);
+    moonGate.scale.y = 1.06;
     group.add(moonGate);
     rings.push(moonGate);
     glowMaterials.push(moonMaterial);
 
-    // Floating Illuminated Festive Lanterns
     const lanternPositions = [
-      [-2.3, 2.7, -1.0, 0.65],
-      [-1.5, 3.1, -1.2, 0.52],
-      [1.5, 3.1, -1.2, 0.52],
-      [2.3, 2.7, -1.0, 0.65],
-      [-2.5, 1.8, -0.8, 0.45],
-      [2.5, 1.8, -0.8, 0.45]
+      [-2.45, 2.65, 0.62],
+      [-1.78, 2.96, 0.48],
+      [1.78, 2.96, 0.48],
+      [2.45, 2.65, 0.62],
+      [-2.72, 1.82, 0.42],
+      [2.72, 1.82, 0.42]
     ] as const;
-
-    lanternPositions.forEach(([x, y, z, scale], index) => {
+    lanternPositions.forEach(([x, y, scale], index) => {
       const lantern = new THREE.Group();
       const material = new THREE.MeshStandardMaterial({
         color: index % 2 === 0 ? palette.primary : palette.secondary,
         emissive: index % 2 === 0 ? palette.primary : palette.secondary,
-        emissiveIntensity: 1.6,
+        emissiveIntensity: 1.45,
         transparent: true,
-        opacity: 0.9,
-        roughness: 0.4
+        opacity: 0.88,
+        roughness: 0.56
       });
       const body = new THREE.Mesh(new THREE.SphereGeometry(0.18 * scale, 20, 16), material);
-      body.scale.y = 1.3;
+      body.scale.y = 1.28;
       const capMaterial = new THREE.MeshBasicMaterial({ color: palette.accent });
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * scale, 0.08 * scale, 0.035, 18), capMaterial);
       cap.position.y = 0.2 * scale;
-      const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.22 * scale, 8), capMaterial);
-      tassel.position.y = -0.24 * scale;
+      const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.24 * scale, 8), capMaterial);
+      tassel.position.y = -0.25 * scale;
       lantern.add(body, cap, tassel);
-      lantern.position.set(x, y, z);
+      lantern.position.set(x, y, -0.18);
       group.add(lantern);
       kineticObjects.push(lantern);
     });
+
+    const bridgeMaterial = new THREE.MeshBasicMaterial({
+      color: palette.accent,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    for (const side of [-1, 1]) {
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(2.25, 0.025, 8, 64, Math.PI * 0.62),
+        bridgeMaterial.clone()
+      );
+      arc.position.set(side * 1.62, 1.05, -0.36);
+      arc.rotation.z = side < 0 ? -0.72 : Math.PI + 0.72;
+      group.add(arc);
+      glowMaterials.push(arc.material as THREE.MeshBasicMaterial);
+    }
   }
 
   private addAuroraDawnSet(
@@ -631,52 +600,65 @@ export class PerformanceStageController {
     rings: THREE.Mesh[],
     glowMaterials: THREE.MeshBasicMaterial[]
   ): void {
-    // Ethereal Solar Core Halo
     const sunMaterial = new THREE.MeshBasicMaterial({
       color: palette.secondary,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.62,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
-    const sun = new THREE.Mesh(new THREE.CircleGeometry(0.75, 64), sunMaterial);
-    sun.position.set(0, 1.85, -1.3);
+    const sun = new THREE.Mesh(new THREE.CircleGeometry(0.72, 64), sunMaterial);
+    sun.position.set(0, 1.72, -0.27);
     group.add(sun);
     kineticObjects.push(sun);
     glowMaterials.push(sunMaterial);
 
-    // Dynamic Concentric Aurora Halos
-    [1.05, 1.35, 1.65].forEach((radius, index) => {
+    [0.96, 1.18, 1.42].forEach((radius, index) => {
       const material = new THREE.MeshBasicMaterial({
         color: [palette.accent, palette.primary, palette.secondary][index],
         transparent: true,
-        opacity: 0.5 - index * 0.08,
+        opacity: 0.44 - index * 0.06,
         depthWrite: false,
         blending: THREE.AdditiveBlending
       });
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.02, 8, 72), material);
-      ring.position.set(0, 1.85, -1.25 + index * 0.02);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.022, 8, 72), material);
+      ring.position.set(0, 1.72, -0.24 + index * 0.006);
+      ring.scale.y = 0.82 + index * 0.08;
       group.add(ring);
       rings.push(ring);
       glowMaterials.push(material);
     });
 
-    // Floating Prism Ribbons
     for (let index = 0; index < 5; index += 1) {
       const material = new THREE.MeshBasicMaterial({
         color: index % 2 === 0 ? palette.accent : palette.primary,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.26,
         depthWrite: false,
         side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending
       });
-      const ribbon = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.08, 8, 1), material);
-      ribbon.position.set((index - 2) * 1.15, 2.6 - Math.abs(index - 2) * 0.18, -1.1);
+      const ribbon = new THREE.Mesh(new THREE.PlaneGeometry(1.58, 0.065, 8, 1), material);
+      ribbon.position.set((index - 2) * 1.1, 2.5 - Math.abs(index - 2) * 0.17, -0.18);
       ribbon.rotation.z = (index - 2) * 0.12;
       group.add(ribbon);
       kineticObjects.push(ribbon);
       glowMaterials.push(material);
+    }
+
+    const sideScreenMaterial = new THREE.MeshBasicMaterial({
+      color: palette.primary,
+      transparent: true,
+      opacity: 0.34,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    for (const side of [-1, 1]) {
+      const sideScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.54, 2.52), sideScreenMaterial.clone());
+      sideScreen.position.set(side * 2.62, 1.72, -0.3);
+      sideScreen.rotation.z = side * -0.1;
+      group.add(sideScreen);
+      glowMaterials.push(sideScreen.material as THREE.MeshBasicMaterial);
     }
   }
 
@@ -687,16 +669,15 @@ export class PerformanceStageController {
     rings: THREE.Mesh[],
     glowMaterials: THREE.MeshBasicMaterial[]
   ): void {
-    // Golden Sunset Halo
     const sunMaterial = new THREE.MeshBasicMaterial({
       color: palette.secondary,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.66,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
-    const sun = new THREE.Mesh(new THREE.CircleGeometry(0.72, 48), sunMaterial);
-    sun.position.set(0, 1.9, -1.3);
+    const sun = new THREE.Mesh(new THREE.CircleGeometry(0.68, 48), sunMaterial);
+    sun.position.set(0, 1.8, -0.3);
     group.add(sun);
     kineticObjects.push(sun);
     glowMaterials.push(sunMaterial);
@@ -704,41 +685,41 @@ export class PerformanceStageController {
     const archMaterial = new THREE.MeshBasicMaterial({
       color: palette.primary,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.72,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.85, 0.04, 10, 96, Math.PI), archMaterial);
-    arch.position.set(0, 1.7, -1.25);
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.82, 0.045, 10, 96, Math.PI), archMaterial);
+    arch.position.set(0, 1.62, -0.34);
     arch.rotation.z = Math.PI;
     group.add(arch);
     rings.push(arch);
     glowMaterials.push(archMaterial);
 
-    // Glowing Golden Harvest Lights
     const stalkMaterial = new THREE.MeshStandardMaterial({
       color: palette.accent,
       emissive: palette.accent,
-      emissiveIntensity: 0.6,
-      roughness: 0.5
+      emissiveIntensity: 0.5,
+      roughness: 0.7
     });
     const headMaterial = new THREE.MeshBasicMaterial({
       color: palette.secondary,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.84,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
-    for (let index = 0; index < 9; index += 1) {
+    for (let index = 0; index < 11; index += 1) {
       const stalk = new THREE.Group();
-      const x = (index - 4) * 0.52;
-      const height = 0.75 + (index % 3) * 0.15;
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.015, height, 8), stalkMaterial);
-      stem.position.y = 0.45 + height * 0.5;
-      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.08, 0), headMaterial);
-      head.position.set(0, 0.45 + height, 0);
+      const x = (index - 5) * 0.44;
+      const height = 0.72 + (index % 3) * 0.13;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.018, height, 8), stalkMaterial);
+      stem.position.y = 0.48 + height * 0.5;
+      stem.rotation.z = (index - 5) * 0.018;
+      const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), headMaterial);
+      head.position.set((index - 5) * 0.025, 0.48 + height, 0);
       stalk.add(stem, head);
-      stalk.position.set(x, 0.1, -1.1 + (index % 2) * 0.08);
+      stalk.position.set(x, 0.08, -0.42 + (index % 2) * 0.08);
       group.add(stalk);
       kineticObjects.push(stalk);
       glowMaterials.push(headMaterial);
@@ -752,42 +733,70 @@ export class PerformanceStageController {
     rings: THREE.Mesh[],
     glowMaterials: THREE.MeshBasicMaterial[]
   ): void {
-    // Futuristic Synthwave Neon Stargate Portal Rings (Pushed back at z = -1.2 to -1.8)
+    // Concept A: Neon Stargate Corridor. The gates are upright and pushed
+    // behind Mika so their openings frame the silhouette instead of crossing
+    // the face. Keep this placement deterministic: the camera can resize or
+    // zoom without changing the character-safe composition.
     const chromeMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
+      color: 0xeef7ff,
       emissive: palette.primary,
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.42,
       metalness: 0.98,
       roughness: 0.08
     });
     const gateRings = [
-      { radius: 2.3, z: -1.2 },
-      { radius: 2.05, z: -1.4 },
-      { radius: 1.8, z: -1.6 },
-      { radius: 1.55, z: -1.8 }
+      { radius: 2.20, z: -0.28 },
+      { radius: 1.98, z: -0.42 },
+      { radius: 1.78, z: -0.56 },
+      { radius: 1.58, z: -0.70 }
     ] as const;
     gateRings.forEach(({ radius, z }, index) => {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.038, 12, 72), chromeMaterial.clone());
-      ring.position.set(0, 1.95, z);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.042, 12, 72), chromeMaterial.clone());
+      ring.position.set(0, 1.90, z);
+      ring.rotation.x = 0;
       ring.rotation.z = index % 2 === 0 ? 0.08 : -0.08;
       group.add(ring);
       rings.push(ring);
     });
 
-    // Glowing Synthwave Equalizer Towers on Sides
-    const barGeometry = new THREE.BoxGeometry(0.09, 0.8, 0.09);
-    for (let index = 0; index < 6; index += 1) {
-      const height = 0.5 + (index % 3) * 0.22;
+    const discGeometry = new THREE.CylinderGeometry(0.18, 0.18, 0.028, 24);
+    const discAnchors = [
+      [-2.34, 3.46, -2.45], [2.34, 3.46, -2.85],
+      [-2.76, 0.62, -3.25], [2.76, 0.62, -3.65],
+      [-2.18, 3.72, -4.3], [2.18, 3.72, -4.7],
+      [-2.92, 0.48, -5.1], [2.92, 0.48, -5.5]
+    ] as const;
+    discAnchors.forEach(([x, y, z], index) => {
+      const material = new THREE.MeshBasicMaterial({
+        color: index % 2 === 0 ? palette.secondary : palette.primary,
+        transparent: true,
+        opacity: 0.46,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      const disc = new THREE.Mesh(discGeometry, material);
+      disc.position.set(x, y, z);
+      const tilt = pseudoRandom(index * 31 + 9) - 0.5;
+      disc.rotation.set(Math.PI / 2, pseudoRandom(index * 29 + 3) * Math.PI, tilt * 0.9);
+      disc.scale.setScalar(0.65 + pseudoRandom(index * 37 + 8) * 0.7);
+      group.add(disc);
+      kineticObjects.push(disc);
+      glowMaterials.push(material);
+    });
+
+    const barGeometry = new THREE.BoxGeometry(0.12, 0.72, 0.12);
+    for (let index = 0; index < 8; index += 1) {
+      const height = 0.42 + (index % 4) * 0.18;
       for (const side of [-1, 1]) {
         const material = new THREE.MeshBasicMaterial({
           color: index % 2 === 0 ? palette.primary : palette.secondary,
           transparent: true,
-          opacity: 0.85,
+          opacity: 0.82,
           depthWrite: false,
           blending: THREE.AdditiveBlending
         });
         const bar = new THREE.Mesh(barGeometry, material);
-        bar.position.set(side * (2.2 + index * 0.15), 0.2 + height * 0.5, -1.2 + index * 0.05);
+        bar.position.set(side * (2.08 + index * 0.13), 0.23 + height * 0.5, -1.52 + index * 0.04);
         bar.scale.y = height;
         group.add(bar);
         kineticObjects.push(bar);
@@ -795,22 +804,21 @@ export class PerformanceStageController {
       }
     }
 
-    // Glowing Neon Star Gems Floating in Background
     const starMaterial = new THREE.MeshBasicMaterial({
       color: palette.accent,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.78,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
     for (let index = 0; index < 5; index += 1) {
-      const star = new THREE.Mesh(new THREE.IcosahedronGeometry(0.08 + index * 0.015, 0), starMaterial.clone());
+      const star = new THREE.Mesh(new THREE.IcosahedronGeometry(0.075 + index * 0.012, 0), starMaterial.clone());
       const starAnchors = [
-        [-2.4, 3.2, -1.6],
-        [2.4, 3.2, -1.6],
-        [-2.6, 0.9, -1.7],
-        [2.6, 0.9, -1.7],
-        [0, 3.6, -1.9]
+        [-2.62, 3.36, -2.6],
+        [2.62, 3.36, -2.6],
+        [-2.9, 0.74, -3.7],
+        [2.9, 0.74, -3.7],
+        [0, 3.72, -5.1]
       ] as const;
       const [x, y, z] = starAnchors[index];
       star.position.set(x, y, z);
