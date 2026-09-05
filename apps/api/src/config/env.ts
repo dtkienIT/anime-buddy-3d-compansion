@@ -6,7 +6,7 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   MISTRAL_API_KEY: z.string().min(1, "MISTRAL_API_KEY is required"),
-  MISTRAL_MODEL: z.string().min(1).default("mistral-small-latest"),
+  MISTRAL_MODEL: z.string().min(1).default("ministral-8b-latest"),
   MISTRAL_BASE_URL: z.string().url().default("https://api.mistral.ai/v1"),
   SUPABASE_URL: z.string().url().optional().or(z.literal("")),
   SUPABASE_SECRET_KEY: z.string().optional().or(z.literal("")),

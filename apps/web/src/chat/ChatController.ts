@@ -426,24 +426,36 @@ export class ChatController {
         return;
       }
 
-      // Offline outbox queue fallback
-      try {
-        await this.outbox.add({
-          id: userMessage.id,
-          sessionId: this.store.getSessionId() || tempSessionId,
-          role: "user",
-          content: normalized,
-          createdAt: new Date().toISOString()
-        });
-      } catch (dbErr) {
-        console.error("Failed to add to IndexedDB outbox:", dbErr);
-      }
+      const errorMessage = error instanceof Error ? error.message : String(error ?? "");
+      const isNetworkOffline = typeof navigator !== "undefined" && !navigator.onLine
+        || errorMessage.includes("Failed to fetch")
+        || errorMessage.includes("NetworkError");
 
-      this.setState("ERROR", "Không thể kết nối");
-      const messageText = toUserMessage(error);
-      const systemMessage = this.store.add({ role: "system", content: `${messageText} (Chưa đồng bộ)` });
-      this.events.onAssistantMessage(systemMessage);
-      this.events.onWarning("Chưa đồng bộ. Đang hoạt động ở chế độ ngoại tuyến.");
+      if (isNetworkOffline) {
+        // Offline outbox queue fallback
+        try {
+          await this.outbox.add({
+            id: userMessage.id,
+            sessionId: this.store.getSessionId() || tempSessionId,
+            role: "user",
+            content: normalized,
+            createdAt: new Date().toISOString()
+          });
+        } catch (dbErr) {
+          console.error("Failed to add to IndexedDB outbox:", dbErr);
+        }
+
+        this.setState("ERROR", "Mất kết nối mạng");
+        const systemMessage = this.store.add({ role: "system", content: "Không thể kết nối backend. (Chưa đồng bộ)" });
+        this.events.onAssistantMessage(systemMessage);
+        this.events.onWarning("Chưa đồng bộ. Đang hoạt động ở chế độ ngoại tuyến.");
+      } else {
+        this.setState("ERROR", "Lỗi xử lý");
+        const messageText = toUserMessage(error);
+        const systemMessage = this.store.add({ role: "system", content: messageText });
+        this.events.onAssistantMessage(systemMessage);
+        this.events.onWarning(messageText);
+      }
       await this.character.playAnimation("sad", { loop: false }).catch(() => undefined);
       await this.returnIdle();
     } finally {

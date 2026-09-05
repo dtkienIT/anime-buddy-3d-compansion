@@ -52,6 +52,14 @@ const emotionExpressionFallback: Record<CompanionEmotion, CompanionExpression> =
   sleepy: "relaxed"
 };
 
+const FALLBACK_MODELS = ["ministral-8b-latest", "ministral-3b-latest", "codestral-latest"];
+
+function isRateLimitOrCapacityError(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? "");
+  const code = String((err as any)?.statusCode ?? (err as any)?.status ?? "");
+  return code === "429" || msg.includes("429") || msg.includes("rate_limited") || msg.includes("Rate limit");
+}
+
 export class MistralService implements CompanionAiService {
   private readonly client: Mistral;
 
@@ -76,12 +84,36 @@ export class MistralService implements CompanionAiService {
       { role: "user" as const, content: input.message }
     ];
 
-    const response = await this.client.chat.complete({
-      model: this.env.MISTRAL_MODEL,
-      messages,
-      temperature: 0.45,
-      responseFormat: { type: "json_object" }
-    } as any);
+    const candidateModels = [
+      this.env.MISTRAL_MODEL,
+      ...FALLBACK_MODELS.filter((m) => m !== this.env.MISTRAL_MODEL)
+    ];
+
+    let lastError: unknown = null;
+    let response: any = null;
+
+    for (const model of candidateModels) {
+      try {
+        response = await this.client.chat.complete({
+          model,
+          messages,
+          temperature: 0.45,
+          responseFormat: { type: "json_object" }
+        } as any);
+        break;
+      } catch (err: unknown) {
+        lastError = err;
+        if (isRateLimitOrCapacityError(err) && model !== candidateModels[candidateModels.length - 1]) {
+          console.warn(`[MistralService] Model ${model} rate-limited, falling back to next candidate model.`);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!response) {
+      throw lastError;
+    }
 
     const content = extractMistralText(response);
     return parseCompanionModelPayload(content, input.availableAnimationIds);
@@ -107,12 +139,36 @@ export class MistralService implements CompanionAiService {
       { role: "user" as const, content: input.message }
     ];
 
-    const responseStream = await this.client.chat.stream({
-      model: this.env.MISTRAL_MODEL,
-      messages,
-      temperature: 0.45,
-      responseFormat: { type: "json_object" }
-    } as any);
+    const candidateModels = [
+      this.env.MISTRAL_MODEL,
+      ...FALLBACK_MODELS.filter((m) => m !== this.env.MISTRAL_MODEL)
+    ];
+
+    let lastError: unknown = null;
+    let responseStream: any = null;
+
+    for (const model of candidateModels) {
+      try {
+        responseStream = await this.client.chat.stream({
+          model,
+          messages,
+          temperature: 0.45,
+          responseFormat: { type: "json_object" }
+        } as any);
+        break;
+      } catch (err: unknown) {
+        lastError = err;
+        if (isRateLimitOrCapacityError(err) && model !== candidateModels[candidateModels.length - 1]) {
+          console.warn(`[MistralService] Model ${model} stream rate-limited, falling back to next candidate model.`);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!responseStream) {
+      throw lastError;
+    }
 
     let fullJsonBuffer = "";
     let inReplyField = false;
