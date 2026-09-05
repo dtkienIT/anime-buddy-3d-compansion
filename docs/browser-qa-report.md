@@ -1,5 +1,23 @@
 # Browser QA Report
 
+## 2026-09-05 Interactive Browser Session & Real User Experience
+
+A full browser exploration session was conducted using an autonomous browser agent navigating `http://127.0.0.1:3001` with active Vite, Fastify API, and VieNeu-TTS services.
+
+| Probe / Check | Result | Application Errors | Notes |
+| --- | --- | ---: | --- |
+| Experience probe (`tests/browser/probe-experience.mjs`) | `7/7` PASS | 0 | Onboarding, shortcuts, canvas tap, reduced motion, studio, performance stop |
+| Real User Flow Session | PASS | 0 | Boot, onboarding dismiss, head-pat gesture, streaming chat, Studio tabs, live moments, focus mode |
+| Live Moments Stage Themes | PASS | 0 | All 5 music performances verified with stage themes and clean stop cleanup |
+| Mobile Viewport Adaptability | PASS | 0 | Tested at 375x812, 390x844; bottom docked chat, stage tools, responsive studio sheet |
+
+### Key User Experience Observations
+1. **Visual Presentation**: High aesthetic quality with glassmorphism panels, dark theme with ambient lighting, glowing platform, and smooth Three.js model shading.
+2. **Head-Pat Gesture**: Raycasting distinguishes head taps from body taps, immediately triggering a happy eye squint, blush blendshapes, heart particles, and warm vocal feedback.
+3. **SSE Streaming Chat**: Real-time token streaming provides an immediate typewriter rendering experience, accompanied by VieNeu-TTS Trúc Ly audio and real-time lip-sync blendshapes.
+4. **Companion Studio**: Switching backgrounds (Study Room, Cozy Night, Cyber City) and live performances works seamlessly with audio-reactive lighting effects.
+5. **Fault Tolerance**: During this session, the remote Supabase endpoint returned Cloudflare Error 521. The app gracefully handled the outage without freezing or crashing, continuing chat via Mistral and falling back to in-memory/outbox handling.
+
 ## 2026-07-14 Full Product and Responsive Rerun
 
 The running Vite app at `http://127.0.0.1:3001` was inspected across phone portrait, phone landscape, the former 700–753 px breakpoint gap, tablet, laptop, and desktop sizes. The responsive harness now checks panel/form containment, non-zero chat space, minimum mobile composer/touch sizing, Studio/chat transitions, stage preservation, and overlap/overflow in nine viewports.

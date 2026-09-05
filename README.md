@@ -27,12 +27,13 @@ Keyboard shortcuts:
 
 ## Motion library
 
-The shared registry exposes 40 companion animations and five local music-backed performances. Eight core motions are generated deterministically at 30 fps:
+The shared registry exposes 43 companion animations and five local music-backed performances. Nine core motions are generated deterministically at 30 fps:
 
 - `Relax.vrma` — regenerated seamless idle loop.
 - `Listening.vrma` — attentive loop used while speech input is active.
 - `Thinking.vrma` — regenerated seamless thinking loop.
 - `Talking.vrma` — conversational loop used during voice playback.
+- `Singing.vrma` — expressive melodic motion loop.
 - `GentleGesture.vrma` — calm conversational one-shot.
 - `CuriousTilt.vrma` — curiosity/attention one-shot.
 - `Nod.vrma` — short acknowledgement.

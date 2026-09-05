@@ -109,7 +109,7 @@ npm run generate:animations
 npm run verify:generated-animations
 ```
 
-The generator owns `Relax.vrma`, `Listening.vrma`, `Thinking.vrma`, `Talking.vrma`, `GentleGesture.vrma`, `CuriousTilt.vrma`, `Nod.vrma`, and `Wave.vrma` in both `animations/` and `apps/web/public/animations/`. Do not edit or copy only one side. Generated files are 30 fps VRMA 1.0 GLBs; verification checks byte-for-byte reproducibility, source/public parity, tracks, and seamless endpoints for looped clips.
+The generator owns `Relax.vrma`, `Listening.vrma`, `Thinking.vrma`, `Talking.vrma`, `Singing.vrma`, `GentleGesture.vrma`, `CuriousTilt.vrma`, `Nod.vrma`, and `Wave.vrma` in both `animations/` and `apps/web/public/animations/`. Do not edit or copy only one side. Generated files are 30 fps VRMA 1.0 GLBs; verification checks byte-for-byte reproducibility, source/public parity, tracks, and seamless endpoints for looped clips.
 
 With all three services running:
 

@@ -10,7 +10,7 @@
 - Browser probes: `tests/browser`.
 - Reports: `docs`.
 
-Current working branch is `main` (verified 2026-08-16).
+Current working branch is `update_v1` (verified 2026-09-05).
 
 ## Ports and run commands
 
@@ -19,11 +19,15 @@ Current working branch is `main` (verified 2026-08-16).
 - TTS: `http://127.0.0.1:8000`
 
 ```powershell
+# When uv is available on PATH:
 npm run dev
-# Or separately:
-npm run dev:web
+# Or separately in three terminals (required if uv is not in PATH):
+# Terminal 1:
+.\apps\tts\.venv\Scripts\python.exe -m uvicorn --app-dir apps/tts app.main:app --host 127.0.0.1 --port 8000
+# Terminal 2:
 npm run dev:api
-npm run dev:tts
+# Terminal 3:
+npm run dev:web
 ```
 
 ## Features & Frontend Experience
@@ -62,9 +66,10 @@ npm run test:browser:interactions
 ```
 
 Current verification status (all passing):
+- `asset-verification`: 68 files verified, 9 deterministic VRMA files (Relax, Listening, Thinking, Talking, Singing, GentleGesture, CuriousTilt, Nod, Wave).
 - `lint`: 0 errors / warnings.
 - `typecheck`: 0 TypeScript errors across shared, api, web.
-- `test`: 142/142 tests passing (99 web, 32 api, 11 shared).
+- `test`: 142/142 tests passing (99 web, 32 api with `--testTimeout 15000` under machine load, 11 shared).
 - `test:python`: 10/10 pytest passing.
 - `build`: Production bundle generated successfully.
 - `probe-responsive`: 9/9 viewports PASS.

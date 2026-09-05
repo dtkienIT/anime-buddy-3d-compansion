@@ -1,6 +1,47 @@
 # Current Status
 
-Authoritative as of 2026-07-26 (Asia/Saigon). Older dated sections, audits, and QA documents are historical snapshots; use the newest section here and the linked reports/artifacts for the current working tree.
+Authoritative as of 2026-09-05 (Asia/Saigon). Older dated sections, audits, and QA documents are historical snapshots; use the newest section here and the linked reports/artifacts for the current working tree.
+
+## 2026-09-05 Interactive User Experience & Live System Audit
+
+This audit was conducted by launching all services, executing automated verification suites, and navigating the web application in a real browser session across mobile and desktop viewports.
+
+Working branch: `update_v1`.
+
+### Live User Journey & Verified Experience
+- **Initial Boot & Onboarding**: The app boots cleanly to `IDLE` state with Mika rendered on the 3D stage. Onboarding modal displays clear privacy & memory disclosure, dismissible with state persisted in `animeBuddy.uiPreferences.v2`.
+- **3D Character Stage & Gaze Tracking**: The Three.js canvas dynamically tracks pointer/touch movements for realistic eye gaze and head orientation, natural blinking intervals, and auto-centering.
+- **Head-Pat Gesture & Affective Feedback**: Raycasting accurately distinguishes head versus body taps. Tapping Mika's head activates an affectionate smiling/squinting eye expression, cheek blush blendshapes, floating heart particles (`.heart-particle`), and affectionate Vietnamese vocal feedback.
+- **SSE Streaming Chat**: Real-time `/api/chat/stream` emits incremental tokens for immediate typewriter rendering, followed by companion metadata (`emotion`, `animation`, `expression`, `intensity`, `voiceStyle`).
+- **Real-Time Lip-Sync & TTS Audio**: VieNeu-TTS v3 Turbo synthesizes speech with the gentle Vietnamese "Trúc Ly" preset. `LipSyncController` drives VRM mouth blendshapes (`aa`, `ih`, `ou`, `ee`, `oh`) synchronized with audio playback.
+- **Companion Studio (Drawer & Sheet)**: Accessible via bottom-left FAB or shortcut `C`. Four responsive tabs:
+  - *Nhân vật (Models)*: 10 selectable companions (Mika, Kato, Sam, Naruto, Carlotta, etc.) with dynamic persona adaptation, plus local custom `.vrm` upload.
+  - *Động tác (Motions)*: 43 registered animations with search and localized category filtering.
+  - *Trình diễn (Live Moments)*: 5 music-backed 3D stages (Bling-Bang-Bang-Born / Neon Cube Arena, Aipai Dance Hall / Moon Lantern Festival, Chạm Vào Bình Minh / Aurora Dawn, Vũ điệu Uimugi Batake / Golden Wheatlight, Happy Synthesizer / Neon Stargate Corridor). Full playback lifecycle includes elapsed/total timer, progress bar, audio-reactive stage lights, and visible stop button.
+  - *Bối cảnh (Backgrounds)*: 7 high-resolution ambient backgrounds (Study Room, Cozy Night, Cyber City, etc.).
+- **Camera & Focus Controls**: Floating camera tools support zoom and camera reset (`R`). Focus mode (`F`) smoothly fades out all UI chrome into an immersive full-canvas view with a minimal exit pill.
+- **Responsive Adaptability**: Seamless transition between desktop drawer and mobile bottom sheet (tested at 375x812, 390x844, 768x1024, 1440x960). Mobile docks chat cleanly at the bottom without obscuring the character's face.
+- **Graceful Cloud Resilience**: During testing, the remote Supabase project returned Cloudflare 521 (web server paused/down). The application gracefully fell back: memory retrieval timed out cleanly within 700 ms, chat continued via streaming Mistral SSE, audio synthesis proceeded normally, and the memory UI displayed a friendly non-blocking warning without crashing.
+
+### Verification Status
+- **Asset Integrity**: PASS for 68 assets (10 models, 43 animations, 7 backgrounds, 4 audio, 1 audioVideos, 3 audioSources).
+- **Deterministic VRMA**: PASS for 9 generated 30 fps VRMA 1.0 files (`Relax.vrma`, `Listening.vrma`, `Thinking.vrma`, `Talking.vrma`, `Singing.vrma`, `GentleGesture.vrma`, `CuriousTilt.vrma`, `Nod.vrma`, `Wave.vrma`).
+- **Original Music Verification**: PASS for Golden-Wheatlight-Original.mp3 (150s, SHA-256 verified).
+- **ESLint**: PASS (0 errors, 0 warnings).
+- **TypeScript Typecheck**: PASS (0 errors across `@anime-buddy/shared`, `@anime-buddy/api`, `@anime-buddy/web`).
+- **Unit Tests**:
+  - Shared: `11/11` PASS.
+  - Web: `99/99` PASS.
+  - API: `32/32` PASS (configured with `--testTimeout 15000` to prevent machine contention timeouts under concurrent dev servers).
+- **Python TTS Tests**: `10/10` PASS (`pytest apps/tts/tests`).
+- **Production Build**: PASS (`npm run build` generates optimized distribution in ~12s; large chunk warning for `three-vrm` at ~762 kB remains expected).
+- **Browser Probes**:
+  - `probe-experience`: `7/7` PASS, 0 console errors.
+
+### Runtime Environment
+- Working branch: `update_v1`.
+- Services: Web `127.0.0.1:3001`, API `127.0.0.1:3002`, TTS `127.0.0.1:8000`.
+- Python execution: `.\apps\tts\.venv\Scripts\python.exe` directly utilized when `uv` is not present in Windows system PATH.
 
 ## 2026-07-26 performance-stage and presentation-flow upgrade
 
