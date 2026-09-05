@@ -46,6 +46,7 @@ const globals = {
   URL: "readonly",
   window: "readonly",
   HTMLInputElement: "readonly",
+  HTMLSelectElement: "readonly",
   IDBDatabase: "readonly",
   indexedDB: "readonly",
   confirm: "readonly",

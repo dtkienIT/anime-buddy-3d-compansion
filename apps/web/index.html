@@ -219,6 +219,19 @@
             <span><strong>Giảm chuyển động</strong><small>Hạn chế idle, hiệu ứng và chuyển cảnh không cần thiết.</small></span>
             <input id="reduced-motion-checkbox" type="checkbox" />
           </label>
+          <label class="setting-card">
+            <span><strong>Hiệu ứng Bloom (Phát sáng 3D)</strong><small>Tỏa sáng nhẹ nhàng cho đèn neon, sàn và chi tiết hologram.</small></span>
+            <input id="bloom-toggle-checkbox" type="checkbox" checked />
+          </label>
+          <div class="setting-card">
+            <span><strong>Ánh sáng sân khấu</strong><small>Tự động đổi tone màu sáng, hoàng hôn và ban đêm theo thời gian thực.</small></span>
+            <select class="setting-select" id="lighting-mode-select" aria-label="Chế độ ánh sáng">
+              <option value="auto">Tự động (Theo giờ thực)</option>
+              <option value="day">Ban ngày (Tươi sáng)</option>
+              <option value="sunset">Hoàng hôn (Ấm áp)</option>
+              <option value="night">Ban đêm (Huyền ảo)</option>
+            </select>
+          </div>
           <button class="setting-action" id="show-help-btn" type="button"><span>Hướng dẫn & phím tắt</span><span aria-hidden="true">→</span></button>
           <button class="setting-action" id="reset-experience-btn" type="button"><span>Đặt lại góc nhìn & giao diện</span><span aria-hidden="true">↻</span></button>
           <button class="setting-action is-danger" id="clear-chat" type="button"><span>Xóa nội dung hội thoại hiện tại</span><span aria-hidden="true">×</span></button>

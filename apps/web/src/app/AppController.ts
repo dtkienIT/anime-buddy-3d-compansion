@@ -91,6 +91,7 @@ export class AppController {
   private helpReturnFocus: HTMLElement | null = null;
   private readonly helpInertedElements: HTMLElement[] = [];
   private ambientTimer: number | null = null;
+  private lastUserActivityAt = performance.now();
   private dialogueTimer: number | null = null;
   private disposed = false;
   private readonly onLayoutResize = (): void => {
@@ -212,6 +213,8 @@ export class AppController {
     this.initMemoryAndSessionUi();
     this.initAppShell();
     this.applyReducedMotion(this.preferences.current.reducedMotion, false);
+    this.character.setBloomEnabled(this.preferences.current.bloomEnabled);
+    this.character.setLightingMode(this.preferences.current.lightingMode);
   }
 
   private renderPerformanceCards(): void {
@@ -1047,6 +1050,26 @@ export class AppController {
     const reducedMotion = required<HTMLInputElement>("#reduced-motion-checkbox");
     reducedMotion.checked = this.preferences.current.reducedMotion;
     reducedMotion.addEventListener("change", () => this.applyReducedMotion(reducedMotion.checked));
+
+    const bloomToggle = document.querySelector<HTMLInputElement>("#bloom-toggle-checkbox");
+    if (bloomToggle) {
+      bloomToggle.checked = this.preferences.current.bloomEnabled;
+      bloomToggle.addEventListener("change", () => {
+        this.preferences.update({ bloomEnabled: bloomToggle.checked });
+        this.character.setBloomEnabled(bloomToggle.checked);
+      });
+    }
+
+    const lightingSelect = document.querySelector<HTMLSelectElement>("#lighting-mode-select");
+    if (lightingSelect) {
+      lightingSelect.value = this.preferences.current.lightingMode;
+      lightingSelect.addEventListener("change", () => {
+        const mode = lightingSelect.value as "auto" | "day" | "sunset" | "night";
+        this.preferences.update({ lightingMode: mode });
+        this.character.setLightingMode(mode);
+      });
+    }
+
     required<HTMLButtonElement>("#reset-experience-btn").addEventListener("click", () => this.resetExperience());
     required<HTMLButtonElement>("#loader-retry").addEventListener("click", () => window.location.reload());
 
@@ -1059,7 +1082,15 @@ export class AppController {
       this.notify("Bạn đang ngoại tuyến. Tin nhắn sẽ được giữ trên thiết bị.", "warning");
     });
     window.addEventListener("resize", this.onLayoutResize);
-    window.addEventListener("keydown", (event) => this.handleShortcut(event));
+    window.addEventListener("keydown", (event) => {
+      this.noteUserActivity();
+      this.handleShortcut(event);
+    });
+
+    const onActivity = () => this.noteUserActivity();
+    window.addEventListener("pointerdown", onActivity, { passive: true });
+    window.addEventListener("pointermove", onActivity, { passive: true });
+    this.startAmbientLifecycle();
   }
 
   private setControlsOpen(open: boolean, persist = true): void {
@@ -1119,6 +1150,15 @@ export class AppController {
     });
     this.applyReducedMotion(reset.reducedMotion, false);
     required<HTMLInputElement>("#reduced-motion-checkbox").checked = reset.reducedMotion;
+
+    const bloomToggle = document.querySelector<HTMLInputElement>("#bloom-toggle-checkbox");
+    if (bloomToggle) bloomToggle.checked = reset.bloomEnabled;
+    this.character.setBloomEnabled(reset.bloomEnabled);
+
+    const lightingSelect = document.querySelector<HTMLSelectElement>("#lighting-mode-select");
+    if (lightingSelect) lightingSelect.value = reset.lightingMode;
+    this.character.setLightingMode(reset.lightingMode);
+
     this.setFocusMode(false);
     this.setMenuOpen(false);
     this.chatPanel.setCollapsed(reset.chatCollapsed, false);
@@ -1394,6 +1434,53 @@ export class AppController {
     required<HTMLButtonElement>("#help-toggle").disabled = locked;
     required<HTMLButtonElement>("#camera-reset-toggle").disabled = locked;
     required<HTMLButtonElement>("#focus-rail-toggle").disabled = locked;
+  }
+
+  private noteUserActivity(): void {
+    this.lastUserActivityAt = performance.now();
+  }
+
+  private startAmbientLifecycle(): void {
+    if (this.ambientTimer !== null) return;
+    this.ambientTimer = window.setInterval(() => {
+      if (this.disposed) return;
+      const now = performance.now();
+      if (
+        this.currentState === "IDLE" &&
+        !this.interactionBusy &&
+        !this.focusMode &&
+        !this.menuOpen &&
+        !document.body.classList.contains("is-performing") &&
+        !document.body.classList.contains("is-reduced-motion") &&
+        now - this.lastUserActivityAt > 42000
+      ) {
+        void this.triggerAmbientMoment();
+      }
+    }, 5000);
+  }
+
+  private async triggerAmbientMoment(): Promise<void> {
+    this.lastUserActivityAt = performance.now();
+    const generation = this.beginDirectInteraction();
+    const ambientQuotes = [
+      "Bạn có đang tập trung làm việc không? Nhớ nghỉ ngơi và uống nước nhé ✨",
+      "Một ngày thật êm đềm cùng bạn~ Cần chia sẻ gì cứ bảo mình nha!",
+      "Mika luôn ở đây bên bạn nè 🌸",
+      "Thỉnh thoảng vươn vai thư giãn mắt chút nào bạn ơi!",
+      "Hehe, mình thích những lúc yên bình cùng bạn thế này ghê."
+    ];
+    const quote = ambientQuotes[Math.floor(Math.random() * ambientQuotes.length)];
+    const ambientAnimations = ["look-around", "gentle-gesture", "curious-tilt", "cute-pose"];
+    const anim = ambientAnimations[Math.floor(Math.random() * ambientAnimations.length)] || "gentle-gesture";
+
+    this.showStageDialogue(quote);
+    this.setStatus("REACTING", "Nhàn rỗi");
+    await this.character.playAnimation(anim, { loop: false, maxDurationMs: 4200 }).catch(() => undefined);
+    if (!this.ownsDirectInteraction(generation)) return;
+    await this.character.playAnimation(defaultAnimationId, { loop: true }).catch(() => undefined);
+    if (!this.ownsDirectInteraction(generation)) return;
+    this.setStatus("IDLE", "Sẵn sàng");
+    this.interactionBusy = false;
   }
 
   private beginDirectInteraction(): number {

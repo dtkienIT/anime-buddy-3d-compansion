@@ -23,6 +23,13 @@ Working branch: `update_v1`.
 - **Responsive Adaptability**: Seamless transition between desktop drawer and mobile bottom sheet (tested at 375x812, 390x844, 768x1024, 1440x960). Mobile docks chat cleanly at the bottom without obscuring the character's face.
 - **Graceful Cloud Resilience**: During testing, the remote Supabase project returned Cloudflare 521 (web server paused/down). The application gracefully fell back: memory retrieval timed out cleanly within 700 ms, chat continued via streaming Mistral SSE, audio synthesis proceeded normally, and the memory UI displayed a friendly non-blocking warning without crashing.
 
+### UX & Immersion Improvements (Part A Upgrades - 2026-09-05)
+- **Three.js Post-Processing Bloom**: Integrated `EffectComposer`, `RenderPass`, and `UnrealBloomPass` with calibrated parameters (`strength: 0.30, radius: 0.38, threshold: 0.82`) producing aesthetic glow for neon rings and stage lights. Added UI toggle in Studio Experience pane (`#bloom-toggle-checkbox`) with preference persistence in `UiPreferencesStore`.
+- **Natural Eye Saccades & Camera Glance Cycle**: Added organic micro-saccades (`±0.045` rad jitter every 1.8-3.5s) in `LookAtController` to eliminate robotic gaze fixation. When pointer remains stationary >3.5s, the companion initiates a gentle camera glance cycle (looking at the viewer camera for 4-7s, looking aside softly, then looking back).
+- **Dynamic Lighting Mode (Auto / Day / Sunset / Night)**: Implemented real-time dynamic stage lighting with 4 selectable modes (`#lighting-mode-select`) adjusting ambient, key, and rim light spectrums. The `auto` mode continuously tracks local computer time (Day 6-17h, Sunset 17-19h, Night 19-6h).
+- **Voice Recording Pulsating Ripple Wave**: Enhanced `.composer-mic-btn.is-recording` CSS animation with a multi-layered glowing ripple effect for rich visual tactile feedback.
+- **Spontaneous Idle Ambient Moments**: Added an activity tracker monitoring user interaction; if inactive for >42 seconds, Mika spontaneously triggers ambient gestures (`CuriousTilt`, `Thinking`, `GentleGesture`) and gentle companion thought bubbles.
+
 ### Verification Status
 - **Asset Integrity**: PASS for 68 assets (10 models, 43 animations, 7 backgrounds, 4 audio, 1 audioVideos, 3 audioSources).
 - **Deterministic VRMA**: PASS for 9 generated 30 fps VRMA 1.0 files (`Relax.vrma`, `Listening.vrma`, `Thinking.vrma`, `Talking.vrma`, `Singing.vrma`, `GentleGesture.vrma`, `CuriousTilt.vrma`, `Nod.vrma`, `Wave.vrma`).

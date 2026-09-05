@@ -8,15 +8,19 @@ A full browser exploration session was conducted using an autonomous browser age
 | --- | --- | ---: | --- |
 | Experience probe (`tests/browser/probe-experience.mjs`) | `7/7` PASS | 0 | Onboarding, shortcuts, canvas tap, reduced motion, studio, performance stop |
 | Real User Flow Session | PASS | 0 | Boot, onboarding dismiss, head-pat gesture, streaming chat, Studio tabs, live moments, focus mode |
+| UX & Immersion Upgrade Suite (Part A) | PASS | 0 | Bloom post-processing toggle, Day/Sunset/Night lighting, Eye micro-saccades, Camera glance, Recording wave |
 | Live Moments Stage Themes | PASS | 0 | All 5 music performances verified with stage themes and clean stop cleanup |
 | Mobile Viewport Adaptability | PASS | 0 | Tested at 375x812, 390x844; bottom docked chat, stage tools, responsive studio sheet |
 
 ### Key User Experience Observations
-1. **Visual Presentation**: High aesthetic quality with glassmorphism panels, dark theme with ambient lighting, glowing platform, and smooth Three.js model shading.
-2. **Head-Pat Gesture**: Raycasting distinguishes head taps from body taps, immediately triggering a happy eye squint, blush blendshapes, heart particles, and warm vocal feedback.
-3. **SSE Streaming Chat**: Real-time token streaming provides an immediate typewriter rendering experience, accompanied by VieNeu-TTS Trúc Ly audio and real-time lip-sync blendshapes.
-4. **Companion Studio**: Switching backgrounds (Study Room, Cozy Night, Cyber City) and live performances works seamlessly with audio-reactive lighting effects.
-5. **Fault Tolerance**: During this session, the remote Supabase endpoint returned Cloudflare Error 521. The app gracefully handled the outage without freezing or crashing, continuing chat via Mistral and falling back to in-memory/outbox handling.
+1. **Visual Presentation & Bloom**: High aesthetic quality with glassmorphism panels, dark theme with ambient lighting, glowing platform, and smooth Three.js model shading. The new Three.js Bloom post-processing (`UnrealBloomPass`) creates vibrant neon stage highlights and glowing rings without washing out the character.
+2. **Organic Eye Saccades & Camera Glance**: Micro-saccades (`±0.045` rad) introduce lifelike micro-movements to the companion's eyes. When idle, the companion naturally glances into the camera lens and gently looks aside, making the companion feel alive and attentive.
+3. **Dynamic Day/Night Lighting**: Real-time daylight tracking and manual modes (`auto`, `day`, `sunset`, `night`) smoothly transform the character's illumination and mood.
+4. **Voice Recording Ripple**: The mic button radiates vibrant pulsating ripple waves during audio capture for immediate tactile visual feedback.
+5. **Head-Pat Gesture**: Raycasting distinguishes head taps from body taps, immediately triggering a happy eye squint, blush blendshapes, heart particles, and warm vocal feedback.
+6. **SSE Streaming Chat**: Real-time token streaming provides an immediate typewriter rendering experience, accompanied by VieNeu-TTS Trúc Ly audio and real-time lip-sync blendshapes.
+7. **Companion Studio**: Switching backgrounds (Study Room, Cozy Night, Cyber City) and live performances works seamlessly with audio-reactive lighting effects.
+8. **Fault Tolerance**: During this session, the remote Supabase endpoint returned Cloudflare Error 521. The app gracefully handled the outage without freezing or crashing, continuing chat via Mistral and falling back to in-memory/outbox handling.
 
 ## 2026-07-14 Full Product and Responsive Rerun
 

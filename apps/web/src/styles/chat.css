@@ -899,6 +899,25 @@
   accent-color: var(--accent);
 }
 
+.setting-select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  max-width: 160px;
+}
+
+.setting-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(117, 101, 224, 0.16);
+}
+
 .setting-action.is-danger {
   color: var(--danger);
 }
@@ -952,7 +971,18 @@
 }
 
 @keyframes record-pulse {
-  50% { box-shadow: 0 0 0 7px rgba(212, 93, 117, 0.05); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45), 0 0 10px rgba(239, 68, 68, 0.25);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 9px rgba(239, 68, 68, 0.12), 0 0 18px rgba(239, 68, 68, 0.35);
+    transform: scale(1.06);
+  }
+  100% {
+    box-shadow: 0 0 0 16px rgba(239, 68, 68, 0), 0 0 8px rgba(239, 68, 68, 0.1);
+    transform: scale(1);
+  }
 }
 
 @keyframes toast-in {

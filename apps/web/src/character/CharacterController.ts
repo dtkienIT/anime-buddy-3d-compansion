@@ -2,6 +2,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 import { VRMAnimationLoaderPlugin } from "@pixiv/three-vrm-animation";
 import {
@@ -100,6 +103,14 @@ export class CharacterController {
   private blinkStartedAt = -1;
   private renderFrameId: number | null = null;
   private disposed = false;
+  private composer: EffectComposer | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
+  private bloomEnabled = true;
+  private ambientLight: THREE.AmbientLight | null = null;
+  private keyLight: THREE.DirectionalLight | null = null;
+  private rimLight: THREE.DirectionalLight | null = null;
+  private lightingMode: "auto" | "day" | "sunset" | "night" = "auto";
+  private lastLightingUpdateAt = 0;
   private readonly onResize = (): void => this.resize();
   private readonly onPointerMove = (event: globalThis.PointerEvent): void => this.handlePointerMove(event);
   private readonly onPointerLeave = (): void => this.lookAt.center();
@@ -158,6 +169,19 @@ export class CharacterController {
 
     this.addLightsAndFloor();
     this.scene.add(this.lookAt.target);
+
+    this.composer = new EffectComposer(this.renderer);
+    const renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(renderPass);
+
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.30,
+      0.38,
+      0.82
+    );
+    this.composer.addPass(this.bloomPass);
+    this.applyLightingMode();
 
     this.vrmLoader = new GLTFLoader(manager);
     this.vrmLoader.register((parser) => new VRMLoaderPlugin(parser));
@@ -330,6 +354,50 @@ export class CharacterController {
     }
   }
 
+  setBloomEnabled(enabled: boolean): void {
+    this.bloomEnabled = enabled;
+  }
+
+  setLightingMode(mode: "auto" | "day" | "sunset" | "night"): void {
+    this.lightingMode = mode;
+    this.applyLightingMode();
+  }
+
+  private applyLightingMode(): void {
+    if (!this.ambientLight || !this.keyLight || !this.rimLight) return;
+
+    let effectiveMode = this.lightingMode;
+    if (effectiveMode === "auto") {
+      const hour = new Date().getHours();
+      if (hour >= 6 && hour < 16) effectiveMode = "day";
+      else if (hour >= 16 && hour < 19) effectiveMode = "sunset";
+      else effectiveMode = "night";
+    }
+
+    if (effectiveMode === "day") {
+      this.ambientLight.color.setHex(0xffffff);
+      this.ambientLight.intensity = 0.74;
+      this.keyLight.color.setHex(0xfffbf5);
+      this.keyLight.intensity = 1.28;
+      this.rimLight.color.setHex(0x93c5fd);
+      this.rimLight.intensity = 0.15;
+    } else if (effectiveMode === "sunset") {
+      this.ambientLight.color.setHex(0xffeedd);
+      this.ambientLight.intensity = 0.68;
+      this.keyLight.color.setHex(0xffaa5e);
+      this.keyLight.intensity = 1.34;
+      this.rimLight.color.setHex(0xe879f9);
+      this.rimLight.intensity = 0.24;
+    } else {
+      this.ambientLight.color.setHex(0x6366f1);
+      this.ambientLight.intensity = 0.58;
+      this.keyLight.color.setHex(0xc7d2fe);
+      this.keyLight.intensity = 1.08;
+      this.rimLight.color.setHex(0x38bdf8);
+      this.rimLight.intensity = 0.32;
+    }
+  }
+
   setGazeEnabled(enabled: boolean): void {
     this.gazeEnabled = enabled;
     this.lookAt.setEnabled(enabled && !this.reducedMotion);
@@ -499,25 +567,25 @@ export class CharacterController {
   }
 
   private addLightsAndFloor(): void {
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
-    this.scene.add(ambientLight);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+    this.scene.add(this.ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.26);
-    keyLight.position.set(1.7, 3.4, 2.3);
-    keyLight.castShadow = true;
-    keyLight.shadow.bias = -0.00012;
-    keyLight.shadow.mapSize.set(1024, 1024);
-    keyLight.shadow.camera.left = -4;
-    keyLight.shadow.camera.right = 4;
-    keyLight.shadow.camera.top = 4;
-    keyLight.shadow.camera.bottom = -4;
-    keyLight.shadow.camera.near = 0.1;
-    keyLight.shadow.camera.far = 12;
-    this.scene.add(keyLight);
+    this.keyLight = new THREE.DirectionalLight(0xffffff, 1.26);
+    this.keyLight.position.set(1.7, 3.4, 2.3);
+    this.keyLight.castShadow = true;
+    this.keyLight.shadow.bias = -0.00012;
+    this.keyLight.shadow.mapSize.set(1024, 1024);
+    this.keyLight.shadow.camera.left = -4;
+    this.keyLight.shadow.camera.right = 4;
+    this.keyLight.shadow.camera.top = 4;
+    this.keyLight.shadow.camera.bottom = -4;
+    this.keyLight.shadow.camera.near = 0.1;
+    this.keyLight.shadow.camera.far = 12;
+    this.scene.add(this.keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.13);
-    rimLight.position.set(-2.4, 1.8, 1.5);
-    this.scene.add(rimLight);
+    this.rimLight = new THREE.DirectionalLight(0x93c5fd, 0.13);
+    this.rimLight.position.set(-2.4, 1.8, 1.5);
+    this.scene.add(this.rimLight);
 
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(8.5, 8.5),
@@ -707,8 +775,17 @@ export class CharacterController {
     this.performanceStage.update(this.clock.elapsedTime, this.reducedMotion);
     this.updateMicrophone(this.clock.elapsedTime);
 
+    if (this.lightingMode === "auto" && timestamp - this.lastLightingUpdateAt > 60000) {
+      this.lastLightingUpdateAt = timestamp;
+      this.applyLightingMode();
+    }
+
     this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+    if (this.bloomEnabled && this.composer && !this.reducedMotion) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   setRenderRate(fps: number): void {
@@ -920,6 +997,8 @@ export class CharacterController {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
     this.renderer.setSize(width, height);
+    this.composer?.setSize(width, height);
+    this.bloomPass?.resolution.set(width, height);
     if (layoutChanged) this.applyDefaultFraming(false);
   }
 }

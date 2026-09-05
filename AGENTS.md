@@ -41,6 +41,11 @@ npm run dev:web
 - **Custom VRM Upload**: Companion Studio Models tab allows users to select any local `.vrm` file, loading dynamically into the scene with standard animations, expressions, and blinking.
 - `UiPreferencesStore` persists selected character/background, Studio open state, chat-collapse state, reduced motion, and onboarding state under `animeBuddy.uiPreferences.v2`.
 - `CharacterController` supports responsive left/center/right stage composition, pointer/touch hit testing, pointer-follow gaze, auto-centering, natural blinking, camera reset/zoom, and reduced-motion behavior.
+- **Three.js Post-Processing Bloom**: `EffectComposer` with `UnrealBloomPass` for neon stage and glow effects, toggled via Studio Experience pane.
+- **Natural Eye Saccades & Camera Glance**: Micro-saccades (`±0.045` rad) in `LookAtController`, plus automatic glance cycles toward viewer camera when mouse is still > 3.5s.
+- **Dynamic Day/Night Lighting**: Real-time daylight tracking and selectable modes (`auto`, `day`, `sunset`, `night`) dynamically adjusting ambient/key/rim lights.
+- **Microphone Ripple Wave**: Glowing multi-ring animation on `.composer-mic-btn.is-recording`.
+- **Idle Ambient Moments**: Spontaneous companion thoughts and gestures triggered when inactive > 42s.
 
 Keyboard shortcuts: `/` composer focus, `C` Studio, `R` camera reset, `F` focus mode, `?` help, and `Esc` close/back.
 

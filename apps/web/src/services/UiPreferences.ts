@@ -9,6 +9,8 @@ export interface UiPreferences {
   chatCollapsed: boolean;
   reducedMotion: boolean;
   welcomeSeen: boolean;
+  bloomEnabled: boolean;
+  lightingMode: "auto" | "day" | "sunset" | "night";
 }
 
 const defaultPreferences = (): UiPreferences => ({
@@ -16,7 +18,9 @@ const defaultPreferences = (): UiPreferences => ({
   controlsOpen: false,
   chatCollapsed: true,
   reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  welcomeSeen: false
+  welcomeSeen: false,
+  bloomEnabled: true,
+  lightingMode: "auto"
 });
 
 export class UiPreferencesStore {
@@ -57,7 +61,11 @@ export class UiPreferencesStore {
         controlsOpen: typeof parsed.controlsOpen === "boolean" ? parsed.controlsOpen : defaults.controlsOpen,
         chatCollapsed: typeof parsed.chatCollapsed === "boolean" ? parsed.chatCollapsed : defaults.chatCollapsed,
         reducedMotion: typeof parsed.reducedMotion === "boolean" ? parsed.reducedMotion : defaults.reducedMotion,
-        welcomeSeen: parsed.welcomeSeen === true
+        welcomeSeen: parsed.welcomeSeen === true,
+        bloomEnabled: typeof parsed.bloomEnabled === "boolean" ? parsed.bloomEnabled : defaults.bloomEnabled,
+        lightingMode: (parsed.lightingMode === "day" || parsed.lightingMode === "sunset" || parsed.lightingMode === "night")
+          ? parsed.lightingMode
+          : "auto"
       };
     } catch {
       return defaults;
